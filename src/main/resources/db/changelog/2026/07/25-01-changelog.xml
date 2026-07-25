@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1784999652623-1" author="eugenl">
+        <createTable tableName="users">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_users" />
+            </column>
+            <column name="first_name" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_name" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="password" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="enabled" type="BOOLEAN">
+                <constraints nullable="false" />
+            </column>
+            <column name="token_expired" type="BOOLEAN">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="deleted_at" type="BIGINT">
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1784999652623-2" author="eugenl">
+        <addUniqueConstraint columnNames="email" constraintName="uc_users_email" tableName="users" />
+    </changeSet>
+
+</databaseChangeLog>

@@ -3,6 +3,7 @@ package dev.eugenlinde.activitytracker.authentication.controller;
 import dev.eugenlinde.activitytracker.authentication.service.AuthenticationService;
 import dev.eugenlinde.activitytracker.user.model.LoginRequest;
 import dev.eugenlinde.activitytracker.user.model.SignupRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,21 +21,13 @@ public class AuthenticationController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest signupRequest) {
-        try {
-            authenticationService.signUp(signupRequest);
-            return ResponseEntity.ok("User registered successfully");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authenticationService.signUp(signupRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        try {
-            authenticationService.logIn(loginRequest);
-            return ResponseEntity.ok("User logged in successfully");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authenticationService.logIn(loginRequest);
+        return ResponseEntity.ok("User logged in successfully");
     }
 }

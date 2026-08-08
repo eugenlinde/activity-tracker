@@ -1,8 +1,10 @@
 package dev.eugenlinde.activitytracker.authentication.controller;
 
+import dev.eugenlinde.activitytracker.authentication.dto.LoginRequest;
+import dev.eugenlinde.activitytracker.authentication.dto.LoginResponse;
+import dev.eugenlinde.activitytracker.authentication.dto.SignupRequest;
 import dev.eugenlinde.activitytracker.authentication.service.AuthenticationService;
-import dev.eugenlinde.activitytracker.user.model.LoginRequest;
-import dev.eugenlinde.activitytracker.user.model.SignupRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,14 +22,14 @@ public class AuthenticationController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest signupRequest) {
+    public ResponseEntity<?> signup(@RequestBody @Valid SignupRequest signupRequest) {
         authenticationService.signUp(signupRequest);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        authenticationService.logIn(loginRequest);
-        return ResponseEntity.ok("User logged in successfully");
+    public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest) {
+        String token = authenticationService.logIn(loginRequest);
+        return ResponseEntity.ok(new LoginResponse(token));
     }
 }

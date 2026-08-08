@@ -9,6 +9,7 @@ import lombok.Setter;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Getter
     private Long id;
     @Getter
     @Setter
@@ -36,5 +37,6 @@ public class User {
     private long updatedAt;
     private long deletedAt;
 
-    public void User() {}
+    public User() {
+    }
 }

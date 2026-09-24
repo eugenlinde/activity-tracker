@@ -1,0 +1,128 @@
+### Variables
+@baseUrl = http://localhost:8080
+@email = demo@example.com
+@password = secret123
+
+###############################################################################
+# SIGNUP
+###############################################################################
+
+### Signup — success. Expect 201 Created, empty body.
+# Change @email above if this user already exists.
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "firstName": "Demo",
+  "lastName": "User"
+}
+
+### Signup — duplicate. Expect 409 "User already exists".
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "firstName": "Demo",
+  "lastName": "User"
+}
+
+### Signup — invalid email + short password + short names.
+# Expect 400 with a per-field error map.
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "short",
+  "firstName": "A",
+  "lastName": "B"
+}
+
+### Signup — missing password entirely.
+# Expect 400. This is the case @Size alone would have let through —
+# it only fails because @NotBlank is also present.
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{
+  "email": "missing-password@example.com",
+  "firstName": "Demo",
+  "lastName": "User"
+}
+
+###############################################################################
+# LOGIN
+###############################################################################
+
+### Login — success. Expect 200 and {"token": "..."}.
+# Captures the token into a global variable for the requests below.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("status is 200", function () {
+        client.assert(response.status === 200, "Expected 200, got " + response.status);
+    });
+    client.test("token looks like a JWT", function () {
+        const token = response.body.token;
+        client.assert(token && token.split(".").length === 3,
+            "Expected three dot-separated segments, got: " + token);
+    });
+    client.global.set("authToken", response.body.token);
+%}
+
+### Login — wrong password. Expect 401 "Unauthorized".
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "definitely-the-wrong-password"
+}
+
+### Login — unknown email. Expect 401, byte-identical to the response above.
+# If this differs from the wrong-password case, user enumeration is possible.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody-here@example.com",
+  "password": "{{password}}"
+}
+
+### Login — malformed email. Expect 400, not 401.
+# Validation runs before authentication.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "{{password}}"
+}
+
+###############################################################################
+# USING THE TOKEN
+###############################################################################
+# No protected endpoint exists yet, and the resource-server DSL is not wired
+# into SecurityConfig (step 4). Until both are done, these two requests behave
+# identically — the token is not yet being validated on incoming requests.
+
+### Protected route, with token. Currently 401/403 — nothing consumes the token yet.
+GET {{baseUrl}}/api/activities
+Authorization: Bearer {{authToken}}
+
+### Protected route, no token. Should stay 401 after step 4.
+GET {{baseUrl}}/api/activities
+
+### Protected route, w/ token. Should be 404.
+GET {{baseUrl}}/api/nope
+Authorization: Bearer {{authToken}}

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS" xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd">
+    <changeSet author="eugenl" id="activities-creation">
+        <createTable tableName="activities">
+            <column name="id" autoIncrement="true" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_activities" />
+            </column>
+            <column name="activity_type" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="duration" type="numeric">
+                <constraints nullable="false" />
+            </column>
+            <column name="notes" type="VARCHAR(255)" />
+            <column name="started_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

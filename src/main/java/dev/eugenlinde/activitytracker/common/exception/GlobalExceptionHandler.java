@@ -38,6 +38,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(ActivityNotFoundException.class)
+    public ResponseEntity<Object> activityNotFoundException(ActivityNotFoundException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,

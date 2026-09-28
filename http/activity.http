@@ -28,3 +28,13 @@ Authorization: Bearer {{authToken}}
   "duration": {{duration}},
   "notes": {{notes}}
 }
+
+### get activities
+GET {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### get single activity
+GET {{baseUrl}}/api/activities/{{id}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}

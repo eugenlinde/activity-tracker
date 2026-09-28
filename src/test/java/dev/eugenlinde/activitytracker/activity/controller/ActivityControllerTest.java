@@ -5,10 +5,15 @@ import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
 import dev.eugenlinde.activitytracker.activity.service.ActivityService;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
+import dev.eugenlinde.activitytracker.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -16,14 +21,16 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
 
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
 @WebMvcTest(ActivityController.class)
+@Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class ActivityControllerTest {
 
     @Autowired
@@ -32,12 +39,21 @@ class ActivityControllerTest {
     private ActivityService activityService;
     @Autowired
     private ObjectMapper objectMapper;
+    private Long userId = 1L;
+    private Long activityId = 1L;
+
+    private static JwtRequestPostProcessor authenticatedAs(Long userId) {
+        return jwt()
+                .jwt(builder -> builder.subject(String.valueOf(userId)))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"));
+    }
 
     @Test
     void getActivity_whenActivityNotFound_returns404() throws Exception {
-        when(activityService.findById(anyLong())).thenThrow(new ActivityNotFoundException());
+        when(activityService.findById(activityId, userId)).thenThrow(new ActivityNotFoundException());
 
-        mockMvc.perform(get("/api/activities/1")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/activities/1").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -57,9 +73,10 @@ class ActivityControllerTest {
                 Instant.ofEpochSecond(1),
                 Instant.ofEpochSecond(1)
         );
-        when(activityService.create(activityRequest)).thenReturn(activityResponse);
+        when(activityService.create(activityRequest, userId)).thenReturn(activityResponse);
 
         mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(activityRequest)))
                 .andExpect(status().isCreated())
@@ -79,6 +96,7 @@ class ActivityControllerTest {
                 """;
 
         mockMvc.perform(put("/api/activities/1")
+                        .with(authenticatedAs(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
@@ -87,7 +105,43 @@ class ActivityControllerTest {
 
     @Test
     void deleteActivity_whenActivityDeleted_returns204() throws Exception {
-        mockMvc.perform(delete("/api/activities/1")).andExpect(status().isNoContent());
-        verify(activityService).deleteById(1L);
+        mockMvc.perform(delete("/api/activities/1").with(authenticatedAs(userId)))
+                .andExpect(status().isNoContent());
+        verify(activityService).deleteById(activityId, userId);
+    }
+
+    @Test
+    void getActivity_whenNoToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/activities/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getActivity_whenTokenLacksUserRole_returns403() throws Exception {
+        mockMvc.perform(get("/api/activities/1")
+                        .with(jwt()
+                                .jwt(builder -> builder.subject("1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getActivity_passesSubjectFromTokenToService() throws Exception {
+        Long otherUserId = 2L;
+        ActivityResponse activityResponse = new ActivityResponse(
+                1L,
+                ActivityType.WEIGHTS,
+                Instant.ofEpochSecond(123),
+                Duration.ofSeconds(123),
+                "test",
+                Instant.ofEpochSecond(1),
+                Instant.ofEpochSecond(1)
+        );
+        when(activityService.findById(activityId, otherUserId)).thenReturn(activityResponse);
+
+        mockMvc.perform(get("/api/activities/1").with(authenticatedAs(otherUserId)))
+                .andExpect(status().isOk());
+
+        verify(activityService).findById(activityId, otherUserId);
     }
 }

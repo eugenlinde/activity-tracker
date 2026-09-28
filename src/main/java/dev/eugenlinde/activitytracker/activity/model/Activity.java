@@ -1,5 +1,6 @@
 package dev.eugenlinde.activitytracker.activity.model;
 
+import dev.eugenlinde.activitytracker.user.model.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,4 +40,9 @@ public class Activity {
     @UpdateTimestamp
     @Getter
     private Instant updatedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @Getter
+    @Setter
+    private User user;
 }

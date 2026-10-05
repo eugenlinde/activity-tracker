@@ -1,0 +1,47 @@
+package dev.eugenlinde.activitytracker.share.service;
+
+import dev.eugenlinde.activitytracker.common.exception.ShareNotFoundException;
+import dev.eugenlinde.activitytracker.common.exception.UserNotFoundException;
+import dev.eugenlinde.activitytracker.share.ShareRepository;
+import dev.eugenlinde.activitytracker.share.dto.ShareResponse;
+import dev.eugenlinde.activitytracker.share.model.Share;
+import dev.eugenlinde.activitytracker.user.UserRepository;
+import dev.eugenlinde.activitytracker.user.model.User;
+import jakarta.transaction.Transactional;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@Transactional
+public class ShareService {
+    private final ShareRepository shareRepository;
+    private final UserRepository userRepository;
+
+    public ShareService(ShareRepository shareRepository, UserRepository userRepository) {
+        this.shareRepository = shareRepository;
+        this.userRepository = userRepository;
+    }
+
+    public void create(Long ownerId, String viewerEmail) {
+        User viewer = userRepository.findByEmail(viewerEmail).orElseThrow(UserNotFoundException::new);
+        Share share = new Share();
+        share.setOwner(userRepository.getReferenceById(ownerId));
+        share.setViewer(viewer);
+        shareRepository.save(share);
+    }
+
+    public List<ShareResponse> getUserShares(Long ownerId) {
+        List<Share> userShares = shareRepository.findAllByOwnerId(ownerId);
+
+        return userShares
+                .stream()
+                .map(share -> new ShareResponse(share.getId(), share.getViewer().getEmail()))
+                .toList();
+    }
+
+    public void deleteById(Long id, Long ownerId) {
+        Share share = shareRepository.findByIdAndOwnerId(id, ownerId).orElseThrow(ShareNotFoundException::new);
+        shareRepository.delete(share);
+    }
+}

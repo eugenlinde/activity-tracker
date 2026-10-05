@@ -36,7 +36,8 @@ initiative.
 When the developer says they've made a change:
 
 1. Ask to see the diff or the relevant file(s) — don't guess at what changed.
-2. Check correctness first, then Spring idiom quality, then test coverage.
+2. Check correctness first, then Spring idiom quality, then tests (tests
+   are advisory until the MVP milestone — see Roadmap).
 3. Give feedback as a short, specific list — cite the actual line or class,
    not vague generalities. Say what's solid too, briefly, and move on.
 4. Don't rewrite their code in your feedback. Name the mechanism that solves
@@ -47,39 +48,56 @@ When the developer says they've made a change:
 
 ## Roadmap
 
-Learning depth takes priority over feature completeness. Work through the
-phases below in order — don't skip ahead without an explicit decision to do
-so (flag it if the developer starts building a later phase early; they can
-override, it's their call, but name the trade-off first).
+**MVP first (decided 2026-09-28).** Get a usable end-to-end product — backend
+plus a first frontend — before polishing. Learning still matters, but it
+happens by building features, not by exhausting every idiom before moving
+on. Work through the phases below in order — don't skip ahead without an
+explicit decision to do so (flag it if the developer starts building a later
+phase early; they can override, it's their call, but name the trade-off
+first).
+
+Until the MVP milestone is reached:
+
+- Tests are welcome but not a gate. Point out a missing test in one line
+  and move on; don't block a review on coverage.
+- Prefer the simplest design that works over the most idiomatic one, as long
+  as it doesn't paint the project into a corner. Name the corner if there is
+  one.
+- Keep a short "debt" list in `.claude/ROADMAP.md` for things skipped on
+  purpose, so they can be picked up after the MVP.
 
 Keep `.claude/ROADMAP.md` as the living copy of this list. Check items off
 as they're actually completed and working (not just started), and add
 detail under a phase once it's underway.
 
-- [ ] **Phase 0 — Foundation** (current)
-  - [ ] Single environment — no Spring profiles, no dev/prod split, no
+- [x] **Phase 0 — Foundation**
+  - [x] Single environment — no Spring profiles, no dev/prod split, no
         environment-conditional config
-  - [ ] One entity, one full CRUD slice (entity → repository → service →
-        controller) for a single domain object (e.g. `Activity`). Confirm
-        entity name/fields with the developer rather than assuming.
-  - [ ] Minimal `application.properties`, one datasource, nothing
+  - [x] One entity, one full CRUD slice (entity → repository → service →
+        controller) for `Activity`
+  - [x] Minimal `application.properties`, one datasource, nothing
         conditional
-- [ ] **Phase 1 — Auth**
-  - [ ] Spring Security, registration/login, password hashing
-- [ ] **Phase 2 — Sharing / authorization**
-  - [ ] Multi-user ownership model
-  - [ ] Permission model for sharing (custom `PermissionEvaluator`,
-        ACL-style table)
-- [ ] **Phase 3 — Media**
+- [x] **Phase 1 — Auth**
+  - [x] Spring Security, registration/login, password hashing, JWT
+- [ ] **Phase 2 — Sharing / authorization** (current)
+  - [x] Multi-user ownership model
+  - [ ] Whole-log sharing: `shares` table (`owner_id`, `viewer_id`,
+        `created_at`, `deleted_at`), grant/revoke endpoints, viewer can read
+        every activity of the owner. Read-only. Write path stays owner-only.
+- [ ] **Phase 3 — Frontend MVP**
+  - [ ] Stack to be chosen with the developer. Login, own activity list +
+        create/edit/delete, shared logs view, grant/revoke share.
+  - [ ] **MVP milestone** = Phases 0–3 usable end to end.
+- [ ] **Phase 4 — Media**
   - [ ] Upload handling, storage abstraction
-- [ ] **Phase 4 — External integrations**
+- [ ] **Phase 5 — External integrations**
   - [ ] Google Sheets (OAuth2 client)
   - [ ] Garmin (contingent on developer program access — verify before
         relying on it)
   - [ ] Xiaomi (unofficial/best-effort, may break)
-- [ ] **Phase 5 — Reporting**
+- [ ] **Phase 6 — Reporting**
   - [ ] Aggregation / data view endpoints
-- [ ] **Phase 6 — Ops**
+- [ ] **Phase 7 — Ops**
   - [ ] Docker, CI, observability
 
 ## Idiom checklist — push on these even in Phase 0
@@ -90,7 +108,8 @@ detail under a phase once it's underway.
   raising now since retrofitting later is annoying
 - Missing/generic exception handling (unhandled `Optional.get()`, no
   `@ControllerAdvice`)
-- Coverage below 80%, or tests that only cover the happy path
+- Tests that only cover the happy path — when tests exist. Coverage
+  targets are off until the MVP milestone (see Roadmap).
 - Reaching for `@SpringBootTest` for everything instead of narrower slices
   (`@DataJpaTest`, `@WebMvcTest`) once tests appear
 - Anything that works but isn't idiomatic — say so even when it's not

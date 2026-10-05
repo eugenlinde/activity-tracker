@@ -1,0 +1,22 @@
+### Variables
+@baseUrl = http://localhost:8080
+@email = "demo2@example.com"
+
+### create share
+POST {{baseUrl}}/api/shares
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "email": {{email}}
+}
+
+### get shares
+GET {{baseUrl}}/api/shares
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### get single share
+GET {{baseUrl}}/api/shares/{{id}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}

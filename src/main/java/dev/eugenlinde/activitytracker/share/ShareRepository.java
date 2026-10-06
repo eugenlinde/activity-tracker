@@ -11,5 +11,5 @@ public interface ShareRepository extends JpaRepository<Share, Long> {
 
     Optional<Share> findByIdAndOwnerId(Long id, Long ownerId);
 
-    Boolean existsByOwnerIdAndViewerId(Long id, Long viewerId);
+    boolean existsByOwnerIdAndViewerId(Long ownerId, Long viewerId);
 }

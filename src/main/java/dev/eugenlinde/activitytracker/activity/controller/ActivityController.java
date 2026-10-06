@@ -22,8 +22,15 @@ public class ActivityController {
     }
 
     @GetMapping()
-    public ResponseEntity<List<ActivityResponse>> getActivities(@AuthenticationPrincipal Jwt jwt) {
-        List<ActivityResponse> activityResponseList = activityService.findAll(userId(jwt));
+    public ResponseEntity<List<ActivityResponse>> getActivities(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) Long ownerId
+    ) {
+        if (ownerId == null) {
+            ownerId = userId(jwt);
+        }
+        
+        List<ActivityResponse> activityResponseList = activityService.findAll(userId(jwt), ownerId);
 
         return ResponseEntity
                 .ok(activityResponseList);

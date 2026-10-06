@@ -15,8 +15,3 @@ Authorization: Bearer {{authToken}}
 GET {{baseUrl}}/api/shares
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
-
-### get single share
-GET {{baseUrl}}/api/shares/{{id}}
-Content-Type: application/json
-Authorization: Bearer {{authToken}}

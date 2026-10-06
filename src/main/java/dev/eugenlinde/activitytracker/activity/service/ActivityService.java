@@ -6,6 +6,8 @@ import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.mapper.ActivityMapper;
 import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
+import dev.eugenlinde.activitytracker.common.exception.ForbiddenException;
+import dev.eugenlinde.activitytracker.share.ShareRepository;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,15 +20,17 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final ActivityMapper activityMapper;
     private final UserRepository userRepository;
+    private final ShareRepository shareRepository;
 
     public ActivityService(
             ActivityRepository activityRepository,
             ActivityMapper activityMapper,
-            UserRepository userRepository
-    ) {
+            UserRepository userRepository,
+            ShareRepository shareRepository) {
         this.activityRepository = activityRepository;
         this.activityMapper = activityMapper;
         this.userRepository = userRepository;
+        this.shareRepository = shareRepository;
     }
 
     public ActivityResponse create(ActivityRequest activityRequest, Long userId) {
@@ -42,12 +46,16 @@ public class ActivityService {
                 .mapToActivityResponse(activityRepository.save(activity));
     }
 
-    public List<ActivityResponse> findAll(Long userId) {
-        return activityRepository
-                .findAllByUserId(userId)
-                .stream()
-                .map(activityMapper::mapToActivityResponse)
-                .toList();
+    public List<ActivityResponse> findAll(Long userId, Long ownerId) {
+        if (userId.equals(ownerId) || shareRepository.existsByOwnerIdAndViewerId(ownerId, userId)) {
+            return activityRepository
+                    .findAllByUserId(ownerId)
+                    .stream()
+                    .map(activityMapper::mapToActivityResponse)
+                    .toList();
+        }
+
+        throw new ForbiddenException();
     }
 
     public ActivityResponse findById(Long id, Long userId) {

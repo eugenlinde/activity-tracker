@@ -39,6 +39,13 @@ public class ShareController {
         return ResponseEntity.ok(userShares);
     }
 
+    @GetMapping("/received")
+    public ResponseEntity<List<ShareResponse>> getReceivedShares(@AuthenticationPrincipal Jwt jwt) {
+        List<ShareResponse> receivedShares = shareService.getUserReceivedShares(userId(jwt));
+
+        return ResponseEntity.ok(receivedShares);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteShare(
             @PathVariable Long id,

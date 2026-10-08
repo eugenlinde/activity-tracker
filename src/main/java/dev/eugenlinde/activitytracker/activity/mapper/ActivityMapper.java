@@ -9,6 +9,7 @@ public class ActivityMapper {
     public ActivityResponse mapToActivityResponse(Activity activity) {
         return new ActivityResponse(
                 activity.getId(),
+                activity.getUser().getId(),
                 activity.getActivityType(),
                 activity.getStartedAt(),
                 activity.getDuration(),

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record ShareResponse(
         @NotNull Long id,
+        @NotNull Long ownerId,
         @Email @NotNull @NotBlank String email
 ) {
 }

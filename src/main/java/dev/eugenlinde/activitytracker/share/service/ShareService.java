@@ -36,7 +36,24 @@ public class ShareService {
 
         return userShares
                 .stream()
-                .map(share -> new ShareResponse(share.getId(), share.getViewer().getEmail()))
+                .map(share -> new ShareResponse(
+                        share.getId(),
+                        share.getOwner().getId(),
+                        share.getViewer().getEmail()
+                ))
+                .toList();
+    }
+
+    public List<ShareResponse> getUserReceivedShares(Long viewerId) {
+        List<Share> userShares = shareRepository.findAllByViewerId(viewerId);
+
+        return userShares
+                .stream()
+                .map(share -> new ShareResponse(
+                        share.getId(),
+                        share.getOwner().getId(),
+                        share.getOwner().getEmail()
+                ))
                 .toList();
     }
 

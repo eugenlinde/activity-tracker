@@ -9,6 +9,7 @@ import java.time.Instant;
 
 public record ActivityResponse(
         @NotNull Long id,
+        @NotNull Long ownerId,
         @NotNull ActivityType activityType,
         @PastOrPresent @NotNull Instant startedAt,
         @NotNull Duration duration,

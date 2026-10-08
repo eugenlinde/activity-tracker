@@ -5,6 +5,7 @@
 @duration = "PT1H"
 @id = 1
 @notes="test1"
+@ownerId=2
 
 ### create activity
 POST {{baseUrl}}/api/activities
@@ -31,6 +32,11 @@ Authorization: Bearer {{authToken}}
 
 ### get activities
 GET {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### get activities by ownerId
+GET {{baseUrl}}/api/activities?ownerId={{ownerId}}
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
 

@@ -37,3 +37,6 @@ out/
 .vscode/
 
 .first-prompt
+
+/storage
+/test_storage

@@ -1,0 +1,47 @@
+### Variables
+@baseUrl = http://localhost:8080
+@activityId = 1
+@foreignActivityId = 999
+
+### upload JPEG — expect 201, Location: /api/media/{id}, body { "id": n }
+POST {{baseUrl}}/api/activities/{{activityId}}/media
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpeg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+### upload PNG content type — expect 415
+POST {{baseUrl}}/api/activities/{{activityId}}/media
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.png"
+Content-Type: image/png
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+### upload to foreign / missing activity — expect 404
+POST {{baseUrl}}/api/activities/{{foreignActivityId}}/media
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+### upload without file part — expect 400
+POST {{baseUrl}}/api/activities/{{activityId}}/media
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary--

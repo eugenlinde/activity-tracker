@@ -21,4 +21,8 @@ public class Media {
     @Getter
     @Setter
     private String storageKey;
+    @Column(nullable = false)
+    @Getter
+    @Setter
+    private String contentType;
 }

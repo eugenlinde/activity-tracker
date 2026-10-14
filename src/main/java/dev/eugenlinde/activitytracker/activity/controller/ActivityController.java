@@ -3,11 +3,14 @@ package dev.eugenlinde.activitytracker.activity.controller;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityRequest;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.service.ActivityService;
+import dev.eugenlinde.activitytracker.media.dto.MediaResponse;
+import dev.eugenlinde.activitytracker.media.service.MediaService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
 import java.util.List;
@@ -16,9 +19,14 @@ import java.util.List;
 @RequestMapping("/api/activities")
 public class ActivityController {
     private final ActivityService activityService;
+    private final MediaService mediaService;
 
-    public ActivityController(ActivityService activityService) {
+    public ActivityController(
+            ActivityService activityService,
+            MediaService mediaService
+    ) {
         this.activityService = activityService;
+        this.mediaService = mediaService;
     }
 
     @GetMapping()
@@ -29,11 +37,10 @@ public class ActivityController {
         if (ownerId == null) {
             ownerId = userId(jwt);
         }
-        
+
         List<ActivityResponse> activityResponseList = activityService.findAll(userId(jwt), ownerId);
 
-        return ResponseEntity
-                .ok(activityResponseList);
+        return ResponseEntity.ok(activityResponseList);
     }
 
     @PostMapping()
@@ -44,9 +51,7 @@ public class ActivityController {
         ActivityResponse activityResponse = activityService.create(activityRequest, userId(jwt));
         URI location = URI.create("/api/activities/" + activityResponse.id());
 
-        return ResponseEntity
-                .created(location)
-                .body(activityResponse);
+        return ResponseEntity.created(location).body(activityResponse);
     }
 
     @GetMapping("/{id}")
@@ -78,6 +83,18 @@ public class ActivityController {
         activityService.deleteById(id, userId(jwt));
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/media")
+    public ResponseEntity<MediaResponse> uploadMedia(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") MultipartFile multipartFile
+    ) {
+        MediaResponse mediaResponse = mediaService.uploadMedia(id, multipartFile, userId(jwt));
+        URI location = URI.create("/api/media/" + mediaResponse.id());
+
+        return ResponseEntity.created(location).body(mediaResponse);
     }
 
     private Long userId(Jwt jwt) {

@@ -38,7 +38,7 @@ public class ActivityController {
             ownerId = userId(jwt);
         }
 
-        List<ActivityResponse> activityResponseList = activityService.findAll(userId(jwt), ownerId);
+        List<ActivityResponse> activityResponseList = activityService.findAll(ownerId);
 
         return ResponseEntity.ok(activityResponseList);
     }

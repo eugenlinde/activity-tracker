@@ -45,3 +45,152 @@ Authorization: Bearer {{authToken}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 
 --WebAppBoundary--
+
+###############################################################################
+# DOWNLOAD — GET /api/media/{id}
+# Three users: owner (demo), viewer (demo2, gets a share), third (demo3).
+# Run top to bottom. Each login stores its own token.
+###############################################################################
+@ownerEmail = demo@example.com
+@viewerEmail = demo2@example.com
+@thirdEmail = demo3@example.com
+@password = secret123
+@unknownMediaId = 999999
+
+### login owner
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "{{ownerEmail}}", "password": "{{password}}" }
+
+> {%
+    client.assert(response.status === 200, "owner login failed: " + response.status);
+    client.global.set("ownerToken", response.body.token);
+%}
+
+### login viewer
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "{{viewerEmail}}", "password": "{{password}}" }
+
+> {%
+    client.assert(response.status === 200, "viewer login failed: " + response.status);
+    client.global.set("viewerToken", response.body.token);
+%}
+
+### signup third user — 201 first time, 409 after; either is fine
+POST {{baseUrl}}/api/auth/signup
+Content-Type: application/json
+
+{ "email": "{{thirdEmail}}", "password": "{{password}}", "firstName": "Third", "lastName": "User" }
+
+### login third
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "{{thirdEmail}}", "password": "{{password}}" }
+
+> {%
+    client.assert(response.status === 200, "third login failed: " + response.status);
+    client.global.set("thirdToken", response.body.token);
+%}
+
+### owner uploads — 201, captures mediaId
+POST {{baseUrl}}/api/activities/{{activityId}}/media
+Authorization: Bearer {{ownerToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpeg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+> {%
+    client.assert(response.status === 201, "upload failed: " + response.status);
+    client.global.set("mediaId", response.body.id);
+%}
+
+### owner downloads — expect 200, Content-Type image/jpeg
+GET {{baseUrl}}/api/media/{{mediaId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("200", function () {
+        client.assert(response.status === 200, "got " + response.status);
+    });
+    client.test("content-type is image/jpeg", function () {
+        const ct = response.headers.valueOf("Content-Type");
+        client.assert(ct === "image/jpeg", "got " + ct);
+    });
+%}
+
+### viewer downloads BEFORE share — expect 403 (200 if a share from an earlier run still exists)
+GET {{baseUrl}}/api/media/{{mediaId}}
+Authorization: Bearer {{viewerToken}}
+
+### owner grants share to viewer
+POST {{baseUrl}}/api/shares
+Content-Type: application/json
+Authorization: Bearer {{ownerToken}}
+
+{ "email": "{{viewerEmail}}" }
+
+### owner lists shares — captures shareId for viewer
+GET {{baseUrl}}/api/shares
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    const share = response.body.find(s => s.email === "demo2@example.com");
+    client.assert(share, "no share for viewer found");
+    client.global.set("shareId", share.id);
+%}
+
+### viewer downloads AFTER share — expect 200
+GET {{baseUrl}}/api/media/{{mediaId}}
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("200", function () {
+        client.assert(response.status === 200, "got " + response.status);
+    });
+%}
+
+### third user downloads — expect 403
+GET {{baseUrl}}/api/media/{{mediaId}}
+Authorization: Bearer {{thirdToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### owner revokes share — expect 204
+DELETE {{baseUrl}}/api/shares/{{shareId}}
+Authorization: Bearer {{ownerToken}}
+
+### viewer downloads AFTER revoke — expect 403
+GET {{baseUrl}}/api/media/{{mediaId}}
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### unknown media id — expect 403
+GET {{baseUrl}}/api/media/{{unknownMediaId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### no token — expect 401
+GET {{baseUrl}}/api/media/{{mediaId}}

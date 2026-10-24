@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +45,8 @@ class ActivityServiceTest {
                 activityMapper,
                 mockedUserRepository
         );
+        ReflectionTestUtils.setField(savedUser, "id", userId);
+        savedActivity.setUser(savedUser);
         savedActivity.setActivityType(ActivityType.AEROBIC);
         savedActivity.setDuration(Duration.ofSeconds(123));
         savedActivity.setStartedAt(Instant.ofEpochSecond(123));

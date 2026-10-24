@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -58,9 +59,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> dataIntegrityViolationException(DataIntegrityViolationException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.CONFLICT);
     }
-
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<Object> forbiddenException(ForbiddenException exception) {
+    
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<Object> authorizationDeniedException(AuthorizationDeniedException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.FORBIDDEN);
     }
 
@@ -72,6 +73,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnsupportedMediaTypeException.class)
     public ResponseEntity<Object> unsupportedStorageTypeException(UnsupportedMediaTypeException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @ExceptionHandler(MediaNotFoundException.class)
+    public ResponseEntity<Object> mediaNotFoundException(MediaNotFoundException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
     }
 
     @Override

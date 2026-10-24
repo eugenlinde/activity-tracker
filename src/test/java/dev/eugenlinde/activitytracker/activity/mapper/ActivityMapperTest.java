@@ -3,8 +3,10 @@ package dev.eugenlinde.activitytracker.activity.mapper;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
+import dev.eugenlinde.activitytracker.user.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -19,7 +21,10 @@ class ActivityMapperTest {
 
     @BeforeEach
     void setUp() {
+        User user = new User();
+        ReflectionTestUtils.setField(user, "id", 1L);
         activity = new Activity();
+        activity.setUser(user);
         activity.setActivityType(ActivityType.AEROBIC);
         activity.setStartedAt(Instant.ofEpochSecond(1));
         activity.setDuration(Duration.ofSeconds(1));

@@ -3,12 +3,16 @@ package dev.eugenlinde.activitytracker.media.service;
 import dev.eugenlinde.activitytracker.activity.ActivityRepository;
 import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
+import dev.eugenlinde.activitytracker.common.exception.MediaNotFoundException;
 import dev.eugenlinde.activitytracker.common.exception.StorageException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.media.MediaRepository;
+import dev.eugenlinde.activitytracker.media.dto.MediaDownload;
 import dev.eugenlinde.activitytracker.media.dto.MediaResponse;
 import dev.eugenlinde.activitytracker.media.model.Media;
 import dev.eugenlinde.activitytracker.media.storage.StorageService;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -71,5 +75,14 @@ public class MediaService {
             inputStream.close();
         }
         return storageKey;
+    }
+
+    @Transactional(readOnly = true)
+    public MediaDownload getMedia(Long id) {
+        Media media = mediaRepository.findById(id).orElseThrow(MediaNotFoundException::new);
+
+        Resource resource = storageService.load(media.getStorageKey());
+        MediaType mediaType = MediaType.parseMediaType(media.getContentType());
+        return new MediaDownload(resource, mediaType);
     }
 }

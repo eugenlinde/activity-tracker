@@ -6,6 +6,9 @@ import dev.eugenlinde.activitytracker.activity.model.ActivityType;
 import dev.eugenlinde.activitytracker.activity.service.ActivityService;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
 import dev.eugenlinde.activitytracker.config.SecurityConfig;
+import dev.eugenlinde.activitytracker.media.MediaRepository;
+import dev.eugenlinde.activitytracker.media.service.MediaService;
+import dev.eugenlinde.activitytracker.share.ShareRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -37,6 +40,12 @@ class ActivityControllerTest {
     private MockMvc mockMvc;
     @MockitoBean
     private ActivityService activityService;
+    @MockitoBean
+    private MediaService mediaService;
+    @MockitoBean
+    private ShareRepository shareRepository;
+    @MockitoBean
+    private MediaRepository mediaRepository;
     @Autowired
     private ObjectMapper objectMapper;
     private Long userId = 1L;
@@ -66,6 +75,7 @@ class ActivityControllerTest {
         );
         ActivityResponse activityResponse = new ActivityResponse(
                 1L,
+                userId,
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),
@@ -130,6 +140,7 @@ class ActivityControllerTest {
         Long otherUserId = 2L;
         ActivityResponse activityResponse = new ActivityResponse(
                 1L,
+                otherUserId,
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),

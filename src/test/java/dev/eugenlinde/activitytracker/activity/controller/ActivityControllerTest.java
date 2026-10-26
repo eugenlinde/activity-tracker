@@ -1,5 +1,6 @@
 package dev.eugenlinde.activitytracker.activity.controller;
 
+import dev.eugenlinde.activitytracker.activity.ActivityRepository;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityRequest;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
@@ -46,6 +47,8 @@ class ActivityControllerTest {
     private ShareRepository shareRepository;
     @MockitoBean
     private MediaRepository mediaRepository;
+    @MockitoBean
+    private ActivityRepository activityRepository;
     @Autowired
     private ObjectMapper objectMapper;
     private Long userId = 1L;

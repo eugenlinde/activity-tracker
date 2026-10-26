@@ -85,6 +85,15 @@ public class ActivityController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/media")
+    public ResponseEntity<List<MediaResponse>> uploadMedia(
+            @PathVariable Long id
+    ) {
+        List<MediaResponse> mediaResponseList = mediaService.findAllByActivityId(id);
+
+        return ResponseEntity.ok(mediaResponseList);
+    }
+
     @PostMapping("/{id}/media")
     public ResponseEntity<MediaResponse> uploadMedia(
             @PathVariable Long id,

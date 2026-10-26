@@ -194,3 +194,151 @@ Authorization: Bearer {{ownerToken}}
 
 ### no token — expect 401
 GET {{baseUrl}}/api/media/{{mediaId}}
+
+###############################################################################
+# LIST — GET /api/activities/{id}/media
+# Needs ownerToken / viewerToken / thirdToken from the DOWNLOAD logins above.
+# Creates a fresh activity so the empty-list case is deterministic.
+###############################################################################
+@unknownActivityId = 999999
+
+### owner creates a fresh activity — 201, captures listActivityId
+POST {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{ownerToken}}
+
+{ "activityType": "WEIGHTS", "startedAt": "2026-10-01T07:00:00Z", "duration": "PT30M" }
+
+> {%
+    client.assert(response.status === 201, "create failed: " + response.status);
+    client.global.set("listActivityId", response.body.id);
+%}
+
+### owner lists media of activity with no uploads — expect 200 []
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("200 empty", function () {
+        client.assert(response.status === 200, "got " + response.status);
+        client.assert(Array.isArray(response.body) && response.body.length === 0, "got " + JSON.stringify(response.body));
+    });
+%}
+
+### owner uploads to the fresh activity — 201, captures listMediaId
+POST {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpeg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+> {%
+    client.assert(response.status === 201, "upload failed: " + response.status);
+    client.global.set("listMediaId", response.body.id);
+%}
+
+### owner lists media — expect 200, exactly the uploaded id
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("200 with uploaded id", function () {
+        client.assert(response.status === 200, "got " + response.status);
+        const ids = response.body.map(m => m.id);
+        client.assert(ids.length === 1 && ids[0] === client.global.get("listMediaId"), "got " + JSON.stringify(ids));
+    });
+%}
+
+### third user lists — expect 403
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{thirdToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### viewer lists BEFORE share — expect 403 (download walk above revoked it)
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### owner grants share to viewer again
+POST {{baseUrl}}/api/shares
+Content-Type: application/json
+Authorization: Bearer {{ownerToken}}
+
+{ "email": "{{viewerEmail}}" }
+
+> {%
+    client.assert(response.status === 201, "grant failed: " + response.status);
+%}
+
+### owner lists shares — captures listShareId for viewer
+GET {{baseUrl}}/api/shares
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    const share = response.body.find(s => s.email === "demo2@example.com");
+    client.assert(share, "no share for viewer found");
+    client.global.set("listShareId", share.id);
+%}
+
+### viewer lists AFTER share — expect 200 with the uploaded id
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("200", function () {
+        client.assert(response.status === 200, "got " + response.status);
+        client.assert(response.body.length === 1, "got " + JSON.stringify(response.body));
+    });
+%}
+
+### owner revokes share — expect 204
+DELETE {{baseUrl}}/api/shares/{{listShareId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.assert(response.status === 204, "revoke failed: " + response.status);
+%}
+
+### viewer lists AFTER revoke — expect 403
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### unknown activity id — expect 403 (evaluator denies before service runs)
+GET {{baseUrl}}/api/activities/{{unknownActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### list without token — expect 401
+GET {{baseUrl}}/api/activities/{{listActivityId}}/media
+
+> {%
+    client.test("401", function () {
+        client.assert(response.status === 401, "got " + response.status);
+    });
+%}

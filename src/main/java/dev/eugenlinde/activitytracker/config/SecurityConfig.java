@@ -1,5 +1,6 @@
 package dev.eugenlinde.activitytracker.config;
 
+import dev.eugenlinde.activitytracker.activity.ActivityRepository;
 import dev.eugenlinde.activitytracker.media.MediaRepository;
 import dev.eugenlinde.activitytracker.share.ShareRepository;
 import dev.eugenlinde.activitytracker.share.security.ShareEvaluator;
@@ -37,10 +38,11 @@ public class SecurityConfig {
     @Bean
     static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             ShareRepository shareRepository,
-            MediaRepository mediaRepository
+            MediaRepository mediaRepository,
+            ActivityRepository activityRepository
     ) {
         DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
-        handler.setPermissionEvaluator(new ShareEvaluator(shareRepository, mediaRepository));
+        handler.setPermissionEvaluator(new ShareEvaluator(shareRepository, mediaRepository, activityRepository));
         return handler;
     }
 

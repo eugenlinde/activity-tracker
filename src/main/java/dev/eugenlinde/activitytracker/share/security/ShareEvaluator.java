@@ -1,5 +1,7 @@
 package dev.eugenlinde.activitytracker.share.security;
 
+import dev.eugenlinde.activitytracker.activity.ActivityRepository;
+import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.media.MediaRepository;
 import dev.eugenlinde.activitytracker.media.model.Media;
 import dev.eugenlinde.activitytracker.share.ShareRepository;
@@ -12,13 +14,16 @@ import java.io.Serializable;
 public class ShareEvaluator implements PermissionEvaluator {
     private final ShareRepository shareRepository;
     private final MediaRepository mediaRepository;
+    private final ActivityRepository activityRepository;
 
     public ShareEvaluator(
             ShareRepository shareRepository,
-            MediaRepository mediaRepository
+            MediaRepository mediaRepository,
+            ActivityRepository activityRepository
     ) {
         this.shareRepository = shareRepository;
         this.mediaRepository = mediaRepository;
+        this.activityRepository = activityRepository;
     }
 
     @Override
@@ -34,6 +39,19 @@ public class ShareEvaluator implements PermissionEvaluator {
         }
 
         Long viewerId = Long.parseLong(authentication.getName());
+
+        if (targetType.equals("Activity")) {
+            Long activityId = Long.valueOf(targetId.toString());
+            Activity activity = activityRepository.findById(activityId).orElse(null);
+
+            if (activity == null) {
+                return false;
+            }
+
+            Long ownerId = activity.getUser().getId();
+
+            return canRead(ownerId, viewerId);
+        }
 
         if (targetType.equals("ActivityLog")) {
             Long ownerId = Long.valueOf(targetId.toString());

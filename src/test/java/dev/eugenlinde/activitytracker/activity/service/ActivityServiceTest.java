@@ -7,6 +7,7 @@ import dev.eugenlinde.activitytracker.activity.mapper.ActivityMapper;
 import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
+import dev.eugenlinde.activitytracker.media.service.MediaService;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import dev.eugenlinde.activitytracker.user.model.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,7 @@ class ActivityServiceTest {
     private ActivityService activityService;
     private ActivityRepository mockedActivityRepository = mock(ActivityRepository.class);
     private UserRepository mockedUserRepository = mock(UserRepository.class);
+    private MediaService mockedMediaService = mock(MediaService.class);
     private Activity savedActivity = new Activity();
     private User savedUser = new User();
     private ActivityRequest activityRequest;
@@ -43,7 +45,8 @@ class ActivityServiceTest {
         activityService = new ActivityService(
                 mockedActivityRepository,
                 activityMapper,
-                mockedUserRepository
+                mockedUserRepository,
+                mockedMediaService
         );
         ReflectionTestUtils.setField(savedUser, "id", userId);
         savedActivity.setUser(savedUser);

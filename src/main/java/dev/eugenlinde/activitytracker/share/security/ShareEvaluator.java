@@ -10,8 +10,10 @@ import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class ShareEvaluator implements PermissionEvaluator {
+    private final static List<String> ALLOWED_PERMISSIONS = List.of("READ", "DELETE");
     private final ShareRepository shareRepository;
     private final MediaRepository mediaRepository;
     private final ActivityRepository activityRepository;
@@ -33,8 +35,7 @@ public class ShareEvaluator implements PermissionEvaluator {
 
     @Override
     public boolean hasPermission(Authentication authentication, Serializable targetId, String targetType, Object permission) {
-        String ALLOWED_PERMISSION = "READ";
-        if (!ALLOWED_PERMISSION.equals(permission)) {
+        if (!(permission instanceof String) || !ALLOWED_PERMISSIONS.contains(permission)) {
             return false;
         }
 
@@ -60,10 +61,19 @@ public class ShareEvaluator implements PermissionEvaluator {
         }
 
         if (targetType.equals("Media")) {
-            Media media = mediaRepository.findById(Long.valueOf(targetId.toString())).orElse(null);
+            Long mediaId = Long.valueOf(targetId.toString());
+            Media media = mediaRepository.findById(mediaId).orElse(null);
 
             if (media == null) {
                 return false;
+            }
+
+            if (permission.equals("DELETE")) {
+                Activity activity = media.getActivity();
+
+                Long ownerId = activity.getUser().getId();
+
+                return ownerId.equals(viewerId);
             }
 
             Long ownerId = media.getActivity().getUser().getId();

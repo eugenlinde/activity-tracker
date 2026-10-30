@@ -11,11 +11,14 @@ import dev.eugenlinde.activitytracker.media.dto.MediaDownload;
 import dev.eugenlinde.activitytracker.media.dto.MediaResponse;
 import dev.eugenlinde.activitytracker.media.model.Media;
 import dev.eugenlinde.activitytracker.media.storage.StorageService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -23,6 +26,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class MediaService {
     private final MediaRepository mediaRepository;
@@ -95,5 +99,43 @@ public class MediaService {
         List<Media> mediaList = mediaRepository.findAllByActivityId(activityId);
 
         return mediaList.stream().map(media -> new MediaResponse(media.getId())).collect(Collectors.toList());
+    }
+
+    @Transactional()
+    @PreAuthorize("hasPermission(#id, 'Media', 'DELETE')")
+    public void deleteById(Long id) {
+        Media media = mediaRepository.findById(id).orElseThrow(MediaNotFoundException::new);
+        String storageKey = media.getStorageKey();
+        mediaRepository.delete(media);
+        registerStorageDelete(storageKey);
+    }
+
+    private TransactionSynchronization buildStorageDeleteCallback(String storageKey) {
+        return new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    storageService.delete(storageKey);
+                } catch (StorageException e) {
+                    log.error("Error deleting storage key", e);
+                }
+            }
+        };
+    }
+
+    private void registerStorageDelete(String storageKey) {
+        TransactionSynchronization transactionSynchronization = buildStorageDeleteCallback(storageKey);
+        TransactionSynchronizationManager.registerSynchronization(transactionSynchronization);
+    }
+
+    @Transactional
+    public void deleteAllForActivity(Long id) {
+        List<Media> mediaList = mediaRepository.findAllByActivityId(id);
+        mediaRepository.deleteAll(mediaList);
+
+        for (Media media : mediaList) {
+            String storageKey = media.getStorageKey();
+            registerStorageDelete(storageKey);
+        }
     }
 }

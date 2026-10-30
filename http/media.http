@@ -342,3 +342,175 @@ GET {{baseUrl}}/api/activities/{{listActivityId}}/media
         client.assert(response.status === 401, "got " + response.status);
     });
 %}
+
+###############################################################################
+# DELETE — DELETE /api/media/{id}, and DELETE /api/activities/{id} with media
+# Needs ownerToken / viewerToken / thirdToken from the DOWNLOAD logins above.
+# Check storage/ file count by hand: it drops by one per deleted media.
+###############################################################################
+
+### owner creates an activity for the delete walk — captures delActivityId
+POST {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{ownerToken}}
+
+{ "activityType": "WEIGHTS", "startedAt": "2026-10-01T07:00:00Z", "duration": "PT30M" }
+
+> {%
+    client.assert(response.status === 201, "create failed: " + response.status);
+    client.global.set("delActivityId", response.body.id);
+%}
+
+### owner uploads first media — captures delMediaId
+POST {{baseUrl}}/api/activities/{{delActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpeg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+> {%
+    client.assert(response.status === 201, "upload failed: " + response.status);
+    client.global.set("delMediaId", response.body.id);
+%}
+
+### owner uploads second media — stays attached, removed by activity delete
+POST {{baseUrl}}/api/activities/{{delActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.jpeg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample.jpg
+--WebAppBoundary--
+
+> {%
+    client.assert(response.status === 201, "upload failed: " + response.status);
+    client.global.set("keptMediaId", response.body.id);
+%}
+
+### owner grants share to viewer
+POST {{baseUrl}}/api/shares
+Content-Type: application/json
+Authorization: Bearer {{ownerToken}}
+
+{ "email": "{{viewerEmail}}" }
+
+> {%
+    client.assert(response.status === 201, "grant failed: " + response.status);
+%}
+
+### owner lists shares — captures delShareId
+GET {{baseUrl}}/api/shares
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    const share = response.body.find(s => s.email === "demo2@example.com");
+    client.assert(share, "no share for viewer found");
+    client.global.set("delShareId", share.id);
+%}
+
+### third user deletes media — expect 403
+DELETE {{baseUrl}}/api/media/{{delMediaId}}
+Authorization: Bearer {{thirdToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### shared viewer deletes media — expect 403 (sharing is read-only)
+DELETE {{baseUrl}}/api/media/{{delMediaId}}
+Authorization: Bearer {{viewerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### delete media without token — expect 401
+DELETE {{baseUrl}}/api/media/{{delMediaId}}
+
+> {%
+    client.test("401", function () {
+        client.assert(response.status === 401, "got " + response.status);
+    });
+%}
+
+### owner deletes media — expect 204, one file fewer in storage/
+DELETE {{baseUrl}}/api/media/{{delMediaId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("204", function () {
+        client.assert(response.status === 204, "got " + response.status);
+    });
+%}
+
+### owner deletes same media again — expect 403 (row gone, evaluator denies)
+DELETE {{baseUrl}}/api/media/{{delMediaId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### owner lists activity media — expect only the second media
+GET {{baseUrl}}/api/activities/{{delActivityId}}/media
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("200 with second media only", function () {
+        client.assert(response.status === 200, "got " + response.status);
+        const ids = response.body.map(m => m.id);
+        client.assert(ids.length === 1 && ids[0] === client.global.get("keptMediaId"), "got " + JSON.stringify(ids));
+    });
+%}
+
+### third user deletes the activity — expect 404 (activity write path)
+DELETE {{baseUrl}}/api/activities/{{delActivityId}}
+Authorization: Bearer {{thirdToken}}
+
+> {%
+    client.test("404", function () {
+        client.assert(response.status === 404, "got " + response.status);
+    });
+%}
+
+### owner deletes activity that still has media — expect 204, its file gone from storage/
+DELETE {{baseUrl}}/api/activities/{{delActivityId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("204", function () {
+        client.assert(response.status === 204, "got " + response.status);
+    });
+%}
+
+### owner downloads media of deleted activity — expect 403
+GET {{baseUrl}}/api/media/{{keptMediaId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("403", function () {
+        client.assert(response.status === 403, "got " + response.status);
+    });
+%}
+
+### owner revokes share — cleanup
+DELETE {{baseUrl}}/api/shares/{{delShareId}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.assert(response.status === 204, "revoke failed: " + response.status);
+%}

@@ -6,6 +6,7 @@ import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.mapper.ActivityMapper;
 import dev.eugenlinde.activitytracker.activity.model.Activity;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
+import dev.eugenlinde.activitytracker.media.service.MediaService;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -19,15 +20,18 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final ActivityMapper activityMapper;
     private final UserRepository userRepository;
+    private final MediaService mediaService;
 
     public ActivityService(
             ActivityRepository activityRepository,
             ActivityMapper activityMapper,
-            UserRepository userRepository
+            UserRepository userRepository,
+            MediaService mediaService
     ) {
         this.activityRepository = activityRepository;
         this.activityMapper = activityMapper;
         this.userRepository = userRepository;
+        this.mediaService = mediaService;
     }
 
     public ActivityResponse create(ActivityRequest activityRequest, Long userId) {
@@ -76,6 +80,7 @@ public class ActivityService {
 
     public void deleteById(Long id, Long userId) {
         Activity activity = activityRepository.findByIdAndUserId(id, userId).orElseThrow(ActivityNotFoundException::new);
+        mediaService.deleteAllForActivity(id);
         activityRepository.delete(activity);
     }
 }

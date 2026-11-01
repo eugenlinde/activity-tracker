@@ -36,22 +36,31 @@ async function parseBody(response: Response): Promise<unknown> {
   }
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function send(path: string, init: RequestInit, accept: string): Promise<Response> {
   const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (init.body) headers.set('Content-Type', 'application/json')
+  headers.set('Accept', accept)
+  if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const token = tokenStore.get()
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   const response = await fetch(path, { ...init, headers })
-  const body = await parseBody(response)
 
   if (!response.ok) {
     if (response.status === 401) tokenStore.clear()
-    throw new ApiError(response.status, body)
+    throw new ApiError(response.status, await parseBody(response))
   }
 
-  return body as T
+  return response
+}
+
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await send(path, init, 'application/json')
+  return (await parseBody(response)) as T
+}
+
+export async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const response = await send(path, init, '*/*')
+  return response.blob()
 }
 
 export const http = {
@@ -61,4 +70,6 @@ export const http = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body }),
+  blob: (path: string) => requestBlob(path),
 }

@@ -47,3 +47,7 @@ export interface ShareResponse {
 }
 
 export type ValidationErrors = Record<string, string[]>
+
+export interface MediaResponse {
+  id: number
+}

@@ -1,4 +1,5 @@
 import type { ActivityResponse } from '../api/types'
+import { ActivityMedia } from './ActivityMedia'
 import { formatDateTime } from '../lib/datetime'
 import { formatDuration } from '../lib/duration'
 
@@ -19,6 +20,7 @@ export function ActivityList({ activities, onEdit, onDelete }: Props) {
           <th>Type</th>
           <th>Duration</th>
           <th>Notes</th>
+          <th>Media</th>
           {(onEdit || onDelete) && <th />}
         </tr>
       </thead>
@@ -29,6 +31,9 @@ export function ActivityList({ activities, onEdit, onDelete }: Props) {
             <td>{a.activityType}</td>
             <td>{formatDuration(a.duration)}</td>
             <td>{a.notes}</td>
+            <td>
+              <ActivityMedia activityId={a.id} editable={Boolean(onEdit)} />
+            </td>
             {(onEdit || onDelete) && (
               <td className="row">
                 {onEdit && (

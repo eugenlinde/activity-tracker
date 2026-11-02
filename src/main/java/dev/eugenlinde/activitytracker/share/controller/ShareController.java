@@ -29,7 +29,7 @@ public class ShareController {
     ) {
         shareService.create(userId(jwt), shareRequest.email());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(null);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping()

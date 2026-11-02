@@ -66,6 +66,10 @@ Until the MVP milestone is reached:
 - Keep a short "debt" list in `.claude/ROADMAP.md` for things skipped on
   purpose, so they can be picked up after the MVP.
 
+**MVP milestone reached 2026-10-09.** The MVP-only rules above have
+expired: tests are a normal review gate again, and idiom matters as much as
+working code. The post-MVP debt round finished 2026-11-01 (71 tests green).
+
 Keep `.claude/ROADMAP.md` as the living copy of this list. Check items off
 as they're actually completed and working (not just started), and add
 detail under a phase once it's underway.
@@ -79,19 +83,25 @@ detail under a phase once it's underway.
         conditional
 - [x] **Phase 1 — Auth**
   - [x] Spring Security, registration/login, password hashing, JWT
-- [ ] **Phase 2 — Sharing / authorization** (current)
+- [x] **Phase 2 — Sharing / authorization**
   - [x] Multi-user ownership model
-  - [ ] Whole-log sharing: `shares` table (`owner_id`, `viewer_id`,
+  - [x] Whole-log sharing: `shares` table (`owner_id`, `viewer_id`,
         `created_at`, `deleted_at`), grant/revoke endpoints, viewer can read
         every activity of the owner. Read-only. Write path stays owner-only.
-- [ ] **Phase 3 — Frontend MVP**
-  - [ ] Stack to be chosen with the developer. Login, own activity list +
+- [x] **Phase 3 — Frontend MVP**
+  - [x] React + Vite + TypeScript in `frontend/`. Login, own activity list +
         create/edit/delete, shared logs view, grant/revoke share.
-  - [ ] **MVP milestone** = Phases 0–3 usable end to end.
-- [ ] **Phase 4 — Media**
-  - [ ] Upload handling, storage abstraction
-- [ ] **Phase 5 — External integrations**
-  - [ ] Google Sheets (OAuth2 client)
+  - [x] **MVP milestone** = Phases 0–3 usable end to end.
+- [x] **Phase 4 — Media**
+  - [x] Upload handling, storage abstraction (local filesystem), media per
+        activity, owner-or-viewer reads, owner-only delete
+- [ ] **Phase 5 — External integrations** (current)
+  - [ ] File import with LLM mapping (decided 2026-11-02, replaces Google
+        Sheets OAuth as the first integration): user uploads CSV / Excel /
+        TXT → backend calls an LLM via the OpenRouter API to map the file
+        to the `Activity` format → user previews, then confirms or rejects.
+        No OAuth, no scheduling.
+  - [ ] Google Sheets (OAuth2 client) — deferred, not dropped
   - [ ] Garmin (contingent on developer program access — verify before
         relying on it)
   - [ ] Xiaomi (unofficial/best-effort, may break)

@@ -57,9 +57,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Object> dataIntegrityViolationException(DataIntegrityViolationException exception) {
+        log.warn(exception.getMessage(), exception);
+        return new ResponseEntity<>("Request conflicts with existing data", HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ShareExistsException.class)
+    public ResponseEntity<Object> shareExistsException(ShareExistsException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.CONFLICT);
     }
-    
+
+    @ExceptionHandler(SelfShareException.class)
+    public ResponseEntity<Object> selfShareException(SelfShareException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<Object> authorizationDeniedException(AuthorizationDeniedException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.FORBIDDEN);

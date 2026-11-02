@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS" xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd">
+    <changeSet author="eugenl" id="users-drop-token-expired">
+        <dropColumn tableName="users" columnName="token_expired" />
+    </changeSet>
+    <changeSet author="eugenl" id="users-timestamps-to-timestamptz">
+        <dropColumn tableName="users">
+            <column name="created_at" />
+            <column name="updated_at" />
+            <column name="deleted_at" />
+        </dropColumn>
+        <addColumn tableName="users">
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false" />
+            </column>
+            <column name="deleted_at" type="timestamptz" />
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

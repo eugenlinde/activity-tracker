@@ -3,6 +3,10 @@ package dev.eugenlinde.activitytracker.user.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
 
 @Entity
 @Table(name = "users")
@@ -30,12 +34,16 @@ public class User {
     @Setter
     @Getter
     private boolean enabled;
-    private boolean tokenExpired;
+    @CreationTimestamp
+    @Getter
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+    @UpdateTimestamp
+    @Getter
     @Column(nullable = false)
-    private long createdAt;
-    @Column(nullable = false)
-    private long updatedAt;
-    private long deletedAt;
+    private Instant updatedAt;
+    @Getter
+    private Instant deletedAt;
 
     public User() {
     }

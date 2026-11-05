@@ -18,10 +18,30 @@ export interface LoginResponse {
   token: string
 }
 
+export interface WorkoutSet {
+  weight: number | null
+  reps: number | null
+}
+
+export interface Exercise {
+  name: string
+  targetReps: string | null
+  repsInReserve: string | null
+  comment: string | null
+  videoUrl: string | null
+  workoutSetList: WorkoutSet[] | null
+}
+
+export interface ActivityDetails {
+  version: string
+  exerciseList: Exercise[] | null
+}
+
 export interface ActivityRequest {
   activityType: ActivityType
   startedAt: string
-  duration: string
+  duration: string | null
+  details: ActivityDetails | null
   notes: string | null
 }
 
@@ -30,7 +50,8 @@ export interface ActivityResponse {
   ownerId: number
   activityType: ActivityType
   startedAt: string
-  duration: string
+  duration: string | null
+  details: ActivityDetails | null
   notes: string | null
   createdAt: string
   updatedAt: string

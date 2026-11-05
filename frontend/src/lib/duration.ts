@@ -13,7 +13,8 @@ export function minutesToIso(minutes: number): string {
   return `PT${Math.max(0, Math.round(minutes))}M`
 }
 
-export function formatDuration(iso: string): string {
+export function formatDuration(iso: string | null): string {
+  if (iso === null) return '—'
   const total = isoToMinutes(iso)
   const hours = Math.floor(total / 60)
   const minutes = total % 60

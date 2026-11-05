@@ -143,3 +143,64 @@ li {
   text-decoration: underline;
   font-size: 0.8rem;
 }
+
+.card.wide {
+  max-width: 640px;
+}
+
+fieldset.exercise-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0;
+}
+
+.exercise-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.exercise-edit .row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.details-row td {
+  padding-top: 0;
+}
+
+ol.exercises {
+  margin: 0;
+  padding-left: 20px;
+  list-style: decimal;
+}
+
+ol.exercises li {
+  padding: 4px 0;
+}
+
+.exercise-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.set {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}

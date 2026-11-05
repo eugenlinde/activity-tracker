@@ -25,7 +25,9 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
 
+import static dev.eugenlinde.activitytracker.activity.ActivityDetailsFixtures.session;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -74,6 +76,7 @@ class ActivityControllerTest {
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),
+                null,
                 "test"
         );
         ActivityResponse activityResponse = new ActivityResponse(
@@ -82,6 +85,7 @@ class ActivityControllerTest {
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),
+                null,
                 "test",
                 Instant.ofEpochSecond(1),
                 Instant.ofEpochSecond(1)
@@ -117,6 +121,69 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createActivity_whenNestedDetailsInvalid_returns400WithNestedFieldAndSkipsService() throws Exception {
+        String invalidJson = """
+                {
+                    "activityType": "WEIGHTS",
+                    "startedAt": "2026-10-01T08:00:00Z",
+                    "details": {
+                        "version": "1",
+                        "exerciseList": [
+                            {
+                                "name": "",
+                                "workoutSetList": [ { "weight": 10.0, "reps": -1 } ]
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$['details.exerciseList[0].name']").exists())
+                .andExpect(jsonPath("$['details.exerciseList[0].workoutSetList[0].reps']").exists());
+
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void createActivity_withDetails_returnsDetailsInBody() throws Exception {
+        ActivityRequest activityRequest = new ActivityRequest(
+                ActivityType.WEIGHTS,
+                Instant.ofEpochSecond(123),
+                null,
+                session(),
+                null
+        );
+        ActivityResponse activityResponse = new ActivityResponse(
+                1L,
+                userId,
+                ActivityType.WEIGHTS,
+                Instant.ofEpochSecond(123),
+                null,
+                session(),
+                null,
+                Instant.ofEpochSecond(1),
+                Instant.ofEpochSecond(1)
+        );
+        when(activityService.create(activityRequest, userId)).thenReturn(activityResponse);
+
+        mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(activityRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.duration").doesNotExist())
+                .andExpect(jsonPath("$.details.exerciseList[0].name")
+                        .value("Vertikaaltõmbed trenažööril pealthaare"))
+                .andExpect(jsonPath("$.details.exerciseList[0].workoutSetList[0].weight").value(31.25))
+                .andExpect(jsonPath("$.details.exerciseList[0].workoutSetList[2].reps").doesNotExist());
+    }
+
+    @Test
     void deleteActivity_whenActivityDeleted_returns204() throws Exception {
         mockMvc.perform(delete("/api/activities/1").with(authenticatedAs(userId)))
                 .andExpect(status().isNoContent());
@@ -147,6 +214,7 @@ class ActivityControllerTest {
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),
+                null,
                 "test",
                 Instant.ofEpochSecond(1),
                 Instant.ofEpochSecond(1)

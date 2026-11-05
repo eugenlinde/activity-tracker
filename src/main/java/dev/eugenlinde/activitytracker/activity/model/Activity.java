@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -22,10 +24,15 @@ public class Activity {
     @Getter
     @Setter
     private ActivityType activityType;
-    @Column(nullable = false)
+    @Column()
     @Getter
     @Setter
     private Duration duration;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Getter
+    @Setter
+    private Session details;
     @Column()
     @Getter
     @Setter

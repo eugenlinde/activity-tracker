@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 
+import static dev.eugenlinde.activitytracker.activity.ActivityDetailsFixtures.session;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -58,6 +59,7 @@ class ActivityServiceTest {
                 ActivityType.AEROBIC,
                 Instant.ofEpochSecond(123),
                 Duration.ofSeconds(123),
+                session(),
                 "ActivityServiceTest"
         );
     }
@@ -75,6 +77,7 @@ class ActivityServiceTest {
         assertEquals(activityRequest.duration(), actualActivity.getDuration());
         assertEquals(activityRequest.startedAt(), actualActivity.getStartedAt());
         assertEquals(activityRequest.notes(), actualActivity.getNotes());
+        assertEquals(activityRequest.details(), actualActivity.getDetails());
         assertSame(savedUser, actualActivity.getUser());
     }
 
@@ -102,7 +105,8 @@ class ActivityServiceTest {
         ActivityRequest updateRequest = new ActivityRequest(
                 ActivityType.WEIGHTS,
                 Instant.ofEpochSecond(456),
-                Duration.ofSeconds(456),
+                null,
+                session(),
                 "update"
         );
         when(mockedActivityRepository.findByIdAndUserId(id, userId))
@@ -119,10 +123,12 @@ class ActivityServiceTest {
         assertEquals(updateRequest.duration(), capturedActivity.getDuration());
         assertEquals(updateRequest.startedAt(), capturedActivity.getStartedAt());
         assertEquals(updateRequest.notes(), capturedActivity.getNotes());
+        assertEquals(updateRequest.details(), capturedActivity.getDetails());
 
         assertEquals(updateRequest.activityType(), actualActivity.activityType());
         assertEquals(updateRequest.duration(), actualActivity.duration());
         assertEquals(updateRequest.startedAt(), actualActivity.startedAt());
         assertEquals(updateRequest.notes(), actualActivity.notes());
+        assertEquals(updateRequest.details(), actualActivity.details());
     }
 }

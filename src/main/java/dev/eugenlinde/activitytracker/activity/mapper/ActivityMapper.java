@@ -13,6 +13,7 @@ public class ActivityMapper {
                 activity.getActivityType(),
                 activity.getStartedAt(),
                 activity.getDuration(),
+                activity.getDetails(),
                 activity.getNotes(),
                 activity.getCreatedAt(),
                 activity.getUpdatedAt()

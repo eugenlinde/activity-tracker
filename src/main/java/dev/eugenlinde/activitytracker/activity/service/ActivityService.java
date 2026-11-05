@@ -38,6 +38,7 @@ public class ActivityService {
 
         Activity activity = new Activity();
         activity.setActivityType(activityRequest.activityType());
+        activity.setDetails(activityRequest.details());
         activity.setDuration(activityRequest.duration());
         activity.setStartedAt(activityRequest.startedAt());
         activity.setNotes(activityRequest.notes());
@@ -70,6 +71,7 @@ public class ActivityService {
         Activity activity = activityRepository
                 .findByIdAndUserId(id, userId)
                 .orElseThrow(ActivityNotFoundException::new);
+        activity.setDetails(activityRequest.details());
         activity.setActivityType(activityRequest.activityType());
         activity.setDuration(activityRequest.duration());
         activity.setStartedAt(activityRequest.startedAt());

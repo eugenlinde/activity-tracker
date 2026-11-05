@@ -1,6 +1,7 @@
 package dev.eugenlinde.activitytracker.activity.dto;
 
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
+import dev.eugenlinde.activitytracker.activity.model.Session;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 
@@ -12,7 +13,8 @@ public record ActivityResponse(
         @NotNull Long ownerId,
         @NotNull ActivityType activityType,
         @PastOrPresent @NotNull Instant startedAt,
-        @NotNull Duration duration,
+        Duration duration,
+        Session details,
         String notes,
         @PastOrPresent @NotNull Instant createdAt,
         @PastOrPresent @NotNull Instant updatedAt

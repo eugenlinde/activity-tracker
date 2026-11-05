@@ -1,4 +1,4 @@
-package dev.eugenlinde.activitytracker.config;
+package dev.eugenlinde.activitytracker.openrouter;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;

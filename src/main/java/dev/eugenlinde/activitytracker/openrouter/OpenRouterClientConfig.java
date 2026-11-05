@@ -1,4 +1,4 @@
-package dev.eugenlinde.activitytracker.config;
+package dev.eugenlinde.activitytracker.openrouter;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

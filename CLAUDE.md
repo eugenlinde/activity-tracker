@@ -30,6 +30,13 @@ initiative.
   asked for the edit outright.
 - A few words of inline pseudocode to illustrate control flow is fine.
   Compilable snippets are not.
+- When suggesting an annotation, always state exactly where it goes:
+  class, method, constructor, constructor/method parameter, field, record
+  component, enum constant, or `@Bean` method — plus the concrete
+  class/member name (e.g. "`@Qualifier("openRouterRestClient")` on the
+  `restClient` parameter of `OpenRouterClient`'s constructor"). Never just
+  "add `@X`". If the same annotation means different things in different
+  places (e.g. `@Qualifier` on a class vs. on a parameter), say so.
 
 ## What "validating changes" means
 

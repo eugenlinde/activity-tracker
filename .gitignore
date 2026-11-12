@@ -40,3 +40,7 @@ out/
 
 /storage
 /test_storage
+.claude/settings.local.json
+.DS_Store
+.superpowers/
+.claude/private/

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aerobic log</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15181D}
+a{color:#A8B9A3}a:hover{color:#B8C8B3}
+.nav a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;color:#8E97A3;text-decoration:none;font-weight:500;font-size:15px;min-height:44px;box-sizing:border-box;flex:1 1 160px}
+.nav a:hover{color:#E6E8EB;background:#22272E}
+.nav a.on{color:#E6E8EB;background:#22272E}
+.burger{display:none;font:inherit;background:transparent;border:1px solid #2E343D;border-radius:8px;color:#E6E8EB;width:44px;height:44px;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.burger:hover{background:#22272E}
+@media (max-width: 760px){
+  .nav{flex:1 1 100% !important;padding:8px 16px !important;border-right:0 !important;border-bottom:1px solid #22272E}
+  .nav .logo{padding:0 !important}
+  .burger{display:flex}
+  .navlinks{display:none !important;padding:8px 0 10px}
+  .navlinks.open{display:flex !important;flex-direction:column}
+  .navlinks.open a{flex:1 1 auto}
+  .navuser{display:none}
+  main{padding:20px 16px 40px !important}
+}
+.btn{font:inherit;font-weight:500;font-size:14px;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid #2E343D;background:#22272E;color:#E6E8EB;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:#2A3039}
+.btn.primary{background:#A8B9A3;color:#15181D;border-color:#A8B9A3}
+.btn.primary:hover{background:#B8C8B3}
+.btn.icon{width:40px;padding:0;justify-content:center;color:#8E97A3}
+.btn.icon:hover{color:#C58F94}
+.field{font:inherit;font-size:14px;min-height:40px;padding:0 12px;border-radius:8px;border:1px solid #2E343D;background:#181C22;color:#E6E8EB;box-sizing:border-box}
+.field:focus{outline:2px solid #A8B9A3;outline-offset:1px}
+label.lbl{font-size:12px;color:#8E97A3;display:block;margin-bottom:6px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #15181D; color: #E6E8EB; font-family: Manrope, system-ui, sans-serif; font-size: 15px; line-height: 1.45">
+
+<nav class="nav" aria-label="Main" style="flex: 1 1 220px; padding: 24px 16px; border-right: 1px solid #22272E; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box">
+  <div class="navtop" style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+    <div class="logo" style="font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; padding: 6px 14px 18px; display: flex; align-items: center; gap: 10px">
+      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #A8B9A3"></span>
+      tracker
+    </div>
+    <button type="button" class="burger" aria-label="Menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}">
+      <sc-if value="{{menuClosed}}" hint-placeholder-val="{{true}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></sc-if>
+      <sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+    </button>
+  </div>
+  <div class="navlinks {{menuCls}}" style="display: flex; flex-wrap: wrap; gap: 6px">
+    <a href="Main.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"></rect><rect x="13" y="3" width="8" height="5" rx="1.5"></rect><rect x="13" y="12" width="8" height="9" rx="1.5"></rect><rect x="3" y="15" width="8" height="6" rx="1.5"></rect></svg>Dashboard</a>
+    <a href="Workouts.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"></path></svg>Workouts</a>
+    <a href="Templates.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg>Templates</a>
+    <a href="Aerobic.dc.html" class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Aerobic</a>
+    <a href="Diet.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16M5 11a7 7 0 0 1 14 0M3 15h18M6 15v3h12v-3"></path></svg>Diet</a>
+    <a href="Shares.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"></path></svg>Shares</a>
+    <a href="Import.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"></path></svg>Import</a>
+  </div>
+  <div class="navuser" style="margin-top: auto; padding: 14px; color: #8E97A3; font-size: 13px; line-height: 1.4">
+    <div style="color: #E6E8EB; font-weight: 500">Eugen L.</div>
+    <div>Signed in</div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+    <div>
+      <div style="color: #8E97A3; font-size: 14px">{{weekMinutes}} min this week · {{monthMinutes}} min in October</div>
+      <h1 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 34px; font-weight: 500; line-height: 1.1; letter-spacing: -0.01em">Aerobic</h1>
+    </div>
+    <button type="button" class="btn primary" onClick="{{openModal}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add</button>
+  </header>
+
+  <section style="background: #1B1F25; border: 1px solid #22272E; border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+      <h2 style="margin: 0; font-size: 13px; font-weight: 500; color: #8E97A3">Weekly minutes</h2>
+      <span style="font-size: 13px; color: #8E97A3">Last 8 weeks</span>
+    </div>
+    <div style="display: flex; gap: 28px; flex-wrap: wrap">
+      <div>
+        <div style="font-size: 13px; color: #8E97A3">This week</div>
+        <div style="font-family: Manrope, system-ui, sans-serif; font-size: 40px; font-weight: 300; line-height: 1">{{weekMinutes}}<span style="font-size: 18px; color: #8E97A3; margin-left: 4px">min</span></div>
+      </div>
+      <div>
+        <div style="font-size: 13px; color: #8E97A3">Weekly average</div>
+        <div style="font-family: Manrope, system-ui, sans-serif; font-size: 40px; font-weight: 300; line-height: 1; color: #8E97A3">{{weekAvg}}</div>
+      </div>
+      <div>
+        <div style="font-size: 13px; color: #8E97A3">Best week</div>
+        <div style="font-family: Manrope, system-ui, sans-serif; font-size: 40px; font-weight: 300; line-height: 1; color: #8E97A3">{{bestWeek}}</div>
+      </div>
+    </div>
+    <svg viewBox="0 0 560 170" style="width: 100%; height: auto; display: block" role="img" aria-label="Aerobic minutes per week for the last 8 weeks">
+      <line x1="8" y1="130" x2="552" y2="130" stroke="#22272E" stroke-width="1"></line>
+      <sc-for list="{{weekBars}}" as="b" hint-placeholder-count="8">
+        <rect x="{{b.x}}" y="{{b.y}}" width="{{b.w}}" height="{{b.h}}" rx="3" fill="{{b.fill}}"></rect>
+        <text x="{{b.cx}}" y="{{b.ty}}" fill="#E6E8EB" font-size="12" font-family="Manrope, sans-serif" text-anchor="middle">{{b.min}}</text>
+        <text x="{{b.cx}}" y="150" fill="#8E97A3" font-size="11" font-family="Manrope, sans-serif" text-anchor="middle">{{b.label}}</text>
+      </sc-for>
+    </svg>
+  </section>
+
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: grid; grid-template-columns: 88px minmax(0,1fr) 44px 40px; gap: 14px; padding: 0 18px; font-size: 12px; color: #8E97A3">
+      <div>Date</div><div>Activity</div><div style="text-align: right">Min</div><div></div>
+    </div>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+      <div style="display: grid; grid-template-columns: 88px minmax(0,1fr) 44px 40px; gap: 14px; align-items: center; padding: 12px 18px; border-radius: 10px; background: #1B1F25; border: 1px solid #22272E; min-height: 64px; box-sizing: border-box">
+        <div style="min-width: 0">
+          <div style="font-family: Manrope, system-ui, sans-serif; font-size: 19px; font-weight: 400; line-height: 1.1">{{r.day}}</div>
+          <div style="font-size: 12px; color: #8E97A3">{{r.weekday}}</div>
+        </div>
+        <div style="min-width: 0">
+          <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.type}}</div>
+          <div style="font-size: 13px; color: #8E97A3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.note}}</div>
+        </div>
+        <div style="font-weight: 500; font-variant-numeric: tabular-nums; text-align: right">{{r.min}}</div>
+        <button type="button" class="btn icon" aria-label="Delete entry" onClick="{{r.remove}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg></button>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{modalOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; inset: 0; background: rgba(21, 24, 29, 0.74); display: flex; align-items: flex-end; justify-content: center; padding: 16px; z-index: 10; box-sizing: border-box">
+      <form role="dialog" aria-modal="true" aria-label="Add aerobic entry" onSubmit="{{add}}" style="width: 100%; max-width: 440px; margin: auto; background: #1B1F25; border: 1px solid #2E343D; border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+          <h2 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500">Add aerobic</h2>
+          <button type="button" class="btn icon" aria-label="Close" onClick="{{closeModal}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <div>
+          <label class="lbl" for="a-type">Activity</label>
+          <select id="a-type" class="field" style="width: 100%" value="{{fType}}" onChange="{{setType}}">
+            <option value="Running">Running</option>
+            <option value="Cycling">Cycling</option>
+            <option value="Walking">Walking</option>
+            <option value="Swimming">Swimming</option>
+            <option value="Rowing">Rowing</option>
+            <option value="Treadmill">Treadmill</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 12px">
+          <div>
+            <label class="lbl" for="a-date">Date</label>
+            <input id="a-date" class="field" type="date" style="width: 100%" value="{{fDate}}" onChange="{{setDate}}">
+          </div>
+          <div>
+            <label class="lbl" for="a-min">Minutes</label>
+            <input id="a-min" class="field" type="number" inputmode="numeric" min="1" max="600" style="width: 100%" value="{{fMin}}" onInput="{{setMin}}">
+          </div>
+        </div>
+        <div>
+          <label class="lbl" for="a-note">Note (optional)</label>
+          <input id="a-note" class="field" type="text" style="width: 100%" placeholder="Easy pace, Zone 2…" value="{{fNote}}" onInput="{{setNote}}">
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap">
+          <button type="button" class="btn" onClick="{{closeModal}}">Cancel</button>
+          <button type="submit" class="btn primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      rows: [
+        { id: 1, date: '2026-10-21', type: 'Running', min: 30, note: 'Easy, Zone 2' },
+        { id: 2, date: '2026-10-19', type: 'Cycling', min: 50, note: 'Trail loop' },
+        { id: 3, date: '2026-10-16', type: 'Running', min: 30, note: '' },
+        { id: 4, date: '2026-10-12', type: 'Rowing', min: 45, note: '2k intervals' },
+        { id: 5, date: '2026-10-09', type: 'Walking', min: 25, note: 'Lunch walk' },
+        { id: 6, date: '2026-10-05', type: 'Cycling', min: 40, note: '' },
+        { id: 7, date: '2026-10-02', type: 'Running', min: 35, note: 'Tempo' }
+      ],
+      fType: 'Running', fDate: '2026-10-22', fMin: '30', fNote: '', nextId: 8
+    };
+  }
+  renderVals() {
+    const m = !!this.state.menuOpen;
+    return { ...this.vals(), menuOpen: m, menuClosed: !m, menuCls: m ? 'open' : '', toggleMenu: () => this.setState({ menuOpen: !m }) };
+  }
+  vals() {
+    const wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sorted = this.state.rows.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+    const maxMin = Math.max(60, ...sorted.map((r) => r.min));
+    const rows = sorted.map((r) => {
+      const d = new Date(r.date + 'T12:00:00');
+      return {
+        ...r,
+        day: d.getDate() + ' ' + mo[d.getMonth()],
+        weekday: wd[d.getDay()],
+        pct: Math.round((r.min / maxMin) * 100),
+        remove: () => this.setState({ rows: this.state.rows.filter((x) => x.id !== r.id) })
+      };
+    });
+    const weekMinutes = sorted.filter((r) => r.date >= '2026-10-19').reduce((s, r) => s + r.min, 0);
+    const monthMinutes = sorted.filter((r) => r.date >= '2026-10-01').reduce((s, r) => s + r.min, 0);
+
+    // ---- Weekly totals, Monday-start weeks, this week = w/c 19 Oct 2026
+    const iso = (dt) => dt.toISOString().slice(0, 10);
+    const thisMon = new Date('2026-10-19T12:00:00Z');
+    const seedBefore = { 7: 95, 6: 120, 5: 60, 4: 135, 3: 110 }; // sample weeks before the logged rows
+    const weeks = [];
+    for (let i = 7; i >= 0; i--) {
+      const start = new Date(thisMon.getTime() - i * 7 * 86400000);
+      const end = new Date(start.getTime() + 7 * 86400000);
+      const a = iso(start), b = iso(end);
+      let total = this.state.rows.filter((r) => r.date >= a && r.date < b).reduce((s, r) => s + r.min, 0);
+      if (i >= 3 && total === 0) total = seedBefore[i] || 0;
+      weeks.push({ min: total, label: start.getDate() + ' ' + mo[start.getMonth()], current: i === 0 });
+    }
+    const maxWeek = Math.max(60, ...weeks.map((w) => w.min));
+    const slot = (552 - 8) / weeks.length, bw = slot * 0.56;
+    const weekBars = weeks.map((w, idx) => {
+      const h = (w.min / maxWeek) * 100;
+      const x = 8 + idx * slot + (slot - bw) / 2;
+      return {
+        x: x.toFixed(1), y: (130 - h).toFixed(1), w: bw.toFixed(1), h: h.toFixed(1),
+        cx: (x + bw / 2).toFixed(1), ty: (130 - h - 6).toFixed(1),
+        fill: w.current ? '#8DAACB' : '#3A414B',
+        min: w.min, label: w.label
+      };
+    });
+    const weekAvg = Math.round(weeks.reduce((s, w) => s + w.min, 0) / weeks.length);
+    const bestWeek = Math.max(...weeks.map((w) => w.min));
+
+    return {
+      rows, weekMinutes, monthMinutes, weekBars, weekAvg, bestWeek,
+      modalOpen: !!this.state.modalOpen,
+      openModal: () => this.setState({ modalOpen: true }),
+      closeModal: () => this.setState({ modalOpen: false }),
+      fType: this.state.fType, fDate: this.state.fDate, fMin: this.state.fMin, fNote: this.state.fNote,
+      setType: (e) => this.setState({ fType: e.target.value }),
+      setDate: (e) => this.setState({ fDate: e.target.value }),
+      setMin: (e) => this.setState({ fMin: e.target.value }),
+      setNote: (e) => this.setState({ fNote: e.target.value }),
+      add: (e) => {
+        e.preventDefault();
+        const min = parseInt(this.state.fMin, 10);
+        if (!min || !this.state.fDate) return;
+        const row = { id: this.state.nextId, date: this.state.fDate, type: this.state.fType, min, note: this.state.fNote.trim() };
+        this.setState({ rows: this.state.rows.concat([row]), nextId: this.state.nextId + 1, fNote: '', modalOpen: false });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

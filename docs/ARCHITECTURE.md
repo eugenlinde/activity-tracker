@@ -4,7 +4,7 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-13 (public repo, protected `main` — nothing is deployed yet).
+Last updated: 2026-11-12 (public repo, protected `main` — nothing is deployed yet).
 
 ## What exists today
 
@@ -68,7 +68,7 @@ be turned back on right after.
 - A direct push to `main` was rejected by GitHub ("GH006: Protected branch
   update failed").
 - A pull request with a deliberately failing test turned `backend` red
-  ("116 tests completed, 1 failed" in the first run of this probe), and
+  ("116 tests completed, 1 failed"), and
   GitHub reported the pull request as blocked from merging. It was closed
   without merging.
 - A deliberate type error turned `frontend` red (checked before the repo

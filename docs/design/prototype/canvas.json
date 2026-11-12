@@ -1,0 +1,32 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-22T10:30:00Z" },
+  "title": "Activity Tracker — prototype",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 1180, "title": "Home dashboard", "expand": "fill", "is_interactive": true },
+    "Workouts.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 1000, "title": "Workout log", "expand": "fill", "is_interactive": true },
+    "WorkoutDetail.dc.html": { "x": 2720, "y": 0, "w": 1280, "h": 1560, "title": "Workout detail", "expand": "fill", "is_interactive": true },
+    "Aerobic.dc.html": { "x": 4080, "y": 0, "w": 1280, "h": 1180, "title": "Aerobic log", "expand": "fill", "is_interactive": true },
+    "Diet.dc.html": { "x": 0, "y": 2000, "w": 1280, "h": 1360, "title": "Diet log", "expand": "fill", "is_interactive": true },
+    "Shares.dc.html": { "x": 1360, "y": 2000, "w": 1280, "h": 940, "title": "Shares", "expand": "fill", "is_interactive": true },
+    "Import.dc.html": { "x": 2720, "y": 2000, "w": 1280, "h": 1040, "title": "Import data", "expand": "fill", "is_interactive": true },
+    "Templates.dc.html": { "x": 4080, "y": 2000, "w": 1280, "h": 560, "title": "Templates", "expand": "fill", "is_interactive": true }
+  },
+  "order": [
+    "Main.dc.html",
+    "Workouts.dc.html",
+    "WorkoutDetail.dc.html",
+    "Aerobic.dc.html",
+    "Diet.dc.html",
+    "Shares.dc.html",
+    "Import.dc.html",
+    "Templates.dc.html"
+  ],
+  "notes": {
+    "row1": { "x": 0, "y": -300, "text": "Overview · Workouts · Aerobic", "kind": "title1", "maxW": 5360 },
+    "row2": { "x": 0, "y": 1700, "text": "Diet · Shares · Import · Templates", "kind": "title1", "maxW": 5360 }
+  },
+  "designSystems": []
+}

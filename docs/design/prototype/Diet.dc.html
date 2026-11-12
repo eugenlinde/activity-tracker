@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Diet log</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15181D}
+a{color:#A8B9A3}a:hover{color:#B8C8B3}
+.nav a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;color:#8E97A3;text-decoration:none;font-weight:500;font-size:15px;min-height:44px;box-sizing:border-box;flex:1 1 160px}
+.nav a:hover{color:#E6E8EB;background:#22272E}
+.nav a.on{color:#E6E8EB;background:#22272E}
+.burger{display:none;font:inherit;background:transparent;border:1px solid #2E343D;border-radius:8px;color:#E6E8EB;width:44px;height:44px;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.burger:hover{background:#22272E}
+@media (max-width: 760px){
+  .nav{flex:1 1 100% !important;padding:8px 16px !important;border-right:0 !important;border-bottom:1px solid #22272E}
+  .nav .logo{padding:0 !important}
+  .burger{display:flex}
+  .navlinks{display:none !important;padding:8px 0 10px}
+  .navlinks.open{display:flex !important;flex-direction:column}
+  .navlinks.open a{flex:1 1 auto}
+  .navuser{display:none}
+  main{padding:20px 16px 40px !important}
+}
+.btn{font:inherit;font-weight:500;font-size:14px;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid #2E343D;background:#22272E;color:#E6E8EB;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:#2A3039}
+.btn.primary{background:#A8B9A3;color:#15181D;border-color:#A8B9A3}
+.btn.primary:hover{background:#B8C8B3}
+.btn.icon{width:40px;padding:0;justify-content:center}
+.field{font:inherit;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid #2E343D;background:#181C22;color:#E6E8EB;box-sizing:border-box}
+.field:focus{outline:2px solid #A8B9A3;outline-offset:1px}
+.day{font:inherit;color:#E6E8EB;cursor:pointer;min-height:78px;border-radius:8px;border:1px solid #22272E;background:#181C22;padding:8px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;min-width:0}
+.day:hover{border-color:#3A414B}
+.day.sel{outline:2px solid #E6E8EB;outline-offset:-2px}
+.day.future{color:#5E6773;cursor:default}
+.st{font:inherit;font-weight:500;font-size:14px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid #2E343D;background:#181C22;color:#E6E8EB;cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left}
+.st:hover{background:#22272E}
+.st.on{border-color:#E6E8EB;background:#22272E}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #15181D; color: #E6E8EB; font-family: Manrope, system-ui, sans-serif; font-size: 15px; line-height: 1.45">
+
+<nav class="nav" aria-label="Main" style="flex: 1 1 220px; padding: 24px 16px; border-right: 1px solid #22272E; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box">
+  <div class="navtop" style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+    <div class="logo" style="font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; padding: 6px 14px 18px; display: flex; align-items: center; gap: 10px">
+      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #A8B9A3"></span>
+      tracker
+    </div>
+    <button type="button" class="burger" aria-label="Menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}">
+      <sc-if value="{{menuClosed}}" hint-placeholder-val="{{true}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></sc-if>
+      <sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+    </button>
+  </div>
+  <div class="navlinks {{menuCls}}" style="display: flex; flex-wrap: wrap; gap: 6px">
+    <a href="Main.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"></rect><rect x="13" y="3" width="8" height="5" rx="1.5"></rect><rect x="13" y="12" width="8" height="9" rx="1.5"></rect><rect x="3" y="15" width="8" height="6" rx="1.5"></rect></svg>Dashboard</a>
+    <a href="Workouts.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"></path></svg>Workouts</a>
+    <a href="Templates.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg>Templates</a>
+    <a href="Aerobic.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Aerobic</a>
+    <a href="Diet.dc.html" class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16M5 11a7 7 0 0 1 14 0M3 15h18M6 15v3h12v-3"></path></svg>Diet</a>
+    <a href="Shares.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"></path></svg>Shares</a>
+    <a href="Import.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"></path></svg>Import</a>
+  </div>
+  <div class="navuser" style="margin-top: auto; padding: 14px; color: #8E97A3; font-size: 13px; line-height: 1.4">
+    <div style="color: #E6E8EB; font-weight: 500">Eugen L.</div>
+    <div>Signed in</div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+    <div>
+      <div style="color: #8E97A3; font-size: 14px">Plan: 2,300 kcal · 160 g protein</div>
+      <h1 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 34px; font-weight: 500; line-height: 1.1; letter-spacing: -0.01em">Diet</h1>
+    </div>
+    <div style="display: flex; gap: 18px; flex-wrap: wrap">
+      <div><div style="font-size: 12px; color: #8E97A3">On plan</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1; color: #A8B9A3">{{nOn}}</div></div>
+      <div><div style="font-size: 12px; color: #8E97A3">More</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1; color: #C9B08A">{{nMore}}</div></div>
+      <div><div style="font-size: 12px; color: #8E97A3">Less</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1; color: #8DAACB">{{nLess}}</div></div>
+      <div><div style="font-size: 12px; color: #8E97A3">Outside</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1; color: #C58F94">{{nOff}}</div></div>
+      <div><div style="font-size: 12px; color: #8E97A3">Not logged</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1; color: #8E97A3">{{nNone}}</div></div>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px">
+    <sc-for list="{{charts}}" as="ch" hint-placeholder-count="3">
+      <section style="background: #1B1F25; border: 1px solid #22272E; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px">
+          <h2 style="margin: 0; font-size: 13px; font-weight: 500; color: #8E97A3">{{ch.title}}</h2>
+          <span style="font-size: 12px; color: #8E97A3">12 weeks</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
+          <span style="font-family: Manrope, system-ui, sans-serif; font-size: 34px; font-weight: 300; line-height: 1">{{ch.now}}<span style="font-size: 16px; color: #8E97A3; margin-left: 3px">{{ch.unit}}</span></span>
+          <span style="font-size: 13px; color: {{ch.deltaColor}}">{{ch.delta}}</span>
+        </div>
+        <svg viewBox="0 0 300 110" style="width: 100%; height: auto; display: block" role="img" aria-label="{{ch.aria}}">
+          <line x1="4" y1="20" x2="296" y2="20" stroke="#22272E" stroke-width="1"></line>
+          <line x1="4" y1="55" x2="296" y2="55" stroke="#22272E" stroke-width="1"></line>
+          <line x1="4" y1="90" x2="296" y2="90" stroke="#22272E" stroke-width="1"></line>
+          <path d="{{ch.area}}" fill="{{ch.color}}" fill-opacity="0.08"></path>
+          <polyline points="{{ch.pts}}" fill="none" stroke="{{ch.color}}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+          <circle cx="{{ch.lastX}}" cy="{{ch.lastY}}" r="3.5" fill="#15181D" stroke="{{ch.color}}" stroke-width="2"></circle>
+          <text x="4" y="106" fill="#8E97A3" font-size="10" font-family="Manrope, sans-serif">30 Jul</text>
+          <text x="296" y="106" fill="#8E97A3" font-size="10" font-family="Manrope, sans-serif" text-anchor="end">22 Oct</text>
+        </svg>
+      </section>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 20px">
+
+    <section style="min-width: 0; background: #1B1F25; border: 1px solid #22272E; border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+        <h2 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500">October 2026</h2>
+        <div style="display: flex; gap: 6px">
+          <button type="button" class="btn icon" aria-label="Previous month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+          <button type="button" class="btn icon" aria-label="Next month"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; font-size: 12px; color: #8E97A3">
+        <div style="padding: 0 8px">Mon</div><div style="padding: 0 8px">Tue</div><div style="padding: 0 8px">Wed</div><div style="padding: 0 8px">Thu</div><div style="padding: 0 8px">Fri</div><div style="padding: 0 8px">Sat</div><div style="padding: 0 8px">Sun</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{cells}}" as="c" hint-placeholder-count="35">
+          <sc-if value="{{c.blank}}" hint-placeholder-val="{{false}}"><div></div></sc-if>
+          <sc-if value="{{c.isDay}}" hint-placeholder-val="{{true}}">
+            <button type="button" class="day {{c.cls}}" onClick="{{c.pick}}" aria-label="{{c.aria}}">
+              <span style="font-size: 13px; font-weight: 500">{{c.num}}</span>
+              <sc-if value="{{c.hasStatus}}" hint-placeholder-val="{{true}}">
+                <span style="width: 22px; height: 22px; border-radius: 6px; background: {{c.color}}; color: #15181D; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">{{c.letter}}</span>
+              </sc-if>
+              <sc-if value="{{c.hasNote}}" hint-placeholder-val="{{false}}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E97A3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>
+              </sc-if>
+            </button>
+          </sc-if>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 16px; font-size: 13px; color: #8E97A3; flex-wrap: wrap">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; height: 16px; border-radius: 4px; background: #A8B9A3; color: #15181D; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center">P</span>On plan</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; height: 16px; border-radius: 4px; background: #C9B08A; color: #15181D; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center">M</span>Ate more</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; height: 16px; border-radius: 4px; background: #8DAACB; color: #15181D; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center">L</span>Ate less</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; height: 16px; border-radius: 4px; background: #C58F94; color: #15181D; font-size: 9px; font-weight: 600; display: flex; align-items: center; justify-content: center">O</span>Outside plan</span>
+        <span>Tap a day to log it</span>
+      </div>
+    </section>
+
+  </div>
+
+  <sc-if value="{{modalOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; inset: 0; background: rgba(21, 24, 29, 0.74); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; box-sizing: border-box">
+      <div role="dialog" aria-modal="true" aria-label="Log diet for the day" style="width: 100%; max-width: 440px; background: #1B1F25; border: 1px solid #2E343D; border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+          <div>
+            <div style="font-size: 13px; color: #8E97A3">How did you eat on</div>
+            <h2 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500">{{selLabel}}</h2>
+          </div>
+          <button type="button" class="btn icon" aria-label="Close" onClick="{{closeModal}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px" role="group" aria-label="How did you eat">
+          <button type="button" class="st {{selOn}}" onClick="{{setOn}}"><span style="width: 12px; height: 12px; border-radius: 3px; background: #A8B9A3"></span>Ate by the plan</button>
+          <button type="button" class="st {{selMore}}" onClick="{{setMore}}"><span style="width: 12px; height: 12px; border-radius: 3px; background: #C9B08A"></span>Ate more than planned</button>
+          <button type="button" class="st {{selLess}}" onClick="{{setLess}}"><span style="width: 12px; height: 12px; border-radius: 3px; background: #8DAACB"></span>Ate less than planned</button>
+          <button type="button" class="st {{selOff}}" onClick="{{setOff}}"><span style="width: 12px; height: 12px; border-radius: 3px; background: #C58F94"></span>Ate outside the plan</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="d-note" style="font-size: 12px; color: #8E97A3">Comment</label>
+          <textarea id="d-note" class="field" rows="3" placeholder="What happened? e.g. birthday dinner, skipped lunch…" value="{{selNote}}" onInput="{{setNote}}" style="resize: vertical; width: 100%"></textarea>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between">
+          <button type="button" class="btn" onClick="{{clearDay}}">Clear day</button>
+          <button type="button" class="btn primary" onClick="{{closeModal}}">Done</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1360}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      selected: 22,
+      modalOpen: false,
+      entries: {
+        1: { s: 'on' }, 2: { s: 'on' }, 3: { s: 'more', note: 'Pizza night with friends.' }, 4: { s: 'off', note: 'Wedding — ate whatever was served.' },
+        5: { s: 'on' }, 6: { s: 'on' }, 7: { s: 'less', note: 'Skipped dinner, late meeting.' }, 8: { s: 'on' }, 9: { s: 'on' },
+        10: { s: 'more' }, 11: { s: 'on' }, 12: { s: 'on' }, 13: { s: 'on' }, 14: { s: 'less' }, 15: { s: 'on' },
+        16: { s: 'on' }, 17: { s: 'more', note: 'Post-run brunch, extra pancakes.' }, 18: { s: 'off' }, 19: { s: 'on' },
+        20: { s: 'on' }, 21: { s: 'less' }, 22: { s: 'on', note: 'Prepped lunch, hit protein.' }
+      }
+    };
+  }
+  renderVals() {
+    const m = !!this.state.menuOpen;
+    return { ...this.vals(), menuOpen: m, menuClosed: !m, menuCls: m ? 'open' : '', toggleMenu: () => this.setState({ menuOpen: !m }) };
+  }
+  vals() {
+    const meta = {
+      on: { color: '#A8B9A3', label: 'On plan', letter: 'P', cls: 'on' },
+      more: { color: '#C9B08A', label: 'More', letter: 'M', cls: 'more' },
+      less: { color: '#8DAACB', label: 'Less', letter: 'L', cls: 'less' },
+      off: { color: '#C58F94', label: 'Outside', letter: 'O', cls: 'off' }
+    };
+    const entries = this.state.entries;
+    const sel = this.state.selected;
+    const lead = 3; // 1 Oct 2026 is a Thursday → Mon-first offset 3
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push({ blank: true, isDay: false });
+    for (let d = 1; d <= 31; d++) {
+      const e = entries[d];
+      const future = d > 22;
+      cells.push({
+        blank: false, isDay: true, num: String(d),
+        cls: (d === sel ? 'sel ' : '') + (future ? 'future' : ''),
+        hasStatus: !!e, color: e ? meta[e.s].color : '', label: e ? meta[e.s].label : '', letter: e ? meta[e.s].letter : '',
+        hasNote: !!(e && e.note),
+        aria: d + ' October' + (e ? ', ' + meta[e.s].label : ''),
+        pick: () => { if (!future) this.setState({ selected: d, modalOpen: true }); }
+      });
+    }
+    while (cells.length % 7 !== 0) cells.push({ blank: true, isDay: false });
+    const counts = { on: 0, more: 0, less: 0, off: 0 };
+    Object.values(entries).forEach((e) => { counts[e.s]++; });
+    const cur = entries[sel] || {};
+    const setStatus = (s) => this.setState({ entries: { ...entries, [sel]: { ...cur, s } } });
+
+    // ---- Body composition, 12 weekly readings
+    const line = (vals, color, title, unit, aria, lowerIsBetter) => {
+      const mn = Math.min(...vals), mx = Math.max(...vals);
+      const pad = (mx - mn) * 0.25 || 1;
+      const lo = mn - pad, hi = mx + pad;
+      const L = 4, R = 296, T = 20, B = 90;
+      const x = (i) => (L + (i * (R - L)) / (vals.length - 1)).toFixed(1);
+      const y = (v) => (B - ((v - lo) / (hi - lo)) * (B - T)).toFixed(1);
+      const pts = vals.map((v, i) => x(i) + ',' + y(v));
+      const d = vals[vals.length - 1] - vals[0];
+      const good = lowerIsBetter ? d <= 0 : d >= 0;
+      return {
+        title, unit, color, aria,
+        now: vals[vals.length - 1].toFixed(1),
+        delta: (d > 0 ? '+' : '') + d.toFixed(1) + ' ' + unit + ' since July',
+        deltaColor: good ? '#A8B9A3' : '#C9B08A',
+        pts: pts.join(' '),
+        area: 'M' + x(0) + ',' + B + ' L' + pts.join(' L') + ' L' + x(vals.length - 1) + ',' + B + ' Z',
+        lastX: x(vals.length - 1), lastY: y(vals[vals.length - 1])
+      };
+    };
+    const charts = [
+      line([84.2, 83.9, 83.6, 83.8, 83.1, 82.7, 82.9, 82.4, 82.0, 81.8, 81.5, 81.3], '#E6E8EB', 'Weight', 'kg', 'Body weight over 12 weeks', true),
+      line([21.4, 21.2, 21.0, 21.1, 20.6, 20.3, 20.4, 20.0, 19.7, 19.5, 19.3, 19.1], '#C9B08A', 'Body fat', '%', 'Body fat percentage over 12 weeks', true),
+      line([33.0, 33.1, 33.1, 33.2, 33.4, 33.5, 33.5, 33.7, 33.8, 33.9, 34.1, 34.2], '#8DAACB', 'Muscle', 'kg', 'Muscle mass in kilograms over 12 weeks', false)
+    ];
+
+    return {
+      cells, charts,
+      modalOpen: this.state.modalOpen,
+      closeModal: () => this.setState({ modalOpen: false }),
+      nOn: counts.on, nMore: counts.more, nLess: counts.less, nOff: counts.off,
+      nNone: 22 - Object.keys(entries).filter((k) => Number(k) <= 22).length,
+      selLabel: (sel === 22 ? 'Today · ' : '') + sel + ' October',
+      selOn: cur.s === 'on' ? 'on' : '', selMore: cur.s === 'more' ? 'on' : '',
+      selLess: cur.s === 'less' ? 'on' : '', selOff: cur.s === 'off' ? 'on' : '',
+      setOn: () => setStatus('on'), setMore: () => setStatus('more'),
+      setLess: () => setStatus('less'), setOff: () => setStatus('off'),
+      selNote: cur.note || '',
+      setNote: (ev) => this.setState({ entries: { ...entries, [sel]: { ...cur, s: cur.s || 'on', note: ev.target.value } } }),
+      clearDay: () => { const n = { ...entries }; delete n[sel]; this.setState({ entries: n, modalOpen: false }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

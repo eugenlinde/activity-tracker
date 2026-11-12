@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Import data</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15181D}
+a{color:#A8B9A3}a:hover{color:#B8C8B3}
+.nav a{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;color:#8E97A3;text-decoration:none;font-weight:500;font-size:15px;min-height:44px;box-sizing:border-box;flex:1 1 160px}
+.nav a:hover{color:#E6E8EB;background:#22272E}
+.nav a.on{color:#E6E8EB;background:#22272E}
+.burger{display:none;font:inherit;background:transparent;border:1px solid #2E343D;border-radius:8px;color:#E6E8EB;width:44px;height:44px;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.burger:hover{background:#22272E}
+@media (max-width: 760px){
+  .nav{flex:1 1 100% !important;padding:8px 16px !important;border-right:0 !important;border-bottom:1px solid #22272E}
+  .nav .logo{padding:0 !important}
+  .burger{display:flex}
+  .navlinks{display:none !important;padding:8px 0 10px}
+  .navlinks.open{display:flex !important;flex-direction:column}
+  .navlinks.open a{flex:1 1 auto}
+  .navuser{display:none}
+  main{padding:20px 16px 40px !important}
+}
+.btn{font:inherit;font-weight:500;font-size:14px;min-height:40px;padding:0 16px;border-radius:8px;border:1px solid #2E343D;background:#22272E;color:#E6E8EB;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.btn:hover{background:#2A3039;color:#E6E8EB}
+.btn.primary{background:#A8B9A3;color:#15181D;border-color:#A8B9A3}
+.btn.primary:hover{background:#B8C8B3;color:#15181D}
+.btn.ghost{background:transparent;border-color:transparent;color:#8E97A3}
+.btn.ghost:hover{background:#22272E;color:#E6E8EB}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:260px;border:2px dashed #2E343D;border-radius:12px;background:#181C22;color:#8E97A3;cursor:pointer;text-align:center;padding:24px}
+.drop:hover{border-color:#A8B9A3;color:#E6E8EB}
+.sel{font:inherit;font-size:13px;font-weight:500;min-height:34px;padding:0 10px;border-radius:8px;border:1px solid #2E343D;background:#181C22;color:#E6E8EB}
+.sel:focus{outline:2px solid #A8B9A3;outline-offset:1px}
+.chk{width:20px;height:20px;accent-color:#A8B9A3;cursor:pointer}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th{font-size:12px;color:#8E97A3;text-align:left;padding:8px 10px;border-bottom:1px solid #22272E;font-weight:500}
+td{padding:10px;border-bottom:1px solid #22272E;vertical-align:middle;font-size:14px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; background: #15181D; color: #E6E8EB; font-family: Manrope, system-ui, sans-serif; font-size: 15px; line-height: 1.45">
+
+<nav class="nav" aria-label="Main" style="flex: 1 1 220px; padding: 24px 16px; border-right: 1px solid #22272E; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box">
+  <div class="navtop" style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+    <div class="logo" style="font-family: Manrope, system-ui, sans-serif; font-size: 20px; font-weight: 500; letter-spacing: -0.01em; padding: 6px 14px 18px; display: flex; align-items: center; gap: 10px">
+      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #A8B9A3"></span>
+      tracker
+    </div>
+    <button type="button" class="burger" aria-label="Menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}">
+      <sc-if value="{{menuClosed}}" hint-placeholder-val="{{true}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></sc-if>
+      <sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+    </button>
+  </div>
+  <div class="navlinks {{menuCls}}" style="display: flex; flex-wrap: wrap; gap: 6px">
+    <a href="Main.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"></rect><rect x="13" y="3" width="8" height="5" rx="1.5"></rect><rect x="13" y="12" width="8" height="9" rx="1.5"></rect><rect x="3" y="15" width="8" height="6" rx="1.5"></rect></svg>Dashboard</a>
+    <a href="Workouts.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"></path></svg>Workouts</a>
+    <a href="Templates.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M9 9v11"></path></svg>Templates</a>
+    <a href="Aerobic.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>Aerobic</a>
+    <a href="Diet.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16M5 11a7 7 0 0 1 14 0M3 15h18M6 15v3h12v-3"></path></svg>Diet</a>
+    <a href="Shares.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"></path></svg>Shares</a>
+    <a href="Import.dc.html" class="on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"></path></svg>Import</a>
+  </div>
+  <div class="navuser" style="margin-top: auto; padding: 14px; color: #8E97A3; font-size: 13px; line-height: 1.4">
+    <div style="color: #E6E8EB; font-weight: 500">Eugen L.</div>
+    <div>Signed in</div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+    <div>
+      <div style="color: #8E97A3; font-size: 14px">CSV or Excel · AI maps the columns, you confirm before anything is written</div>
+      <h1 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 34px; font-weight: 500; line-height: 1.1; letter-spacing: -0.01em">Import</h1>
+    </div>
+    <ol style="display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; font-weight: 500">
+      <li style="padding: 6px 12px; border-radius: 999px; background: {{s1bg}}; color: {{s1fg}}">1 Upload</li>
+      <li style="padding: 6px 12px; border-radius: 999px; background: {{s2bg}}; color: {{s2fg}}">2 Review</li>
+      <li style="padding: 6px 12px; border-radius: 999px; background: {{s3bg}}; color: {{s3fg}}">3 Done</li>
+    </ol>
+  </header>
+
+  <!-- Step 1: upload -->
+  <sc-if value="{{isIdle}}" hint-placeholder-val="{{true}}">
+    <label class="drop" for="file">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7 10l5-5 5 5M4 17v3h16v-3"></path></svg>
+      <span style="font-size: 18px; font-weight: 500; color: #E6E8EB">Drop a file here, or click to choose</span>
+      <span style="font-size: 14px">.csv, .xlsx, .xls · up to 10 MB · any column layout</span>
+      <input id="file" type="file" accept=".csv,.xlsx,.xls" onChange="{{pickFile}}" style="position: absolute; width: 1px; height: 1px; opacity: 0">
+    </label>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+      <button type="button" class="btn" onClick="{{useSample}}">Try with a sample file</button>
+      <span style="font-size: 13px; color: #8E97A3">Works with exports from Garmin, Strava, Google Sheets, or a hand-kept spreadsheet.</span>
+    </div>
+  </sc-if>
+
+  <!-- Step 2: review -->
+  <sc-if value="{{isReview}}" hint-placeholder-val="{{false}}">
+    <section style="background: #1B1F25; border: 1px solid #22272E; border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+        <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A8B9A3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l5 5v13H6zM14 3v6h6M9 13h6M9 17h6"></path></svg>
+          <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{fileName}}</span>
+          <span style="font-size: 13px; color: #8E97A3; white-space: nowrap">{{rowTotal}} rows · 5 columns</span>
+        </div>
+        <button type="button" class="btn ghost" onClick="{{reset}}">Choose another file</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 13px; font-weight: 500; color: #8E97A3">How the columns were read</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{mapping}}" as="m" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #181C22; border: 1px solid #22272E; font-size: 13px">
+              <span style="color: #8E97A3">{{m.from}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E97A3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+              <span style="font-weight: 500">{{m.to}}</span>
+              <span style="padding: 2px 7px; border-radius: 6px; background: {{m.confBg}}; color: #15181D; font-weight: 500; font-size: 11px">{{m.conf}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; background: #26241E; border: 1px solid #4A4232; font-size: 14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9B08A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 auto; margin-top: 2px"><path d="M12 3l10 18H2zM12 10v4M12 17v1"></path></svg>
+        <span>Row 4 has "45" in the Duration column with no unit — read as minutes. Row 7 "Deadlift 140x5x3" was split into weight × reps × sets. Uncheck anything that looks wrong.</span>
+      </div>
+
+      <div style="overflow-x: auto">
+        <table>
+          <thead>
+            <tr><th style="width: 36px"></th><th>Date</th><th>Detected as</th><th>Interpretation</th><th>Source text</th></tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+              <tr>
+                <td><input type="checkbox" class="chk" checked="{{r.on}}" onChange="{{r.toggle}}" aria-label="Include row {{r.n}}"></td>
+                <td style="white-space: nowrap; font-variant-numeric: tabular-nums">{{r.date}}</td>
+                <td>
+                  <label for="{{r.selId}}" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Type for row {{r.n}}</label>
+                  <select id="{{r.selId}}" class="sel" value="{{r.kind}}" onChange="{{r.setKind}}">
+                    <option value="Workout">Workout</option>
+                    <option value="Aerobic">Aerobic</option>
+                    <option value="Weight">Weight</option>
+                    <option value="Steps">Steps</option>
+                    <option value="Diet">Diet</option>
+                    <option value="Skip">Skip</option>
+                  </select>
+                </td>
+                <td style="font-weight: 500">{{r.interp}}</td>
+                <td style="color: #8E97A3; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap">{{r.src}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+        <span style="font-size: 14px; color: #8E97A3">{{selectedCount}} of {{rowTotal}} rows will be inserted. Nothing is written until you confirm.</span>
+        <button type="button" class="btn primary" onClick="{{insert}}">Insert {{selectedCount}} rows</button>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- Step 3: done -->
+  <sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+    <section style="background: #1B1F25; border: 1px solid #22272E; border-radius: 12px; padding: 28px; display: flex; flex-direction: column; gap: 18px; align-items: flex-start">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 44px; height: 44px; border-radius: 50%; background: #A8B9A3; color: #15181D; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <h2 style="margin: 0; font-family: Manrope, system-ui, sans-serif; font-size: 28px; font-weight: 500; line-height: 1">{{insertedCount}} rows imported</h2>
+      </div>
+      <div style="display: flex; gap: 24px; flex-wrap: wrap">
+        <sc-for list="{{summary}}" as="s" hint-placeholder-count="4">
+          <div><div style="font-size: 13px; color: #8E97A3">{{s.kind}}</div><div style="font-family: Manrope, system-ui, sans-serif; font-size: 30px; font-weight: 300; line-height: 1">{{s.count}}</div></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap">
+        <a href="Main.dc.html" class="btn primary">Open dashboard</a>
+        <a href="Workouts.dc.html" class="btn">See workouts</a>
+        <button type="button" class="btn ghost" onClick="{{reset}}">Import another file</button>
+      </div>
+    </section>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 'idle', fileName: '', rows: this.seed(), inserted: 0, summary: [] };
+  }
+  seed() {
+    return [
+      { id: 1, date: '2026-09-01', kind: 'Workout', interp: 'Push A · 5 exercises · 62 min', src: 'Push A;62;bench 80x8x4,...', on: true },
+      { id: 2, date: '2026-09-02', kind: 'Aerobic', interp: 'Running · 30 min', src: 'run;30 min', on: true },
+      { id: 3, date: '2026-09-02', kind: 'Weight', interp: '84.2 kg', src: '84,2', on: true },
+      { id: 4, date: '2026-09-03', kind: 'Aerobic', interp: 'Cycling · 45 min (unit assumed)', src: 'bike;45', on: true },
+      { id: 5, date: '2026-09-03', kind: 'Steps', interp: '9,870 steps', src: '9870', on: true },
+      { id: 6, date: '2026-09-04', kind: 'Diet', interp: 'Ate more than planned · "pizza"', src: 'over;pizza', on: true },
+      { id: 7, date: '2026-09-05', kind: 'Workout', interp: 'Pull A · Deadlift 140 kg × 5 × 3', src: 'Pull A;;Deadlift 140x5x3', on: true },
+      { id: 8, date: '2026-09-06', kind: 'Skip', interp: 'Rest day — nothing to insert', src: 'rest', on: false }
+    ];
+  }
+  renderVals() {
+    const m = !!this.state.menuOpen;
+    return { ...this.vals(), menuOpen: m, menuClosed: !m, menuCls: m ? 'open' : '', toggleMenu: () => this.setState({ menuOpen: !m }) };
+  }
+  vals() {
+    const step = this.state.step;
+    const rows = this.state.rows.map((r, i) => ({
+      ...r, n: i + 1, selId: 'kind-' + r.id,
+      toggle: () => this.setState({ rows: this.state.rows.map((x) => (x.id === r.id ? { ...x, on: !x.on } : x)) }),
+      setKind: (e) => this.setState({ rows: this.state.rows.map((x) => (x.id === r.id ? { ...x, kind: e.target.value, on: e.target.value !== 'Skip' } : x)) })
+    }));
+    const selected = rows.filter((r) => r.on && r.kind !== 'Skip');
+    const pill = (active, done) => ({ bg: active ? '#A8B9A3' : (done ? '#22272E' : 'transparent'), fg: active ? '#15181D' : (done ? '#E6E8EB' : '#5E6773') });
+    const p1 = pill(step === 'idle', step !== 'idle'), p2 = pill(step === 'review', step === 'done'), p3 = pill(step === 'done', false);
+    return {
+      isIdle: step === 'idle', isReview: step === 'review', isDone: step === 'done',
+      s1bg: p1.bg, s1fg: p1.fg, s2bg: p2.bg, s2fg: p2.fg, s3bg: p3.bg, s3fg: p3.fg,
+      fileName: this.state.fileName, rowTotal: rows.length, rows,
+      selectedCount: selected.length,
+      mapping: [
+        { from: 'Kuupäev', to: 'Date', conf: '99%', confBg: '#A8B9A3' },
+        { from: 'Tegevus', to: 'Activity / type', conf: '94%', confBg: '#A8B9A3' },
+        { from: 'Kestus', to: 'Duration (min)', conf: '81%', confBg: '#C9B08A' },
+        { from: 'Märkused', to: 'Exercises / notes', conf: '88%', confBg: '#A8B9A3' },
+        { from: 'Kaal', to: 'Body weight (kg)', conf: '76%', confBg: '#C9B08A' }
+      ],
+      pickFile: (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        this.setState({ step: 'review', fileName: f.name, rows: this.seed() });
+      },
+      useSample: () => this.setState({ step: 'review', fileName: 'treening_sept_2026.xlsx', rows: this.seed() }),
+      insert: () => {
+        const counts = {};
+        selected.forEach((r) => { counts[r.kind] = (counts[r.kind] || 0) + 1; });
+        const summary = Object.keys(counts).map((k) => ({ kind: k, count: counts[k] }));
+        this.setState({ step: 'done', inserted: selected.length, summary });
+      },
+      insertedCount: this.state.inserted,
+      summary: this.state.summary,
+      reset: () => this.setState({ step: 'idle', fileName: '', rows: this.seed(), inserted: 0, summary: [] })
+    };
+  }
+}
+</script>
+</body>
+</html>

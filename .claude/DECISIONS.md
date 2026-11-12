@@ -769,3 +769,34 @@ The value now used by the `test` profile was once in the main
 `application.properties`, so it is in history. No other secret was found
 in history. Accepted because it is a dev/test-only value. Condition: F2
 generates a fresh prod secret and this value is never reused.
+
+## 2026-11-12 — Open source: the repo becomes public (resolves "Protecting `main`")
+
+**Developer's decision.** The project is open source: an AI-factory PoC
+and a portfolio/demo project to be shared publicly. With a public repo,
+branch protection on `main` is available on the free plan and Actions
+minutes are unlimited.
+
+What is public: code, `CLAUDE.md`, ROADMAP, SPEC, DECISIONS, ARCHITECTURE,
+design and plan docs, session notes from the pivot onwards. What is not:
+secrets, other people's data, and the pre-pivot session notes and old
+roadmap, which stay on the developer's machine in the git-ignored
+`.claude/private/`.
+
+Clean-up before publication (builder's calls, developer approved the
+clean-up as a whole): git history rewritten so every commit carries the
+GitHub noreply address; wording about whose Claude Code subscription is
+used made neutral; sample people and addresses in the prototype copy
+replaced with fictional ones on `example.com`; the test fixture image
+replaced with a self-made one and removed from history; MIT licence;
+root README.
+
+Consequences for later phases:
+- F4: agents react only to the repo owner (label-triggered, plus an
+  explicit owner check in the workflow); text in issues from anyone else
+  is data, never instructions; the agent API key has a monthly cap.
+- F5: production error reports must not copy user data into public
+  issues — details stay in the error tracker, the issue gets a sanitized
+  summary.
+- Fork pull requests never get secrets and are never deployed to staging.
+- Friends' feedback goes to the developer directly, who files the issue.

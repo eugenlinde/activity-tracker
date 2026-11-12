@@ -94,3 +94,19 @@ maps onto this project. Nothing decided yet. Proposals given:
   reports must not copy user data into public issues; fork PRs get no
   secrets and no staging deploy.
 - Waiting for the developer's go-ahead. Not committed.
+
+## 2026-11-12 — Pre-publication clean-up (local, done)
+- Developer approved the clean-up. Backup of the old history kept locally
+  outside git tracking. Pre-pivot notes and old roadmap moved to the
+  git-ignored `.claude/private/`.
+- History rewritten locally: 29 pre-pivot commits + pivot commit + CI
+  commit, all with the noreply address; old fixture image gone from
+  history. Verified: no sensitive strings in `git log -p main ci`; tree
+  identical to the pre-rewrite final tree; 115 tests green; frontend lint
+  and build green.
+- Not done: the GitHub repo still holds the old history. Force-pushing is
+  not enough — pull-request refs (#1, and the closed probes #2 and #3)
+  keep the old commits reachable forever. The repo has to be deleted and
+  re-created; deletion is the developer's to do.
+- Then: push clean `main` and `ci`, reopen the CI PR, developer merges,
+  make public (separate ok), enable branch protection, explain-back.

@@ -110,3 +110,16 @@ maps onto this project. Nothing decided yet. Proposals given:
   re-created; deletion is the developer's to do.
 - Then: push clean `main` and `ci`, reopen the CI PR, developer merges,
   make public (separate ok), enable branch protection, explain-back.
+
+## 2026-11-12 — Repo public, `main` protected
+- Old repo deleted by the developer; re-created private with the clean
+  history; combined PR #1 (pivot + CI + clean-up) merged by the developer;
+  CI on `main` green.
+- With the developer's ok: repo made public, branch protection enabled.
+- Probes: direct push to `main` rejected (GH006). PR #2 with a failing
+  test: `backend` red, GitHub `mergeStateStatus=BLOCKED`; closed, branch
+  deleted. An actual merge attempt on the probe was not made — the
+  session's own permission guard refused it, and the BLOCKED state is the
+  evidence instead.
+- Left for F1: explain-back. Open for the developer: Claude Code
+  subscription check for unattended runs; Garmin developer programme.

@@ -800,3 +800,14 @@ Consequences for later phases:
   summary.
 - Fork pull requests never get secrets and are never deployed to staging.
 - Friends' feedback goes to the developer directly, who files the issue.
+
+## 2026-11-12 — Branch protection settings on `main` (builder's call)
+
+Enabled right after the repo went public. Pull request required; required
+checks `backend` and `frontend`; branch must be up to date with `main`;
+no approval count (one developer); rules apply to the owner as well
+(`enforce_admins`), so "nothing pushes to `main` directly" is enforced by
+GitHub rather than by convention — this also covers agents acting with the
+owner's credentials. Cost: an urgent fix still has to go through a PR and
+wait about two minutes for CI; the escape hatch is turning protection off
+in Settings → Branches.

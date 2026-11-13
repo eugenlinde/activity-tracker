@@ -18,7 +18,8 @@ piece in their own words before the phase is checked off.
     - [x] `docs/ARCHITECTURE.md` skeleton (describes today's local-only setup)
     - [x] Implementation plan for F1 (`docs/superpowers/plans/2026-11-12-f1-repo-and-ci.md`), awaiting review
     - [x] First commit of the pivot docs
-- [ ] **F1 — Repo and CI** (current)
+- [x] **F1 — Repo and CI** (built and verified 2026-11-12; explain-back
+      deferred by the developer 2026-11-13 — see Understanding debt)
     - [x] Private GitHub repo `eugenlinde/activity-tracker`, history pushed,
           `.claude/` tracked (2026-11-12)
     - [x] CI on every PR: backend build + tests (Testcontainers), frontend
@@ -33,6 +34,7 @@ piece in their own words before the phase is checked off.
     - [ ] Developer: check whether the Claude Code subscription allows
           unattended runs in GitHub Actions → plan A or plan B (OpenRouter)
     - [ ] Explain-back: what CI does on a PR and what a red check means
+          — deferred
 - [ ] **F2 — First deploy**
     - [ ] Dockerfile(s): backend jar + frontend static build
     - [ ] Prod config from env vars (DB, JWT secret, OpenRouter, storage path)
@@ -60,6 +62,17 @@ piece in their own words before the phase is checked off.
     - [ ] One real bug or feature goes phone → triage → spec → code → tests
           → staging → "ok" → prod → monitoring, with no code from the developer
     - [ ] Write-up: time taken, number of human interventions, what broke
+
+## Understanding debt
+
+Explain-back checkpoints the developer chose to postpone until the MVP is
+usable (decided 2026-11-13). `docs/ARCHITECTURE.md` is still kept current
+with every change, so the explanations exist to read later. To be paid
+back before F6 (PoC acceptance) at the latest.
+
+- F1: what happens when a PR is opened; what a red check means and where
+  to look; why the test suite needs Docker on the CI machine; what
+  protects `main` and what does not.
 
 ## Product backlog
 

@@ -123,3 +123,11 @@ maps onto this project. Nothing decided yet. Proposals given:
   evidence instead.
 - Left for F1: explain-back. Open for the developer: Claude Code
   subscription check for unattended runs; Garmin developer programme.
+
+## 2026-11-13 — F1 closed without explain-back
+- PR #3 merged by the developer. Local `main` in sync.
+- Developer declined the explain-back for now ("focus on the MVP"). Logged
+  in DECISIONS; F1 checkpoint moved to "Understanding debt" in ROADMAP.
+- Doc changes sit on local branch `mvp-planning` (not pushed); they ride
+  along with the next PR, since `main` only takes PRs now.
+- Next: agree what the MVP contains and in which order.

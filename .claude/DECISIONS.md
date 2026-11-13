@@ -811,3 +811,21 @@ GitHub rather than by convention — this also covers agents acting with the
 owner's credentials. Cost: an urgent fix still has to go through a PR and
 wait about two minutes for CI; the escape hatch is turning protection off
 in Settings → Branches.
+
+## 2026-11-13 — Explain-back checkpoints postponed until the MVP is usable
+
+**Developer's decision**, overriding the builder. The developer does not
+want to spend time on the explain-back questions now and wants to focus on
+reaching a usable MVP.
+
+- Builder's position: the developer's own anti-goal is "I must understand
+  what was built"; the checkpoint per phase is how that is checked, and
+  debt of this kind grows quietly — each new phase adds a layer on top of
+  one that was never explained back.
+- Developer's position: these are side topics right now; getting to the
+  MVP comes first.
+- Outcome: phases are closed when built and verified. Skipped checkpoints
+  are listed under "Understanding debt" in `.claude/ROADMAP.md`.
+  `docs/ARCHITECTURE.md` keeps being updated with every infra change, in
+  plain language. The debt is paid back before F6 at the latest. The rule
+  in `CLAUDE.md` is unchanged — this is a postponement, not a repeal.

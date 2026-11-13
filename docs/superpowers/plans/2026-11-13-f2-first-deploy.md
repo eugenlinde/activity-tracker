@@ -157,7 +157,7 @@ Add `org.springframework.boot:spring-boot-starter-actuator`. Properties: `manage
 
 **Interfaces:**
 - Consumes: `/actuator/health` (Task 2), `SIGNUP_ALLOWED_EMAILS` (Task 1).
-- Produces: image names `ghcr.io/eugenlinde/activity-tracker-api` and `ghcr.io/eugenlinde/activity-tracker-web`, both tagged by `IMAGE_TAG`. Compose service names `postgres`, `api`, `web`. Named volumes `pgdata`, `media`, `caddy_data`, `caddy_config`. Variables in `infra/env.example`: `SITE_ADDRESS`, `IMAGE_TAG`, `POSTGRES_PASSWORD`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `SIGNUP_ALLOWED_EMAILS`, `STORAGE_ROOT_PATH`, `SPRING_JPA_SHOW_SQL`, `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`.
+- Produces: image names `ghcr.io/eugenlinde/activity-tracker-api` and `ghcr.io/eugenlinde/activity-tracker-web`, both tagged by `IMAGE_TAG`. Compose service names `postgres`, `api`, `web`. Named volumes `pgdata`, `media`, `caddy_data`, `caddy_config`. Variables in `infra/env.example`: `SITE_ADDRESS`, `IMAGE_TAG`, `POSTGRES_PASSWORD`, `JWT_SECRET`, `SIGNUP_ALLOWED_EMAILS`, `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`. The datasource URL and user, the media path and `SPRING_JPA_SHOW_SQL=false` are fixed in `infra/compose.yml`, which also hands `POSTGRES_PASSWORD` to the api as its datasource password.
 
 - [ ] **Step 1: `infra/api.Dockerfile`**
 
@@ -175,7 +175,7 @@ With `SITE_ADDRESS` a real domain Caddy gets a certificate by itself; with `:80`
 - [ ] **Step 3: `infra/compose.yml`**
 
 - `postgres`: `postgres:17-alpine`, `POSTGRES_DB=tracker`, `POSTGRES_USER=tracker`, `POSTGRES_PASSWORD` from the env file, volume `pgdata`, `pg_isready` health check, no published ports.
-- `api`: the api image, `env_file: .env`, `depends_on: postgres (healthy)`, volume `media:/data/media`, no published ports.
+- `api`: the api image, an explicit `environment:` block (only the variables it needs), `depends_on: postgres (healthy)`, volume `media:/data/media`, no published ports.
 - `web`: the web image, ports `80:80`, `443:443`, `443:443/udp`, volumes `caddy_data:/data`, `caddy_config:/config`, `SITE_ADDRESS` from the env file, `depends_on: api`.
 - all three `restart: unless-stopped`.
 
@@ -225,7 +225,7 @@ Run as root on a fresh Ubuntu 24.04. It:
 - creates user `deploy`, copies root's `authorized_keys` to it, adds it to `docker`
 - sets `PasswordAuthentication no` and `PermitRootLogin prohibit-password` in sshd, reloads it
 - `ufw allow 22,80,443/tcp`, `ufw allow 443/udp`, `ufw --force enable`
-- creates `/opt/tracker` and, only if `/opt/tracker/.env` does not exist, writes it with: `POSTGRES_PASSWORD` and `JWT_SECRET` from `openssl rand -base64 32`, the datasource variables derived from them, `STORAGE_ROOT_PATH=/data/media`, `SPRING_JPA_SHOW_SQL=false`, `IMAGE_TAG=none`, placeholders for OpenRouter, and `SITE_ADDRESS` / `SIGNUP_ALLOWED_EMAILS` taken from the script's two arguments
+- creates `/opt/tracker` and, only if `/opt/tracker/.env` does not exist, writes it with: `POSTGRES_PASSWORD` (`openssl rand -hex 24`) and `JWT_SECRET` (`openssl rand -base64 32`), `IMAGE_TAG=none`, placeholders for OpenRouter, and `SITE_ADDRESS` / `SIGNUP_ALLOWED_EMAILS` taken from the script's two arguments
 - prints what it did, never a secret value
 
 - [ ] **Step 2: Check the script before it touches anything**

@@ -893,3 +893,27 @@ reaching a usable MVP.
 - One shared `DayEntryDialog` replaces the weight-only dialog.
 - The sidebar now stays in place while the page scrolls (the Dashboard is
   the first page taller than the screen).
+
+## 2026-11-13 — F2 tasks 1–3: builder's calls
+
+- Sign-up allowlist comes from one env var and fails closed: unset means
+  nobody. The policy runs before the duplicate-email check so a refusal
+  does not reveal whether an address is registered. Matching ignores case
+  and spaces.
+- Caddy forwards only `/api/*` and `/actuator/health`; any other path is
+  the web app. So even if another actuator endpoint were ever switched on
+  in the app, it would not be reachable from outside.
+- The server's `.env` holds eight values. The datasource URL and user,
+  the media path and `SPRING_JPA_SHOW_SQL=false` are fixed in
+  `infra/compose.yml`, and the database password is passed to the api
+  from the same variable Postgres uses — one secret, one place. (The plan
+  first listed them as separate variables; the plan text was corrected.)
+- The api container gets an explicit list of variables rather than the
+  whole env file.
+- `jar { enabled = false }`: `build/libs` holds exactly one jar, so the
+  Dockerfile's `COPY build/libs/*.jar` cannot pick the wrong one.
+- Images are built from already-built artefacts (Gradle and yarn run in
+  CI, not inside Docker) — faster, and the same jar that passed the tests
+  is the one that ships.
+- No cache headers were added in Caddy yet; a stale `index.html` after a
+  deploy is possible in theory. Left out as not yet a problem.

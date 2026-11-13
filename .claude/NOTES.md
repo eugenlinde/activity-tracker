@@ -217,3 +217,23 @@ maps onto this project. Nothing decided yet. Proposals given:
   invited emails. Tasks 1–3 need none of these.
 - Plan sits on local branch `f2-deploy` (based on `feat/weight`), not
   pushed.
+
+## 2026-11-13 — F2 tasks 1–3 done (no server needed)
+- Task 1, closed sign-up: tests first (8 policy + 4 flow), red with a stub
+  policy, then green. Task 2, health endpoint: 7 tests, red then green.
+  Whole suite 205 green.
+- Task 3: `infra/` (two Dockerfiles, Caddyfile, compose, env example),
+  `.dockerignore`. Images built: api 435 MB, web 89 MB.
+- Dress rehearsal on the laptop from `infra/compose.yml` with throwaway
+  secrets: health `UP` through Caddy; `/api/activities` 401 without a
+  token; `/shares` served by the SPA fallback; `/actuator/env` returns the
+  web app's HTML, not the actuator; uninvited sign-up refused in API and
+  UI, invited one works; workout, image, weight, steps saved; image still
+  served after `up -d --force-recreate api`; api uid 100; no SQL and no
+  errors in the api log. Stack removed with `down -v`, scratch directory
+  and local image tags deleted.
+- Local development now needs `SIGNUP_ALLOWED_EMAILS='*'` in the run
+  command to create new accounts; logging in to existing ones is
+  unaffected.
+- Remaining F2 tasks (4–7) need the developer's server, domain, backup
+  bucket and invited emails.

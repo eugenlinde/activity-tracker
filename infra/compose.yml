@@ -1,0 +1,58 @@
+name: tracker
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tracker
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker -d tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/eugenlinde/activity-tracker-api:${IMAGE_TAG:?}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tracker
+      SPRING_DATASOURCE_USERNAME: tracker
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?}
+      SPRING_JPA_SHOW_SQL: "false"
+      STORAGE_ROOT_PATH: /data/media
+      JWT_SECRET: ${JWT_SECRET:?}
+      SIGNUP_ALLOWED_EMAILS: ${SIGNUP_ALLOWED_EMAILS:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:?}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:?}
+    volumes:
+      - media:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/eugenlinde/activity-tracker-web:${IMAGE_TAG:?}
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:

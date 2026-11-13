@@ -38,10 +38,12 @@ piece in their own words before the phase is checked off.
 - [ ] **F2 — First deploy** (planned 2026-11-13:
       `docs/superpowers/plans/2026-11-13-f2-first-deploy.md`; waits for the
       developer's server, domain, backup bucket and invited emails)
-    - [ ] Dockerfile(s): backend jar + frontend static build
-    - [ ] Prod config from env vars (DB, JWT secret, OpenRouter, storage path)
-    - [ ] Closed signup (invite / allowlist) — before anything is public
-    - [ ] Actuator `health` endpoint
+    - [x] Dockerfile(s): backend jar + frontend static build (2026-11-13,
+          rehearsed locally)
+    - [x] Prod config from env vars (DB, JWT secret, OpenRouter, storage
+          path) — set in `infra/compose.yml` (2026-11-13)
+    - [x] Closed signup (allowlist from `SIGNUP_ALLOWED_EMAILS`) (2026-11-13)
+    - [x] Actuator `health` endpoint (2026-11-13)
     - [ ] VPS, domain, Caddy with HTTPS, Docker Compose for prod
     - [ ] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
           health check

@@ -855,3 +855,22 @@ reaching a usable MVP.
 - Weight and steps are owner-only for now, not visible through a share.
 - Work is tracked as GitHub issues (#4 look, #5 weight, #6 steps), one PR
   each — the same path the agents will take later.
+
+## 2026-11-13 — Body weight (issue #5): builder's calls
+
+- `PUT /api/weights/{date}` is the only write: it creates or replaces the
+  day's entry, so there is no separate create/update and no id in the API.
+- "Date not in the future" is checked against UTC with one day of slack
+  (latest allowed = tomorrow UTC). A strict "not after today UTC" would
+  reject a user in Estonia logging at 00:30 local time. Cost: someone can
+  log one day ahead.
+- The server owns the date rule through an injected `Clock`; the frontend
+  also limits the date picker to today.
+- The dialog offers "Delete entry" when the chosen day already has one —
+  not in the issue's spec, added because a mistyped date would otherwise
+  be impossible to remove from the UI.
+- Chart is hand-drawn SVG with points placed by date, so gaps between
+  readings show as gaps in time, not as evenly spaced points.
+- `vite.config.ts` reads `API_TARGET` (default `http://localhost:8080`) so
+  a second backend can be checked without touching the developer's
+  running one.

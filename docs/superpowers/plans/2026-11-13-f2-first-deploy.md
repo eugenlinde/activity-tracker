@@ -35,7 +35,14 @@ from the task text below, this list wins:
   Task 5 Step 6.
 - A CI job `infra` runs `shellcheck` and `infra/test/run.sh`.
 - The deploy job sends files with `tar` over SSH instead of `scp`, and
-  also sends `backup.sh` and `restore.sh`.
+  also sends `backup.sh` and `restore.sh`. `compose.yml` goes to
+  `/opt/tracker/incoming/`; `deploy.sh` swaps it in and restores the
+  previous one on failure.
+- On a failed deploy the backend log is saved to
+  `/opt/tracker/last-failed-deploy.log` on the server instead of being
+  printed (Task 5 Step 7 expects it in the workflow log — read it over SSH
+  instead).
+- A manual redeploy of an existing tag skips the checks and `images`.
 - `provision.sh` already installs the backup timer (Task 6's change to it).
 - `backup.env` needs `RESTIC_REPOSITORY` and `RESTIC_PASSWORD`; the storage
   credentials' variable names are chosen in Task 6 Step 4.

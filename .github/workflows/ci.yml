@@ -12,7 +12,7 @@ on:
         default: ''
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   backend:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,6 +41,7 @@ jobs:
           retention-days: 7
 
   frontend:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -57,6 +59,7 @@ jobs:
       - run: yarn build
 
   infra:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -129,6 +132,10 @@ jobs:
           install -m 600 /dev/null ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          tar -C infra -cf - compose.yml deploy.sh backup.sh restore.sh \
+          mkdir -p bundle/incoming
+          cp infra/compose.yml bundle/incoming/
+          cp infra/deploy.sh infra/backup.sh infra/restore.sh bundle/
+          tar -C bundle -cf - incoming deploy.sh backup.sh restore.sh \
             | ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" 'tar -C /opt/tracker -xf -'
-          ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" "/opt/tracker/deploy.sh $TAG"
+          ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" \
+            "/opt/tracker/deploy.sh $TAG > /opt/tracker/last-deploy.log 2>&1; status=\$?; cat /opt/tracker/last-deploy.log; exit \$status"

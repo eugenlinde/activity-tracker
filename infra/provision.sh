@@ -103,6 +103,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+Environment=HOME=/root
 ExecStart=$APP_DIR/backup.sh
 EOF
 

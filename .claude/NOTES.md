@@ -260,3 +260,9 @@ maps onto this project. Nothing decided yet. Proposals given:
   `deploy` are untested until `DEPLOY_ENABLED` is set).
 - Still needed from the developer: server + IP, domain + DNS, backup
   bucket + key, invited emails.
+- Independent review of the scripts before push: 8 findings (failed
+  `up` skipped the rollback; backend log would have gone to the public
+  workflow log; `compose.yml` overwritten before validation; SSH drop
+  could kill a deploy mid-way; concurrency could delay a manual rollback;
+  three smaller ones). All fixed; tests written first and seen failing
+  for the testable ones. Script tests now 31, shellcheck clean.

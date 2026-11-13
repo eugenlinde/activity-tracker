@@ -51,7 +51,7 @@ if [ -z "$DUMP" ]; then
   exit 1
 fi
 
-docker rm -f "$NAME" >/dev/null 2>&1 || true
+docker rm -fv "$NAME" >/dev/null 2>&1 || true
 docker network inspect "$NAME" >/dev/null 2>&1 || docker network create --internal "$NAME" >/dev/null
 docker run -d --name "$NAME" --network "$NAME" \
   -e POSTGRES_DB=tracker -e POSTGRES_USER=tracker -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
@@ -88,4 +88,4 @@ else
 fi
 
 echo "Scratch database left running as container $NAME."
-echo "Clean up: docker rm -f $NAME && docker network rm $NAME && rm -rf $TARGET"
+echo "Clean up: docker rm -fv $NAME && docker network rm $NAME && rm -rf $TARGET"

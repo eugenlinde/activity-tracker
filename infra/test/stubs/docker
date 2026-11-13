@@ -6,14 +6,19 @@ case "$*" in
     ;;
   "compose exec -T postgres pg_dump -U tracker tracker")
     if [ "${STUB_DUMP_FAILS:-0}" = "1" ]; then exit 1; fi
+    echo "dump-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
     echo "-- fake dump"
     ;;
   "compose pull")
     echo "pull-tag ${IMAGE_TAG:-unset}" >> "$STUB_LOG"
+    echo "pull-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
     if [ "${STUB_PULL_FAILS:-0}" = "1" ]; then exit 1; fi
     ;;
   "compose up -d --remove-orphans")
-    echo "up-tag $(grep -E '^IMAGE_TAG=' "$STUB_APP_DIR/.env" | cut -d= -f2-)" >> "$STUB_LOG"
+    CURRENT=$(grep -E '^IMAGE_TAG=' "$STUB_APP_DIR/.env" | cut -d= -f2-)
+    echo "up-tag $CURRENT" >> "$STUB_LOG"
+    echo "up-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
+    if [ "${STUB_UP_FAILS_TAG:-}" = "$CURRENT" ]; then exit 1; fi
     ;;
   "compose logs --tail 50 api")
     echo "fake api log line"

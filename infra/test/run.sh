@@ -22,9 +22,10 @@ begin() {
   cp "$INFRA"/deploy.sh "$INFRA"/backup.sh "$INFRA"/restore.sh "$APP/"
   printf 'SITE_ADDRESS=tracker.test\nIMAGE_TAG=old\nPOSTGRES_PASSWORD=pg\nJWT_SECRET=abc+/=\n' > "$APP/.env"
   chmod 600 "$APP/.env"
+  echo "old-compose" > "$APP/compose.yml"
   printf 'RESTIC_REPOSITORY=/tmp/repo\nRESTIC_PASSWORD=%s\n' "$TRICKY_PASSWORD" > "$APP/backup.env"
   : > "$APP/stub.log"
-  unset STUB_DB_RUNNING STUB_DUMP_FAILS STUB_PULL_FAILS STUB_HEALTHY_TAGS STUB_RESTIC_FAILS STUB_WEEKDAY STUB_SNAPSHOT_HAS_DUMP
+  unset STUB_UP_FAILS_TAG STUB_DB_RUNNING STUB_DUMP_FAILS STUB_PULL_FAILS STUB_HEALTHY_TAGS STUB_RESTIC_FAILS STUB_WEEKDAY STUB_SNAPSHOT_HAS_DUMP
   export STUB_LOG="$APP/stub.log" STUB_APP_DIR="$APP" STUB_MEDIA_DIR="$APP/media"
   export HEALTH_ATTEMPTS=2 HEALTH_INTERVAL=0
 }
@@ -72,6 +73,21 @@ expect_output() {
     *"$1"*) ;;
     *) fail "output lacks: $1" ;;
   esac
+}
+
+expect_no_output() {
+  case "$OUTPUT" in
+    *"$1"*) fail "output must not contain: $1" ;;
+  esac
+}
+
+expect_content() {
+  if [ "$(cat "$1" 2>/dev/null)" != "$2" ]; then fail "$1 does not contain exactly: $2"; fi
+}
+
+incoming_compose() {
+  mkdir -p "$APP/incoming"
+  echo "new-compose" > "$APP/incoming/compose.yml"
 }
 
 expect_file() {
@@ -124,8 +140,73 @@ expect_log_count "up-tag" 2
 expect_log "up-tag broken"
 expect_log "up-tag old"
 expect_no_log "image prune"
-expect_output "fake api log line"
 expect_output "Rolled back to old, health check UP"
+end
+
+begin "backend log of a failed deploy stays on the server"
+export STUB_HEALTHY_TAGS="old"
+run "$APP/deploy.sh" broken
+expect_no_output "fake api log line"
+expect_output "last-failed-deploy.log"
+expect_content "$APP/last-failed-deploy.log" "fake api log line"
+if [ -n "$(find "$APP/last-failed-deploy.log" -perm -004)" ] || [ -n "$(find "$APP/last-failed-deploy.log" -perm -040)" ]; then fail "the saved log is readable by others"; fi
+end
+
+begin "containers that fail to start are rolled back"
+export STUB_UP_FAILS_TAG=broken STUB_HEALTHY_TAGS="old"
+run "$APP/deploy.sh" broken
+expect_status 1
+expect_tag old
+expect_log "up-tag broken"
+expect_log "up-tag old"
+expect_output "Rolled back to old, health check UP"
+end
+
+begin "new compose file replaces the old one after the dump"
+incoming_compose
+export STUB_HEALTHY_TAGS="new"
+run "$APP/deploy.sh" new
+expect_status 0
+expect_log "dump-compose old-compose"
+expect_log "pull-compose new-compose"
+expect_log "up-compose new-compose"
+expect_content "$APP/compose.yml" "new-compose"
+expect_no_file "$APP/incoming/compose.yml"
+end
+
+begin "rollback also brings back the previous compose file"
+incoming_compose
+export STUB_HEALTHY_TAGS="old"
+run "$APP/deploy.sh" broken
+expect_status 1
+expect_log "up-compose new-compose"
+expect_content "$APP/compose.yml" "old-compose"
+if [ "$(grep -F 'up-compose' "$APP/stub.log" | tail -n 1)" != "up-compose old-compose" ]; then fail "the rollback did not start the old compose file"; fi
+end
+
+begin "failed pull brings back the previous compose file"
+incoming_compose
+export STUB_PULL_FAILS=1
+run "$APP/deploy.sh" new
+expect_failure
+expect_tag old
+expect_content "$APP/compose.yml" "old-compose"
+end
+
+begin "deploy without a new compose file keeps the current one on rollback"
+echo "stale-compose" > "$APP/compose.yml.prev"
+export STUB_HEALTHY_TAGS="old"
+run "$APP/deploy.sh" broken
+expect_status 1
+expect_content "$APP/compose.yml" "old-compose"
+end
+
+begin "missing IMAGE_TAG in .env is reported"
+printf 'SITE_ADDRESS=tracker.test\n' > "$APP/.env"
+run "$APP/deploy.sh" new
+expect_status 1
+expect_output "missing from .env"
+expect_no_log "docker"
 end
 
 begin "rollback that stays unhealthy says so"
@@ -278,6 +359,8 @@ expect_no_log "--publish"
 if [ "$(cat "$APP/loaded.sql" 2>/dev/null)" != "-- restored dump" ]; then fail "the dump was not loaded"; fi
 expect_output "activities 3"
 expect_output "Restored media files: 2"
+expect_log "docker rm -fv tracker-restore-check"
+expect_output "docker rm -fv tracker-restore-check"
 end
 
 begin "non-empty target directory is refused"

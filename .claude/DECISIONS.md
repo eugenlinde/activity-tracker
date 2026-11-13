@@ -951,3 +951,25 @@ reaching a usable MVP.
   `docs/ARCHITECTURE.md`.
 - `shellcheck` was installed on the laptop with Homebrew (named in the
   plan).
+
+## 2026-11-13 — Review of the server scripts: what changed (builder's calls)
+
+An independent reviewer read the scripts and workflows before they were
+pushed. Eight findings, all accepted:
+
+- `docker compose up` failing (not just an unhealthy app) now also rolls
+  back.
+- The backend log of a failed deploy is saved on the server, not printed:
+  the workflow log is public and the app log can contain e-mail addresses.
+- The new `compose.yml` arrives in `incoming/`; `deploy.sh` swaps it in
+  after the dump and puts the previous one back on a failed pull or a
+  rollback.
+- The deploy job runs `deploy.sh` with its output in a file on the server,
+  so a cancelled run or a lost connection cannot stop it before the
+  rollback.
+- CI's concurrency group now includes the event name, and a manual
+  redeploy of an existing tag skips the three checks — a rollback by hand
+  no longer waits behind other runs or tests.
+- A missing `IMAGE_TAG` in `.env` gives a message instead of a silent exit.
+- The restore drill removes its throwaway database volume.
+- The backup service sets `HOME=/root` so restic can keep its cache.

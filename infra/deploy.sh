@@ -10,16 +10,36 @@ fi
 TAG=$1
 HEALTH_ATTEMPTS=${HEALTH_ATTEMPTS:-24}
 HEALTH_INTERVAL=${HEALTH_INTERVAL:-5}
+NEW_COMPOSE=0
 
 cd "$(dirname "$0")"
 
 read_env() {
-  grep -E "^$1=" .env | head -n 1 | cut -d= -f2-
+  { grep -E "^$1=" .env || true; } | head -n 1 | cut -d= -f2-
 }
 
 write_tag() {
   sed "s|^IMAGE_TAG=.*|IMAGE_TAG=$1|" .env > .env.tmp
   mv .env.tmp .env
+}
+
+install_compose() {
+  if [ ! -f incoming/compose.yml ]; then
+    return 0
+  fi
+  if [ -f compose.yml ]; then
+    cp -p compose.yml compose.yml.prev
+  else
+    rm -f compose.yml.prev
+  fi
+  mv incoming/compose.yml compose.yml
+  NEW_COMPOSE=1
+}
+
+restore_compose() {
+  if [ "$NEW_COMPOSE" -eq 1 ] && [ -f compose.yml.prev ]; then
+    mv compose.yml.prev compose.yml
+  fi
 }
 
 wait_healthy() {
@@ -55,18 +75,24 @@ else
   echo "Database is not running, no pre-deploy dump"
 fi
 
-IMAGE_TAG=$TAG docker compose pull
-write_tag "$TAG"
-docker compose up -d --remove-orphans
+install_compose
 
-if wait_healthy; then
+if ! IMAGE_TAG=$TAG docker compose pull; then
+  restore_compose
+  echo "Could not pull the images for $TAG, nothing was changed" >&2
+  exit 1
+fi
+
+write_tag "$TAG"
+
+if docker compose up -d --remove-orphans && wait_healthy; then
   docker image prune -af --filter until=168h >/dev/null
   echo "Deployed $TAG, health check UP"
   exit 0
 fi
 
-echo "Health check did not report UP for $TAG. Last lines of the api log:" >&2
-docker compose logs --tail 50 api >&2 || true
+docker compose logs --tail 50 api > last-failed-deploy.log 2>&1 || true
+echo "$TAG did not start healthy. Backend log saved on the server: $PWD/last-failed-deploy.log" >&2
 
 if [ "$PREVIOUS" = "none" ]; then
   echo "No previous version to roll back to" >&2
@@ -74,9 +100,9 @@ if [ "$PREVIOUS" = "none" ]; then
 fi
 
 write_tag "$PREVIOUS"
-docker compose up -d --remove-orphans
+restore_compose
 
-if wait_healthy; then
+if docker compose up -d --remove-orphans && wait_healthy; then
   echo "Rolled back to $PREVIOUS, health check UP" >&2
 else
   echo "Rolled back to $PREVIOUS, but the health check is still not UP" >&2

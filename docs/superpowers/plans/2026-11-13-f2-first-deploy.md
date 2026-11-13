@@ -25,6 +25,29 @@
 - Scripts never use `set -x` and never print a secret.
 - No comments in code, scripts, or workflow files.
 
+## Changes made while building (2026-11-13)
+
+Tasks 4–6 were written before a server existed. Where the result differs
+from the task text below, this list wins:
+
+- The `images` and `deploy` jobs and the backup check run only when the
+  repository variable `DEPLOY_ENABLED` is `true`. Setting it is part of
+  Task 5 Step 6.
+- A CI job `infra` runs `shellcheck` and `infra/test/run.sh`.
+- The deploy job sends files with `tar` over SSH instead of `scp`, and
+  also sends `backup.sh` and `restore.sh`. `compose.yml` goes to
+  `/opt/tracker/incoming/`; `deploy.sh` swaps it in and restores the
+  previous one on failure.
+- On a failed deploy the backend log is saved to
+  `/opt/tracker/last-failed-deploy.log` on the server instead of being
+  printed (Task 5 Step 7 expects it in the workflow log — read it over SSH
+  instead).
+- A manual redeploy of an existing tag skips the checks and `images`.
+- `provision.sh` already installs the backup timer (Task 6's change to it).
+- `backup.env` needs `RESTIC_REPOSITORY` and `RESTIC_PASSWORD`; the storage
+  credentials' variable names are chosen in Task 6 Step 4.
+- `restore.sh` needs an absolute path to an empty directory.
+
 ## What the developer provides
 
 These cannot be done by the builder (accounts and payments). They can be done in parallel with Tasks 1–3.

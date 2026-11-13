@@ -90,7 +90,8 @@ developer's call; this is the suggested one.
       nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
 - [x] Body weight: manual entry + dashboard trend — issue #5 (2026-11-13,
       PR open)
-- [ ] Daily steps: manual entry + dashboard chart with goal — issue #6
+- [x] Daily steps: manual entry + dashboard chart with goal — issue #6
+      (2026-11-13, PR open)
 - [ ] Dashboard calendar with workout / aerobic markers
 - [ ] Aerobic view with weekly minutes
 - [ ] Diet log (per-day status + comment)

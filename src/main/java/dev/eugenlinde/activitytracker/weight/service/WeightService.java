@@ -1,6 +1,6 @@
 package dev.eugenlinde.activitytracker.weight.service;
 
-import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
+import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.WeightEntryNotFoundException;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import dev.eugenlinde.activitytracker.weight.WeightEntryRepository;
@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -21,22 +20,22 @@ public class WeightService {
 
     private final WeightEntryRepository weightEntryRepository;
     private final UserRepository userRepository;
-    private final Clock clock;
+    private final EntryDatePolicy entryDatePolicy;
 
     public WeightService(
             WeightEntryRepository weightEntryRepository,
             UserRepository userRepository,
-            Clock clock
+            EntryDatePolicy entryDatePolicy
     ) {
         this.weightEntryRepository = weightEntryRepository;
         this.userRepository = userRepository;
-        this.clock = clock;
+        this.entryDatePolicy = entryDatePolicy;
     }
 
     @Transactional(readOnly = true)
     public List<WeightResponse> findAll(Long userId, LocalDate from, LocalDate to) {
-        LocalDate rangeEnd = to != null ? to : latestAllowedDate();
-        LocalDate rangeStart = from != null ? from : LocalDate.now(clock).minusWeeks(DEFAULT_RANGE_WEEKS);
+        LocalDate rangeEnd = to != null ? to : entryDatePolicy.latestAllowedDate();
+        LocalDate rangeStart = from != null ? from : entryDatePolicy.today().minusWeeks(DEFAULT_RANGE_WEEKS);
         return weightEntryRepository
                 .findAllByUserIdAndEntryDateBetweenOrderByEntryDateAsc(userId, rangeStart, rangeEnd)
                 .stream()
@@ -45,9 +44,7 @@ public class WeightService {
     }
 
     public WeightResponse upsert(Long userId, LocalDate date, BigDecimal weightKg) {
-        if (date.isAfter(latestAllowedDate())) {
-            throw new InvalidEntryDateException();
-        }
+        entryDatePolicy.requireNotInFuture(date);
         WeightEntry entry = weightEntryRepository
                 .findByUserIdAndEntryDate(userId, date)
                 .orElseGet(() -> newEntry(userId, date));
@@ -60,10 +57,6 @@ public class WeightService {
                 .findByUserIdAndEntryDate(userId, date)
                 .orElseThrow(WeightEntryNotFoundException::new);
         weightEntryRepository.delete(entry);
-    }
-
-    private LocalDate latestAllowedDate() {
-        return LocalDate.now(clock).plusDays(1);
     }
 
     private WeightEntry newEntry(Long userId, LocalDate date) {

@@ -24,8 +24,19 @@
 - A date is rejected (400) when it is later than tomorrow in UTC. "Tomorrow"
   is allowed because a user east of UTC is already on the next calendar
   day for part of every day.
-- `WeightService` takes a `Clock` (bean in `config/ClockConfig`, UTC) so
-  the date rule is testable.
+- The date rule lives in `common/EntryDatePolicy` (takes the `Clock` bean
+  from `config/ClockConfig`, UTC) and is shared with steps.
+
+**`StepEntry`** (`steps/model/StepEntry.java`) — table `step_entries`
+(added 2026-11-13, issue #6). One step count per user per day.
+- `id`, `user`, `entryDate`, `steps` (`int`), `createdAt`, `updatedAt`.
+  Unique on (`user_id`, `entry_date`).
+- API, owner only: `GET /api/steps?from=&to=` (default range: last 8
+  weeks), `PUT /api/steps/{date}` with `{"steps": 9870}` (creates or
+  replaces; whole number 0–100000, a decimal is rejected),
+  `DELETE /api/steps/{date}`.
+- Same date rule as weight, through `EntryDatePolicy`.
+- The goal (8000) is a frontend constant for now.
 
 **`User`** (`user/model/User.java`) — table `users`
 - `id`: `Long`, identity-generated PK, `@Getter` only

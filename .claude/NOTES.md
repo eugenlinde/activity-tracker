@@ -196,3 +196,24 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Seeded steps and weight readings remain for the test user in the dev
   database.
 - PR stacked on `feat/weight` (PR #8).
+
+## 2026-11-13 — F2 plan written
+- State of the PRs: #7 merged to `main`; #9 was merged into `feat/weight`,
+  so PR #8 (base `main`, green) now carries weight and steps and waits for
+  the developer.
+- Local test logins for the dev database are in the git-ignored
+  `.claude/private/local-test-users.md`.
+- F2 plan: closed sign-up (allowlist from an env var, missing = closed),
+  Actuator health, two images (api, web with Caddy and the built
+  frontend), Compose on one VPS, deploy job after green checks with a
+  pre-deploy dump and automatic rollback, restic backups to object storage
+  with a proven restore and a daily freshness check.
+- Builder's calls in the plan: Caddy serves the frontend (no Spring
+  change for SPA routing); GHCR packages public so the server pulls
+  without credentials; x86 server so images need no cross-build;
+  Backblaze B2 free tier for backups; GitHub environment `production`
+  restricted to `main` for deploy secrets.
+- Needs from the developer: server + IP, domain + DNS, B2 bucket + key,
+  invited emails. Tasks 1–3 need none of these.
+- Plan sits on local branch `f2-deploy` (based on `feat/weight`), not
+  pushed.

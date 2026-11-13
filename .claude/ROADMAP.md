@@ -35,7 +35,9 @@ piece in their own words before the phase is checked off.
           unattended runs in GitHub Actions → plan A or plan B (OpenRouter)
     - [ ] Explain-back: what CI does on a PR and what a red check means
           — deferred
-- [ ] **F2 — First deploy**
+- [ ] **F2 — First deploy** (planned 2026-11-13:
+      `docs/superpowers/plans/2026-11-13-f2-first-deploy.md`; waits for the
+      developer's server, domain, backup bucket and invited emails)
     - [ ] Dockerfile(s): backend jar + frontend static build
     - [ ] Prod config from env vars (DB, JWT secret, OpenRouter, storage path)
     - [ ] Closed signup (invite / allowlist) — before anything is public
@@ -89,7 +91,7 @@ developer's call; this is the suggested one.
 - [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar
       nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
 - [x] Body weight: manual entry + dashboard trend — issue #5 (2026-11-13,
-      PR open)
+      PR #8 open, now also carries steps)
 - [x] Daily steps: manual entry + dashboard chart with goal — issue #6
       (2026-11-13, PR open)
 - [ ] Dashboard calendar with workout / aerobic markers

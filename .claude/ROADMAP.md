@@ -22,14 +22,14 @@ piece in their own words before the phase is checked off.
     - [x] Private GitHub repo `eugenlinde/activity-tracker`, history pushed,
           `.claude/` tracked (2026-11-12)
     - [x] CI on every PR: backend build + tests (Testcontainers), frontend
-          build + lint — PR #1 green; negative controls went red as
-          expected (2026-11-12). PR #1 waits for the developer to merge.
-    - [ ] Protecting `main`: GitHub refused branch protection on a private
-          repo (free plan). Developer decided 2026-11-12 to open-source
-          the project; protection goes on once the repo is public.
+          build + lint — merged by the developer, `main` green
+          (2026-11-12).
+    - [x] Protecting `main`: branch protection on (PR required, `backend`
+          + `frontend` green, branch up to date, applies to the owner too).
+          Proven: direct push rejected, red PR blocked (2026-11-12).
     - [x] Pre-publication clean-up: author email, sample data, fixture
           image, licence, README, private notes kept out (2026-11-12)
-    - [ ] Make the repo public (needs the developer's explicit ok)
+    - [x] Repo made public with the developer's ok (2026-11-12)
     - [ ] Developer: check whether the Claude Code subscription allows
           unattended runs in GitHub Actions → plan A or plan B (OpenRouter)
     - [ ] Explain-back: what CI does on a PR and what a red check means

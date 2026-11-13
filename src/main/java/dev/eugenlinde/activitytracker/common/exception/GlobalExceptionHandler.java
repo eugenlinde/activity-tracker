@@ -91,6 +91,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(SignupNotAllowedException.class)
+    public ResponseEntity<Object> signupNotAllowedException(SignupNotAllowedException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(WeightEntryNotFoundException.class)
     public ResponseEntity<Object> weightEntryNotFoundException(WeightEntryNotFoundException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);

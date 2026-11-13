@@ -2,6 +2,8 @@ package dev.eugenlinde.activitytracker.authentication.service;
 
 import dev.eugenlinde.activitytracker.authentication.dto.LoginRequest;
 import dev.eugenlinde.activitytracker.authentication.dto.SignupRequest;
+import dev.eugenlinde.activitytracker.authentication.SignupPolicy;
+import dev.eugenlinde.activitytracker.common.exception.SignupNotAllowedException;
 import dev.eugenlinde.activitytracker.common.exception.UserExistsException;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import dev.eugenlinde.activitytracker.user.model.User;
@@ -19,15 +21,26 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
+    private final SignupPolicy signupPolicy;
 
-    public AuthenticationService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, TokenService tokenService) {
+    public AuthenticationService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationManager authenticationManager,
+            TokenService tokenService,
+            SignupPolicy signupPolicy
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenService = tokenService;
+        this.signupPolicy = signupPolicy;
     }
 
     public User signUp(SignupRequest signupRequest) {
+        if (!signupPolicy.isAllowed(signupRequest.email())) {
+            throw new SignupNotAllowedException();
+        }
         if (userRepository.existsByEmail(signupRequest.email())) {
             throw new UserExistsException();
         }

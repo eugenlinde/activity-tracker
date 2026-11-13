@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { App, Avatar, Button, Input } from 'antd'
+import { PlusOutlined, RightOutlined } from '@ant-design/icons'
 import { sharesApi } from '../api/shares'
 import type { ShareResponse } from '../api/types'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { Field } from '../components/Field'
+import { palette } from '../theme'
+
+function initialOf(email: string): string {
+  return email.charAt(0).toUpperCase()
+}
 
 export function SharesPage() {
+  const { modal } = App.useApp()
+  const navigate = useNavigate()
   const [given, setGiven] = useState<ShareResponse[]>([])
   const [received, setReceived] = useState<ShareResponse[]>([])
   const [email, setEmail] = useState('')
@@ -41,63 +51,97 @@ export function SharesPage() {
     }
   }
 
-  async function revoke(share: ShareResponse) {
-    if (!window.confirm(`Stop sharing with ${share.email}?`)) return
-    try {
-      await sharesApi.revoke(share.id)
-      await reload()
-    } catch (err) {
-      setError(err)
-    }
+  function revoke(share: ShareResponse) {
+    modal.confirm({
+      title: `Stop sharing with ${share.email}?`,
+      okText: 'Revoke',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await sharesApi.revoke(share.id)
+          await reload()
+        } catch (err) {
+          setError(err)
+        }
+      },
+    })
   }
 
   return (
     <>
-      <h1>Sharing</h1>
+      <header className="page-header">
+        <div>
+          <div className="page-kicker">Sharing is whole-log and read-only.</div>
+          <h1>Shares</h1>
+        </div>
+      </header>
       <ErrorMessage error={error} />
 
-      <section>
-        <h2>Logs shared with me</h2>
-        {received.length === 0 ? (
-          <p className="muted">Nobody has shared a log with you.</p>
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Who can see your log</h2>
+          <span>
+            {given.length} {given.length === 1 ? 'person' : 'people'}
+          </span>
+        </div>
+        <form className="row" style={{ alignItems: 'flex-end' }} onSubmit={grant}>
+          <div style={{ flex: '1 1 260px' }}>
+            <Field label="Share with (email)">
+              <Input
+                type="email"
+                placeholder="viewer@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </Field>
+          </div>
+          <Button type="primary" htmlType="submit" icon={<PlusOutlined />} loading={busy}>
+            Share
+          </Button>
+        </form>
+        {given.length === 0 ? (
+          <div className="empty">Nobody can see your log right now.</div>
         ) : (
-          <ul>
-            {received.map((s) => (
-              <li key={s.id}>
-                <Link to={`/shared/${s.ownerId}`}>{s.email}</Link>
-              </li>
+          <div className="stack">
+            {given.map((s) => (
+              <div key={s.id} className="person">
+                <Avatar style={{ background: palette.sage, color: palette.ground }}>{initialOf(s.email)}</Avatar>
+                <span className="person-name">{s.email}</span>
+                <Button danger onClick={() => revoke(s)}>
+                  Revoke
+                </Button>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
-      <section>
-        <h2>People who can see my log</h2>
-        <form className="row" onSubmit={grant}>
-          <input
-            type="email"
-            placeholder="viewer@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <button type="submit" disabled={busy}>
-            Share
-          </button>
-        </form>
-        {given.length === 0 ? (
-          <p className="muted">You have not shared your log with anyone.</p>
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Logs shared with you</h2>
+          <span>
+            {received.length} {received.length === 1 ? 'log' : 'logs'}
+          </span>
+        </div>
+        {received.length === 0 ? (
+          <div className="empty">Nobody has shared a log with you.</div>
         ) : (
-          <ul>
-            {given.map((s) => (
-              <li key={s.id} className="row">
-                <span>{s.email}</span>
-                <button type="button" onClick={() => revoke(s)}>
-                  Revoke
-                </button>
-              </li>
+          <div className="stack">
+            {received.map((s) => (
+              <div key={s.id} className="person">
+                <Avatar style={{ background: palette.blue, color: palette.ground }}>{initialOf(s.email)}</Avatar>
+                <span className="person-name">{s.email}</span>
+                <Button
+                  icon={<RightOutlined />}
+                  iconPlacement="end"
+                  onClick={() => navigate(`/shared/${s.ownerId}`)}
+                >
+                  View log
+                </Button>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </>

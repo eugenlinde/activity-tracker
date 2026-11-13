@@ -123,3 +123,38 @@ maps onto this project. Nothing decided yet. Proposals given:
   evidence instead.
 - Left for F1: explain-back. Open for the developer: Claude Code
   subscription check for unattended runs; Garmin developer programme.
+
+## 2026-11-13 — F1 closed without explain-back
+- PR #3 merged by the developer. Local `main` in sync.
+- Developer declined the explain-back for now ("focus on the MVP"). Logged
+  in DECISIONS; F1 checkpoint moved to "Understanding debt" in ROADMAP.
+- Doc changes sit on local branch `mvp-planning` (not pushed); they ride
+  along with the next PR, since `main` only takes PRs now.
+- Next: agree what the MVP contains and in which order.
+
+## 2026-11-13 — Issue #4: app shell and look (Ant Design)
+- Issues #4, #5, #6 created with short specs.
+- Rewrote the frontend presentation on Ant Design 6: theme, sidebar with
+  mobile burger, login, workouts (rows that expand; create/edit in a
+  dialog), shares, shared log. API layer and logic unchanged.
+- Verified in a browser against a local backend, desktop and 375 px: sign
+  up, log in, create a workout with an exercise and two sets, edit it,
+  view and delete an image, share with a second user, open the shared log
+  as that user (read-only), revoke, delete the workout, sign out. No
+  console errors; no horizontal scroll at 375 px.
+- Not verified through the UI: choosing a file in the image picker (the
+  image was uploaded through the API; display and delete were checked in
+  the UI).
+- `yarn lint`: the same 5 old warnings, none new. `yarn build` passes.
+- Two local test users (`ui-check-1113a/b@example.com`) remain in the dev
+  database.
+- `.claude/launch.json` (dev-server config for the session's browser
+  pane) is git-ignored.
+- Developer hit "Request failed with 401" on `/activities` while trying
+  the branch. Cause: a token left in the browser from an earlier backend
+  run; the local run command generates a new `JWT_SECRET` on every start,
+  so old tokens stop verifying. The app cleared the token but stayed on
+  the page showing the error (old debt: "user silently logged out on
+  first 401"). Fixed: a 401 now signs the user out in the UI and
+  `RequireAuth` sends them to the login page. Checked in a browser: stale
+  token → `/login`; wrong password on login still shows the error.

@@ -44,3 +44,4 @@ out/
 .DS_Store
 .superpowers/
 .claude/private/
+.claude/launch.json

@@ -18,7 +18,8 @@ piece in their own words before the phase is checked off.
     - [x] `docs/ARCHITECTURE.md` skeleton (describes today's local-only setup)
     - [x] Implementation plan for F1 (`docs/superpowers/plans/2026-11-12-f1-repo-and-ci.md`), awaiting review
     - [x] First commit of the pivot docs
-- [ ] **F1 — Repo and CI** (current)
+- [x] **F1 — Repo and CI** (built and verified 2026-11-12; explain-back
+      deferred by the developer 2026-11-13 — see Understanding debt)
     - [x] Private GitHub repo `eugenlinde/activity-tracker`, history pushed,
           `.claude/` tracked (2026-11-12)
     - [x] CI on every PR: backend build + tests (Testcontainers), frontend
@@ -33,6 +34,7 @@ piece in their own words before the phase is checked off.
     - [ ] Developer: check whether the Claude Code subscription allows
           unattended runs in GitHub Actions → plan A or plan B (OpenRouter)
     - [ ] Explain-back: what CI does on a PR and what a red check means
+          — deferred
 - [ ] **F2 — First deploy**
     - [ ] Dockerfile(s): backend jar + frontend static build
     - [ ] Prod config from env vars (DB, JWT secret, OpenRouter, storage path)
@@ -61,6 +63,17 @@ piece in their own words before the phase is checked off.
           → staging → "ok" → prod → monitoring, with no code from the developer
     - [ ] Write-up: time taken, number of human interventions, what broke
 
+## Understanding debt
+
+Explain-back checkpoints the developer chose to postpone until the MVP is
+usable (decided 2026-11-13). `docs/ARCHITECTURE.md` is still kept current
+with every change, so the explanations exist to read later. To be paid
+back before F6 (PoC acceptance) at the latest.
+
+- F1: what happens when a PR is opened; what a red check means and where
+  to look; why the test suite needs Docker on the CI machine; what
+  protects `main` and what does not.
+
 ## Product backlog
 
 Goes through whatever part of the loop exists at the time. Order is the
@@ -73,10 +86,10 @@ developer's call; this is the suggested one.
 - [ ] Finish CSV import (pre-pivot steps 4d–6; detail in `.claude/SPEC.md`,
       "Phase 5 — CSV import"). Scope to be re-checked against the prototype's
       Import screen (Excel, multiple record kinds, per-row include).
-- [ ] Restyle the existing screens to the prototype (dark, Manrope, sidebar
-      nav, mobile burger)
-- [ ] Body weight: manual entry + dashboard trend
-- [ ] Daily steps: manual entry + dashboard chart with goal
+- [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar
+      nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
+- [ ] Body weight: manual entry + dashboard trend — issue #5
+- [ ] Daily steps: manual entry + dashboard chart with goal — issue #6
 - [ ] Dashboard calendar with workout / aerobic markers
 - [ ] Aerobic view with weekly minutes
 - [ ] Diet log (per-day status + comment)

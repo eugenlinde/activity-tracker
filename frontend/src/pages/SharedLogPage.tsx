@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { LeftOutlined } from '@ant-design/icons'
 import { activitiesApi } from '../api/activities'
 import type { ActivityResponse } from '../api/types'
 import { ActivityList } from '../components/ActivityList'
@@ -26,10 +27,16 @@ export function SharedLogPage() {
 
   return (
     <>
-      <p>
-        <Link to="/shares">← Back to sharing</Link>
-      </p>
-      <h1>Shared log (user {ownerId})</h1>
+      <header className="page-header">
+        <div>
+          <div className="page-kicker">
+            <Link to="/shares">
+              <LeftOutlined /> Back to shares
+            </Link>
+          </div>
+          <h1>Shared log (user {ownerId})</h1>
+        </div>
+      </header>
       <ErrorMessage error={error} />
       {!error && <ActivityList activities={sorted} />}
     </>

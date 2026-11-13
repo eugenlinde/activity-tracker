@@ -1,9 +1,10 @@
+import { Tag } from 'antd'
 import type { ActivityDetails } from '../api/types'
 import { formatSet } from '../lib/details'
 
 export function ExerciseDetails({ details }: { details: ActivityDetails | null }) {
   const exercises = details?.exerciseList ?? []
-  if (exercises.length === 0) return <p className="muted">No exercises recorded.</p>
+  if (exercises.length === 0) return <span className="muted">No exercises recorded.</span>
 
   return (
     <ol className="exercises">
@@ -25,9 +26,9 @@ export function ExerciseDetails({ details }: { details: ActivityDetails | null }
           {(exercise.workoutSetList ?? []).length > 0 && (
             <div className="sets">
               {(exercise.workoutSetList ?? []).map((set, setIndex) => (
-                <span key={setIndex} className="set">
+                <Tag key={setIndex} variant="filled">
                   {formatSet(set)}
-                </span>
+                </Tag>
               ))}
             </div>
           )}

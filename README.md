@@ -42,7 +42,7 @@ human approval.
 ## Stack
 
 Spring Boot 4 (Java 26, Gradle) · PostgreSQL 17 + Liquibase · React 19 +
-Vite + TypeScript · JWT auth · GitHub Actions.
+Vite + TypeScript + Ant Design · JWT auth · GitHub Actions.
 
 ## Running locally
 

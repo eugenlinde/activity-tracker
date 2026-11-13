@@ -1,16 +1,21 @@
 import { useState, type FormEvent } from 'react'
+import { Button, Input, Select } from 'antd'
 import { ACTIVITY_TYPES, type ActivityRequest, type ActivityResponse, type ActivityType } from '../api/types'
 import { isoToLocalInput, localInputToIso, nowLocalInput } from '../lib/datetime'
 import { fromDrafts, toDrafts, type ExerciseDraft } from '../lib/details'
 import { isoToMinutes, minutesToIso } from '../lib/duration'
+import { ACTIVITY_LABELS } from '../lib/labels'
 import { ErrorMessage } from './ErrorMessage'
 import { ExerciseEditor } from './ExerciseEditor'
+import { Field } from './Field'
 
 interface Props {
   initial?: ActivityResponse
   onSubmit: (body: ActivityRequest) => Promise<void>
   onCancel?: () => void
 }
+
+const TYPE_OPTIONS = ACTIVITY_TYPES.map((type) => ({ value: type, label: ACTIVITY_LABELS[type] }))
 
 export function ActivityForm({ initial, onSubmit, onCancel }: Props) {
   const [activityType, setActivityType] = useState<ActivityType>(initial?.activityType ?? 'RUNNING')
@@ -35,11 +40,6 @@ export function ActivityForm({ initial, onSubmit, onCancel }: Props) {
         details: fromDrafts(exercises),
         notes: notes.trim() === '' ? null : notes.trim(),
       })
-      if (!initial) {
-        setNotes('')
-        setStartedAt(nowLocalInput())
-        setExercises([])
-      }
     } catch (err) {
       setError(err)
     } finally {
@@ -48,40 +48,39 @@ export function ActivityForm({ initial, onSubmit, onCancel }: Props) {
   }
 
   return (
-    <form className="card wide" onSubmit={handleSubmit}>
-      <label>
-        Type
-        <select value={activityType} onChange={(e) => setActivityType(e.target.value as ActivityType)}>
-          {ACTIVITY_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Started at
-        <input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} required />
-      </label>
-      <label>
-        Duration (minutes)
-        <input type="number" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
-      </label>
-      <label>
-        Notes
-        <input value={notes} maxLength={255} onChange={(e) => setNotes(e.target.value)} />
-      </label>
+    <form className="form" onSubmit={handleSubmit}>
+      <div className="form-grid">
+        <Field label="Type">
+          <Select<ActivityType> value={activityType} onChange={setActivityType} options={TYPE_OPTIONS} />
+        </Field>
+        <Field label="Started at">
+          <Input
+            type="datetime-local"
+            value={startedAt}
+            onChange={(e) => setStartedAt(e.target.value)}
+            required
+          />
+        </Field>
+        <Field label="Duration (minutes)">
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+        </Field>
+      </div>
+      <Field label="Notes">
+        <Input value={notes} maxLength={255} onChange={(e) => setNotes(e.target.value)} />
+      </Field>
       <ExerciseEditor value={exercises} onChange={setExercises} />
       <ErrorMessage error={error} />
-      <div className="row">
-        <button type="submit" disabled={busy}>
-          {initial ? 'Save' : 'Add activity'}
-        </button>
-        {onCancel && (
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
+      <div className="form-actions">
+        {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+        <Button type="primary" htmlType="submit" loading={busy}>
+          {initial ? 'Save' : 'Add workout'}
+        </Button>
       </div>
     </form>
   )

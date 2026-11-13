@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react'
+import { App, Button } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import { mediaApi } from '../api/media'
 import type { MediaResponse } from '../api/types'
 import { ErrorMessage } from './ErrorMessage'
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export function ActivityMedia({ activityId, editable }: Props) {
+  const { modal } = App.useApp()
   const [media, setMedia] = useState<MediaResponse[]>([])
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -43,35 +46,43 @@ export function ActivityMedia({ activityId, editable }: Props) {
     }
   }
 
-  async function remove(id: number) {
-    if (!window.confirm('Delete this image?')) return
-    try {
-      await mediaApi.remove(id)
-      await reload()
-    } catch (err) {
-      setError(err)
-    }
+  function remove(id: number) {
+    modal.confirm({
+      title: 'Delete this image?',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await mediaApi.remove(id)
+          await reload()
+        } catch (err) {
+          setError(err)
+        }
+      },
+    })
   }
 
   return (
-    <div className="media">
+    <div className="stack">
       <div className="row">
         {media.map((m) => (
           <div key={m.id} className="media-item">
             <MediaThumbnail mediaId={m.id} />
             {editable && (
-              <button type="button" className="link" onClick={() => remove(m.id)}>
+              <Button type="link" size="small" danger onClick={() => remove(m.id)}>
                 Remove
-              </button>
+              </Button>
             )}
           </div>
         ))}
         {editable && (
           <label className="upload">
-            {busy ? 'Uploading…' : '+ Image'}
+            <PlusOutlined aria-hidden="true" />
+            {busy ? 'Uploading…' : 'Image'}
             <input type="file" accept="image/jpeg" onChange={upload} disabled={busy} hidden />
           </label>
         )}
+        {!editable && media.length === 0 && <span className="muted">No images.</span>}
       </div>
       <ErrorMessage error={error} />
     </div>

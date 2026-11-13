@@ -1,3 +1,4 @@
+import { Alert } from 'antd'
 import { ApiError } from '../api/client'
 
 export function errorText(error: unknown): string {
@@ -16,5 +17,5 @@ export function errorText(error: unknown): string {
 
 export function ErrorMessage({ error }: { error: unknown }) {
   if (!error) return null
-  return <p className="error">{errorText(error)}</p>
+  return <Alert type="error" showIcon title={errorText(error)} />
 }

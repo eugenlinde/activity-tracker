@@ -17,7 +17,7 @@ automatically.
 | Backend | Spring Boot app (Gradle), REST API under `/api`, JWT auth | laptop, `./gradlew bootRun`, port 8080 |
 | Database | Postgres 17, schema managed by Liquibase | laptop, `docker-compose.yml` |
 | Media files | Uploaded images on the local filesystem | laptop, `storage/` (git-ignored) |
-| Frontend | React + Vite + TypeScript in `frontend/` | laptop, Vite dev server, proxies `/api` to the backend |
+| Frontend | React + Vite + TypeScript in `frontend/`, Ant Design components with the prototype's dark theme | laptop, Vite dev server, proxies `/api` to the backend |
 | LLM calls | OpenRouter API, used by the CSV import (client exists, import not finished) | called from the backend |
 | Tests | JUnit suite (115 tests); database tests start their own Postgres via Testcontainers — image `postgres:latest`, not pinned to 17 like the dev database (to be pinned, see backlog) | laptop, `./gradlew test`, and CI |
 | Code | Public GitHub repo `eugenlinde/activity-tracker` (MIT licence), default branch `main`, protected | GitHub |

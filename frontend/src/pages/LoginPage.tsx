@@ -12,7 +12,7 @@ export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/activities'
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/'
 
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')

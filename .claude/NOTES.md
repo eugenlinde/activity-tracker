@@ -158,3 +158,41 @@ maps onto this project. Nothing decided yet. Proposals given:
   first 401"). Fixed: a 401 now signs the user out in the UI and
   `RequireAuth` sends them to the login page. Checked in a browser: stale
   token → `/login`; wrong password on login still shows the error.
+
+## 2026-11-13 — Issue #5: body weight
+- Tests first (35 new): repository scoping and unique constraint on real
+  Postgres, service rules with a fixed clock, controller validation and
+  401/404/400. Two mutations (dropping the future-date check, dropping the
+  one-decimal rule) each turned a test red. Whole suite: 150 green.
+- Backend: `weight_entries` changeset, entity, repository, service,
+  controller, two exceptions mapped in the handler, `Clock` bean.
+- Frontend: Dashboard page at `/` (landing page, first nav item), weight
+  card with latest value, change since first reading, 12-week line, empty
+  state, add/replace/delete dialog.
+- Checked against a real backend and database: API (seed of 11 readings,
+  future date → 400, two decimals → 400, delete missing → 404) and UI
+  (chart, add → value and chart update, replace note, delete, empty state
+  for a second user who sees none of the first user's data, 375 px with no
+  horizontal scroll, no console errors).
+- 11 seeded readings remain for `ui-check-1113a@example.com` in the dev
+  database.
+- PR is stacked on `feat/app-shell` (PR #7) because the Dashboard builds
+  on the new shell.
+
+## 2026-11-13 — Issue #6: daily steps
+- Tests first: 31 for steps, 4 for the shared date policy; weight service
+  test adapted to the policy. Mutations (dropping the max, dropping the
+  date check) turned tests red. A probe against the real API showed
+  `9870.5` being saved as `9870`; added a failing test, then fixed. Whole
+  suite: 186 green.
+- Frontend: steps card (bars, goal line, 2/8-week toggle, weekly
+  averages, legend), shared add/replace/delete dialog, sticky sidebar,
+  smaller stat numbers on phone width.
+- Checked against a real backend and database: API (41 seeded days,
+  over max → 400, negative → 400, future → 400, delete missing → 404) and
+  UI at desktop and 375 px (both ranges, add → average changes by the
+  expected amount, delete, weight card still works with the shared
+  dialog, no horizontal scroll).
+- Seeded steps and weight readings remain for the test user in the dev
+  database.
+- PR stacked on `feat/weight` (PR #8).

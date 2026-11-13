@@ -72,3 +72,13 @@ export type ValidationErrors = Record<string, string[]>
 export interface MediaResponse {
   id: number
 }
+
+export interface WeightEntry {
+  date: string
+  weightKg: number
+}
+
+export interface StepsEntry {
+  date: string
+  steps: number
+}

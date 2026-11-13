@@ -11,6 +11,33 @@
 
 ## Domain model
 
+**`WeightEntry`** (`weight/model/WeightEntry.java`) — table `weight_entries`
+(added 2026-11-13, issue #5). One body-weight reading per user per day.
+- `id`, `user` (lazy `ManyToOne`, `user_id` not null), `entryDate`
+  (`LocalDate`), `weightKg` (`BigDecimal`, `numeric(4,1)`), `createdAt`,
+  `updatedAt`. Unique on (`user_id`, `entry_date`).
+- API, owner only (no `ownerId` parameter, so a share never exposes it):
+  `GET /api/weights?from=&to=` (ascending by date; default range is the
+  last 12 weeks), `PUT /api/weights/{date}` with `{"weightKg": 81.3}`
+  (creates or replaces; 20.0–400.0, at most one decimal),
+  `DELETE /api/weights/{date}` (404 when there is no entry).
+- A date is rejected (400) when it is later than tomorrow in UTC. "Tomorrow"
+  is allowed because a user east of UTC is already on the next calendar
+  day for part of every day.
+- The date rule lives in `common/EntryDatePolicy` (takes the `Clock` bean
+  from `config/ClockConfig`, UTC) and is shared with steps.
+
+**`StepEntry`** (`steps/model/StepEntry.java`) — table `step_entries`
+(added 2026-11-13, issue #6). One step count per user per day.
+- `id`, `user`, `entryDate`, `steps` (`int`), `createdAt`, `updatedAt`.
+  Unique on (`user_id`, `entry_date`).
+- API, owner only: `GET /api/steps?from=&to=` (default range: last 8
+  weeks), `PUT /api/steps/{date}` with `{"steps": 9870}` (creates or
+  replaces; whole number 0–100000, a decimal is rejected),
+  `DELETE /api/steps/{date}`.
+- Same date rule as weight, through `EntryDatePolicy`.
+- The goal (8000) is a frontend constant for now.
+
 **`User`** (`user/model/User.java`) — table `users`
 - `id`: `Long`, identity-generated PK, `@Getter` only
 - `firstName`, `lastName`: `String`, not null

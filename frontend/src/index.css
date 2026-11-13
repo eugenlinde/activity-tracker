@@ -41,6 +41,9 @@ a {
 
 .sidebar {
   flex: 0 0 220px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
   padding: 24px 16px;
   border-right: 1px solid var(--border-soft);
   display: flex;
@@ -117,6 +120,8 @@ a {
 
   .sidebar {
     flex: 0 0 auto;
+    position: static;
+    height: auto;
     padding: 8px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--border-soft);
@@ -495,4 +500,84 @@ a {
 .upload:hover {
   color: var(--text);
   border-color: var(--muted);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+
+.stat {
+  font-size: 40px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.stat-unit {
+  font-size: 18px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: -8px;
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stat.muted {
+  color: var(--muted);
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-swatch:not(:first-child) {
+  margin-left: 8px;
+}
+
+@media (max-width: 760px) {
+  .panel {
+    padding: 18px 16px;
+  }
+
+  .stat {
+    font-size: 30px;
+  }
+
+  .stat-row {
+    gap: 8px 14px;
+  }
 }

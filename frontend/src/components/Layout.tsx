@@ -1,17 +1,26 @@
 import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button, Menu } from 'antd'
-import { CloseOutlined, LogoutOutlined, MenuOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined,
+  CloseOutlined,
+  LogoutOutlined,
+  MenuOutlined,
+  TeamOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons'
 import { useAuth } from '../auth/AuthContext'
 
 const NAV_ITEMS = [
+  { key: '/', icon: <AppstoreOutlined />, label: 'Dashboard' },
   { key: '/activities', icon: <ThunderboltOutlined />, label: 'Workouts' },
   { key: '/shares', icon: <TeamOutlined />, label: 'Shares' },
 ]
 
 function selectedKey(pathname: string): string {
   if (pathname.startsWith('/shares') || pathname.startsWith('/shared')) return '/shares'
-  return '/activities'
+  if (pathname.startsWith('/activities')) return '/activities'
+  return '/'
 }
 
 export function Layout() {

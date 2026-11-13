@@ -855,3 +855,41 @@ reaching a usable MVP.
 - Weight and steps are owner-only for now, not visible through a share.
 - Work is tracked as GitHub issues (#4 look, #5 weight, #6 steps), one PR
   each — the same path the agents will take later.
+
+## 2026-11-13 — Body weight (issue #5): builder's calls
+
+- `PUT /api/weights/{date}` is the only write: it creates or replaces the
+  day's entry, so there is no separate create/update and no id in the API.
+- "Date not in the future" is checked against UTC with one day of slack
+  (latest allowed = tomorrow UTC). A strict "not after today UTC" would
+  reject a user in Estonia logging at 00:30 local time. Cost: someone can
+  log one day ahead.
+- The server owns the date rule through an injected `Clock`; the frontend
+  also limits the date picker to today.
+- The dialog offers "Delete entry" when the chosen day already has one —
+  not in the issue's spec, added because a mistyped date would otherwise
+  be impossible to remove from the UI.
+- Chart is hand-drawn SVG with points placed by date, so gaps between
+  readings show as gaps in time, not as evenly spaced points.
+- `vite.config.ts` reads `API_TARGET` (default `http://localhost:8080`) so
+  a second backend can be checked without touching the developer's
+  running one.
+
+## 2026-11-13 — Daily steps (issue #6): builder's calls
+
+- Same shape as weight on purpose: one entry per day, `PUT /{date}`
+  creates or replaces, owner only.
+- The "not in the future" rule moved out of `WeightService` into
+  `common/EntryDatePolicy`, used by both services — one rule, one place.
+- `StepsRequest.steps` is a `BigDecimal` with `@Digits(fraction = 0)`
+  rather than an `Integer`: with an `Integer`, the JSON parser silently
+  turned `9870.5` into `9870`. Found by calling the real API, pinned by a
+  test.
+- "This week" / "last week" averages are calendar weeks starting on
+  Monday; days without an entry are left out of the average and get no
+  bar. The prototype used rolling 7-day windows under the same labels.
+- The 2-week / 8-week toggle only changes what is drawn; the card always
+  loads 8 weeks.
+- One shared `DayEntryDialog` replaces the weight-only dialog.
+- The sidebar now stays in place while the page scrolls (the Dashboard is
+  the first page taller than the screen).

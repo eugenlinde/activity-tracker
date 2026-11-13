@@ -53,7 +53,7 @@ docker compose up -d
 ```
 
 ```bash
-export JWT_SECRET="$(openssl rand -base64 32)"
+export JWT_SECRET="$(openssl rand -base64 32)" SIGNUP_ALLOWED_EMAILS='*'
 export OPENROUTER_API_KEY=... OPENROUTER_BASE_URL=https://openrouter.ai/api/v1 OPENROUTER_MODEL=...
 ./gradlew bootRun
 ```
@@ -61,6 +61,9 @@ export OPENROUTER_API_KEY=... OPENROUTER_BASE_URL=https://openrouter.ai/api/v1 O
 ```bash
 cd frontend && yarn install && yarn dev
 ```
+
+`SIGNUP_ALLOWED_EMAILS` is a comma-separated list of addresses that may
+sign up; `*` allows anyone, and leaving it unset closes sign-up.
 
 Tests (need Docker for Testcontainers):
 

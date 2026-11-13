@@ -1,0 +1,4 @@
+**
+!build/libs/*.jar
+!frontend/dist/**
+!infra/Caddyfile

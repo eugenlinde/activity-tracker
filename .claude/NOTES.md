@@ -196,3 +196,44 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Seeded steps and weight readings remain for the test user in the dev
   database.
 - PR stacked on `feat/weight` (PR #8).
+
+## 2026-11-13 — F2 plan written
+- State of the PRs: #7 merged to `main`; #9 was merged into `feat/weight`,
+  so PR #8 (base `main`, green) now carries weight and steps and waits for
+  the developer.
+- Local test logins for the dev database are in the git-ignored
+  `.claude/private/local-test-users.md`.
+- F2 plan: closed sign-up (allowlist from an env var, missing = closed),
+  Actuator health, two images (api, web with Caddy and the built
+  frontend), Compose on one VPS, deploy job after green checks with a
+  pre-deploy dump and automatic rollback, restic backups to object storage
+  with a proven restore and a daily freshness check.
+- Builder's calls in the plan: Caddy serves the frontend (no Spring
+  change for SPA routing); GHCR packages public so the server pulls
+  without credentials; x86 server so images need no cross-build;
+  Backblaze B2 free tier for backups; GitHub environment `production`
+  restricted to `main` for deploy secrets.
+- Needs from the developer: server + IP, domain + DNS, B2 bucket + key,
+  invited emails. Tasks 1–3 need none of these.
+- Plan sits on local branch `f2-deploy` (based on `feat/weight`), not
+  pushed.
+
+## 2026-11-13 — F2 tasks 1–3 done (no server needed)
+- Task 1, closed sign-up: tests first (8 policy + 4 flow), red with a stub
+  policy, then green. Task 2, health endpoint: 7 tests, red then green.
+  Whole suite 205 green.
+- Task 3: `infra/` (two Dockerfiles, Caddyfile, compose, env example),
+  `.dockerignore`. Images built: api 435 MB, web 89 MB.
+- Dress rehearsal on the laptop from `infra/compose.yml` with throwaway
+  secrets: health `UP` through Caddy; `/api/activities` 401 without a
+  token; `/shares` served by the SPA fallback; `/actuator/env` returns the
+  web app's HTML, not the actuator; uninvited sign-up refused in API and
+  UI, invited one works; workout, image, weight, steps saved; image still
+  served after `up -d --force-recreate api`; api uid 100; no SQL and no
+  errors in the api log. Stack removed with `down -v`, scratch directory
+  and local image tags deleted.
+- Local development now needs `SIGNUP_ALLOWED_EMAILS='*'` in the run
+  command to create new accounts; logging in to existing ones is
+  unaffected.
+- Remaining F2 tasks (4–7) need the developer's server, domain, backup
+  bucket and invited emails.

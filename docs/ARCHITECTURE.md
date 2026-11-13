@@ -98,6 +98,34 @@ action's default commercial caching service.
   (`OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`). The app
   refuses to start if they are blank.
 
+## Built, but not running anywhere yet
+
+Everything needed to run the app on a server exists in `infra/` and was
+rehearsed on the laptop on 2026-11-13. No server exists yet.
+
+| Piece | What it is |
+|---|---|
+| `infra/api.Dockerfile` | The backend as a container image: Java 26 runtime plus the app's jar, running as a non-root user |
+| `infra/web.Dockerfile` + `infra/Caddyfile` | Caddy with the built frontend inside. It serves the pages, forwards `/api/*` and `/actuator/health` to the backend, and nothing else |
+| `infra/compose.yml` | Starts three containers together — `web`, `api`, `postgres` — and keeps the database, uploaded media and certificates in volumes so they survive restarts and redeploys |
+| `infra/env.example` | The names of the settings a server needs. Real values will exist only on the server |
+
+Two changes in the app itself for running in public:
+
+- **Sign-up is by invitation.** `SIGNUP_ALLOWED_EMAILS` lists the addresses
+  that may create an account. `*` means anyone (used for local
+  development); if the variable is missing, nobody can sign up.
+- **Health check.** `GET /actuator/health` answers `{"status":"UP"}`
+  without a login. The deploy step will use it to decide whether a new
+  version started. No other actuator endpoint is reachable.
+
+**Rehearsal result (2026-11-13):** the three containers started from the
+compose file; the health check answered `UP` through Caddy; an uninvited
+address was refused and the invited one could sign up; a workout, an
+image, a weight and a step count were saved; the image was still there
+after the backend container was thrown away and recreated; the backend
+ran as a non-root user and logged no SQL. The stack was then removed.
+
 ## Target (not built yet)
 
 Filled in phase by phase as each piece becomes real — see

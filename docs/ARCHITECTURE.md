@@ -4,7 +4,7 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-12 (public repo, protected `main` — nothing is deployed yet).
+Last updated: 2026-11-13 (deploy and backup scripts written and tested on the laptop — nothing is deployed yet, no server exists).
 
 ## What exists today
 
@@ -38,8 +38,16 @@ automatically.
      rule (`react/rules-of-hooks`) is an error; everything else is a
      warning and does not fail the check. There are 5 known warnings.
      Making warnings fail the check is a backlog item.
+   - **`infra`** runs `shellcheck` (a linter for shell scripts) over the
+     server scripts and then their tests (`infra/test/run.sh`). Takes a
+     few seconds. It is not yet one of the checks GitHub requires before a
+     merge — adding it to the branch protection rule is the developer's
+     setting to change.
 4. Each check ends green or red on the PR page.
-5. The developer merges the PR. Nothing deploys yet — that is F2.
+5. The developer merges the PR. Nothing deploys yet: the `images` and
+   `deploy` jobs exist in the workflow but are switched off until the
+   repository variable `DEPLOY_ENABLED` is set to `true` (see "The deploy
+   switch" below).
 
 **A red check means** the change broke something the checks look at: a
 failing test or a compile error (`backend`), a type error or a
@@ -125,6 +133,69 @@ address was refused and the invited one could sign up; a workout, an
 image, a weight and a step count were saved; the image was still there
 after the backend container was thrown away and recreated; the backend
 ran as a non-root user and logged no SQL. The stack was then removed.
+
+### Server scripts (written 2026-11-13, never run on a real server)
+
+Four scripts and two workflow pieces that turn an empty server into the
+running app and keep it backed up. All of them wait for a server.
+
+| Piece | What it does | Why it is needed | When it fails |
+|---|---|---|---|
+| `infra/provision.sh` | Run once as root on a fresh Ubuntu 24.04. Installs Docker, the firewall and restic; creates the user `deploy`; turns off password logins; opens only ports 22, 80, 443; writes `/opt/tracker/.env` with a freshly generated database password and JWT secret; installs the nightly backup timer | A new server is an open, empty machine. This makes it safe and ready in one repeatable step instead of a list of hand-typed commands | It stops at the first error and can simply be run again — it never overwrites an existing `.env` |
+| `infra/deploy.sh <tag>` | Runs on the server. Dumps the database, pulls the images for `<tag>`, restarts the containers, then asks `https://<site>/actuator/health` every 5 s for up to 2 minutes | One command that either ends with the new version healthy or puts the old one back | Pull fails → nothing was changed. New version not healthy → prints the last 50 lines of the backend log, switches back to the previous tag, restarts, exits with an error so the workflow goes red |
+| `images` job in `ci.yml` | After green checks on `main`: builds the jar and the frontend, packs them into the two images, pushes them to GHCR tagged with the commit SHA | The server needs something to pull; the SHA tag means every version can be named and redeployed | Job goes red, `deploy` does not run, the server is untouched |
+| `deploy` job in `ci.yml` | Copies `compose.yml` and the scripts to `/opt/tracker/` over SSH and runs `deploy.sh <sha>` | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
+| `infra/backup.sh` | Started by a timer on the server at 03:30 every night. Dumps the database, sends the dump and the media files to off-server storage with restic, thins out old snapshots (7 daily, 4 weekly, 6 monthly), checks the repository on Sundays, then touches `/opt/tracker/last-backup-ok` | The server's disk is the only copy of the data otherwise | Any failing step stops the script before the marker file is touched, so the freshness check below notices |
+| `backup-check.yml` | Every day at 06:00 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
+| `infra/restore.sh <snapshot> <dir>` | Fetches a snapshot into an empty directory, loads the dump into a throwaway Postgres container with no network access to anything, prints the row count of every table and the number of media files | A backup is only proven by restoring it. This does so without going near the live database | Prints the error and stops; the live system is never touched either way |
+
+**The deploy switch.** `images`, `deploy` and the backup check all look at
+one repository variable, `DEPLOY_ENABLED`. Unless it is exactly `true`,
+they are skipped. It is unset today, so merging to `main` builds nothing
+and contacts no server. Setting it (Settings → Secrets and variables →
+Actions → Variables) is the developer's go-live decision; deleting it
+later is the way to stop all deploys at once.
+
+**Redeploying an older version by hand** (manual rollback): Actions → CI →
+Run workflow → enter the commit SHA of the version wanted. No image is
+rebuilt; `deploy.sh` runs with that tag.
+
+**What was checked, and what was not:**
+
+- Checked on the laptop: `shellcheck` is clean; 24 script tests pass.
+  The tests run the real scripts against stand-ins for `docker`, `curl`
+  and `restic`, and cover: healthy deploy, unhealthy deploy rolled back,
+  failed first deploy, failed pull, failed dump, dump rotation, a tag with
+  shell characters, backup marker only after every step succeeded, and
+  restore refusing a non-empty directory. Twelve deliberate breakages of
+  the scripts were each caught by a test.
+- Checked on the laptop with real Postgres: `restore.sh` loaded a real
+  `pg_dump` into the throwaway container and printed correct row counts
+  (run twice; the container had no published port and sat on an internal
+  network).
+- Checked in an Ubuntu 24.04 container: every package `provision.sh`
+  installs exists under that name, including from Docker's repository.
+- **Not checked, because there is no server:** `provision.sh` end to end
+  (firewall, SSH settings, timer), a real deploy and a real rollback, a
+  real backup to off-server storage, the two workflows' SSH steps. These
+  are the drills in tasks 4–7 of the deploy plan.
+
+**Known gaps in these scripts:**
+
+- A rollback switches the code back, not the database. If a new version
+  changed the schema before failing, the old code runs against the new
+  schema. The pre-deploy dump in `/opt/tracker/predeploy/` (last 5 kept)
+  is the way back, by hand.
+- The `deploy` job trusts the server's SSH host key the first time it
+  sees it on each run (`ssh-keyscan`) instead of comparing it with a
+  stored one.
+- GitHub pauses scheduled workflows in a repository with no activity for
+  60 days. If the repo goes quiet that long, the backup check stops
+  until it is re-enabled.
+- Docker publishes ports 80 and 443 itself, past the `ufw` firewall. That
+  is intended here (they are the two public ports), but it means `ufw`
+  alone does not decide what is reachable if a compose file ever
+  publishes another port.
 
 ## Target (not built yet)
 

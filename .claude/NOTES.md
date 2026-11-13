@@ -237,3 +237,26 @@ maps onto this project. Nothing decided yet. Proposals given:
   unaffected.
 - Remaining F2 tasks (4–7) need the developer's server, domain, backup
   bucket and invited emails.
+
+## 2026-11-13 — PR housekeeping and F2 server scripts
+- Merging PR #8 from the app returned 502. The PR itself was healthy;
+  its branch was one commit behind `main`. After "update branch" and a
+  green CI the developer merged it. Whether the 502 came from GitHub or
+  from the stale branch was not established.
+- Merging #8 deleted `feat/weight`, the base of PR #10, and GitHub closed
+  #10. A closed PR cannot be retargeted, so PR #11 (`f2-deploy` → `main`,
+  same content) replaced it. Lesson: do not stack a PR on a branch that
+  will be deleted on merge; target `main` and say what it depends on.
+- Wrote ahead of the server, on branch `f2-server-scripts` (on top of
+  `f2-deploy`): `infra/provision.sh`, `deploy.sh`, `backup.sh`,
+  `restore.sh`, `infra/test/` (24 tests with stand-ins), CI jobs `infra`,
+  `images`, `deploy`, and `.github/workflows/backup-check.yml`.
+- Verified: shellcheck clean; 24/24 script tests; 12 deliberate breakages
+  each caught; `restore.sh` against a real Postgres container with a real
+  dump (row counts 2 / 7 / 0 as expected, twice); package names in an
+  Ubuntu 24.04 container; both workflow files parse as YAML.
+- Not verified: anything on a real server, and the workflows' behaviour
+  on GitHub beyond YAML syntax (the `if:` conditions of `images` and
+  `deploy` are untested until `DEPLOY_ENABLED` is set).
+- Still needed from the developer: server + IP, domain + DNS, backup
+  bucket + key, invited emails.

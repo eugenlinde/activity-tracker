@@ -917,3 +917,37 @@ reaching a usable MVP.
   is the one that ships.
 - No cache headers were added in Caddy yet; a stale `index.html` after a
   deploy is possible in theory. Left out as not yet a problem.
+
+## 2026-11-13 — F2 server scripts written before the server: builder's calls
+
+- One repository variable, `DEPLOY_ENABLED`, gates the `images` and
+  `deploy` jobs and the backup check. Not in the plan. Reason: without it,
+  merging the workflow before a server exists would turn every run on
+  `main` red and mail a failed backup check daily. It doubles as the
+  go-live switch (the developer sets it) and the stop switch.
+- Script tests with stand-ins for `docker`, `curl`, `restic`
+  (`infra/test/`), run by a new CI job `infra` together with `shellcheck`.
+  Not in the plan. Reason: the rollback path would otherwise be exercised
+  for the first time on prod. The job is not a required check yet —
+  changing branch protection is the developer's call.
+- `deploy.sh` pulls the new images before it changes anything, so a failed
+  pull (missing tag, private package) leaves the server exactly as it was.
+- Files reach the server through `tar` over SSH, not `scp`: tar replaces
+  each file instead of writing into it, so a backup that is running while
+  a deploy arrives keeps its own copy of the script.
+- `backup.env` is read line by line, not executed as shell, so a secret
+  containing `$` or `=` is taken literally.
+- `backup.sh` and `restore.sh` only require `RESTIC_REPOSITORY` and
+  `RESTIC_PASSWORD`; whatever else is in `backup.env` is passed on. Which
+  storage variables to use (Backblaze's own interface or its
+  S3-compatible one) is decided when the bucket exists — to be checked
+  against restic's documentation then, not assumed now.
+- `restore.sh` insists on an absolute, empty target directory and puts
+  the throwaway database on an internal Docker network with no published
+  port.
+- Kept from the plan although weaker than it could be: the deploy job
+  learns the server's SSH host key with `ssh-keyscan` on every run. A
+  pinned key would need one more secret; left as a known gap in
+  `docs/ARCHITECTURE.md`.
+- `shellcheck` was installed on the laptop with Homebrew (named in the
+  plan).

@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { tokenStore } from '../api/client'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { onUnauthorized, tokenStore } from '../api/client'
 
 interface AuthState {
   token: string | null
@@ -32,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.clear()
     setToken(null)
   }, [])
+
+  useEffect(() => onUnauthorized(() => setToken(null)), [])
 
   const value = useMemo(
     () => ({ token, userId: subjectOf(token), login, logout }),

@@ -150,3 +150,11 @@ maps onto this project. Nothing decided yet. Proposals given:
   database.
 - `.claude/launch.json` (dev-server config for the session's browser
   pane) is git-ignored.
+- Developer hit "Request failed with 401" on `/activities` while trying
+  the branch. Cause: a token left in the browser from an earlier backend
+  run; the local run command generates a new `JWT_SECRET` on every start,
+  so old tokens stop verifying. The app cleared the token but stayed on
+  the page showing the error (old debt: "user silently logged out on
+  first 401"). Fixed: a 401 now signs the user out in the UI and
+  `RequireAuth` sends them to the login page. Checked in a browser: stale
+  token → `/login`; wrong password on login still shows the error.

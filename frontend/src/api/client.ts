@@ -8,6 +8,17 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 }
 
+type UnauthorizedListener = () => void
+
+const unauthorizedListeners = new Set<UnauthorizedListener>()
+
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener)
+  return () => {
+    unauthorizedListeners.delete(listener)
+  }
+}
+
 export class ApiError extends Error {
   status: number
   body: unknown
@@ -46,7 +57,10 @@ async function send(path: string, init: RequestInit, accept: string): Promise<Re
   const response = await fetch(path, { ...init, headers })
 
   if (!response.ok) {
-    if (response.status === 401) tokenStore.clear()
+    if (response.status === 401) {
+      tokenStore.clear()
+      unauthorizedListeners.forEach((listener) => listener())
+    }
     throw new ApiError(response.status, await parseBody(response))
   }
 

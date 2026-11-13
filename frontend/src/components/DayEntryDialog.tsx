@@ -1,29 +1,53 @@
 import { useState, type FormEvent } from 'react'
 import { Button, Input, Modal } from 'antd'
-import { weightsApi } from '../api/weights'
-import type { WeightEntry } from '../api/types'
 import { todayIso } from '../lib/dates'
 import { ErrorMessage } from './ErrorMessage'
 import { Field } from './Field'
 
+export interface DayValue {
+  date: string
+  value: number
+}
+
 interface Props {
   open: boolean
-  entries: WeightEntry[]
+  title: string
+  valueLabel: string
+  min: number
+  max: number
+  step: number
+  inputMode: 'decimal' | 'numeric'
+  entries: DayValue[]
+  describe: (value: number) => string
+  onSave: (date: string, value: number) => Promise<unknown>
+  onRemove: (date: string) => Promise<unknown>
   onClose: () => void
   onChanged: () => void
 }
 
-export function WeightDialog({ open, entries, onClose, onChanged }: Props) {
+export function DayEntryDialog({ open, title, onClose, ...form }: Props) {
   return (
-    <Modal open={open} title="Add weight" onCancel={onClose} footer={null} destroyOnHidden width={420}>
-      <WeightForm entries={entries} onClose={onClose} onChanged={onChanged} />
+    <Modal open={open} title={title} onCancel={onClose} footer={null} destroyOnHidden width={420}>
+      <DayEntryForm onClose={onClose} {...form} />
     </Modal>
   )
 }
 
-function WeightForm({ entries, onClose, onChanged }: Omit<Props, 'open'>) {
+function DayEntryForm({
+  valueLabel,
+  min,
+  max,
+  step,
+  inputMode,
+  entries,
+  describe,
+  onSave,
+  onRemove,
+  onClose,
+  onChanged,
+}: Omit<Props, 'open' | 'title'>) {
   const [date, setDate] = useState(todayIso())
-  const [weight, setWeight] = useState('')
+  const [value, setValue] = useState('')
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
 
@@ -45,7 +69,7 @@ function WeightForm({ entries, onClose, onChanged }: Omit<Props, 'open'>) {
 
   function save(e: FormEvent) {
     e.preventDefault()
-    void run(() => weightsApi.save(date, Number(weight)))
+    void run(() => onSave(date, Number(value)))
   }
 
   return (
@@ -54,30 +78,27 @@ function WeightForm({ entries, onClose, onChanged }: Omit<Props, 'open'>) {
         <Field label="Date">
           <Input type="date" max={todayIso()} value={date} onChange={(e) => setDate(e.target.value)} required />
         </Field>
-        <Field label="Weight (kg)">
+        <Field label={valueLabel}>
           <Input
             type="number"
-            inputMode="decimal"
-            min={20}
-            max={400}
-            step={0.1}
-            placeholder={existing ? String(existing.weightKg) : undefined}
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
+            inputMode={inputMode}
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             required
             autoFocus
           />
         </Field>
       </div>
       {existing && (
-        <span className="muted">
-          {existing.weightKg.toFixed(1)} kg is already logged for this day. Saving replaces it.
-        </span>
+        <span className="muted">Already logged for this day: {describe(existing.value)}. Saving replaces it.</span>
       )}
       <ErrorMessage error={error} />
       <div className="form-actions">
         {existing && (
-          <Button danger disabled={busy} onClick={() => void run(() => weightsApi.remove(date))}>
+          <Button danger disabled={busy} onClick={() => void run(() => onRemove(date))}>
             Delete entry
           </Button>
         )}

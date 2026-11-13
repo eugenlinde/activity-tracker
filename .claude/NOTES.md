@@ -178,3 +178,21 @@ maps onto this project. Nothing decided yet. Proposals given:
   database.
 - PR is stacked on `feat/app-shell` (PR #7) because the Dashboard builds
   on the new shell.
+
+## 2026-11-13 — Issue #6: daily steps
+- Tests first: 31 for steps, 4 for the shared date policy; weight service
+  test adapted to the policy. Mutations (dropping the max, dropping the
+  date check) turned tests red. A probe against the real API showed
+  `9870.5` being saved as `9870`; added a failing test, then fixed. Whole
+  suite: 186 green.
+- Frontend: steps card (bars, goal line, 2/8-week toggle, weekly
+  averages, legend), shared add/replace/delete dialog, sticky sidebar,
+  smaller stat numbers on phone width.
+- Checked against a real backend and database: API (41 seeded days,
+  over max → 400, negative → 400, future → 400, delete missing → 404) and
+  UI at desktop and 375 px (both ranges, add → average changes by the
+  expected amount, delete, weight card still works with the shared
+  dialog, no horizontal scroll).
+- Seeded steps and weight readings remain for the test user in the dev
+  database.
+- PR stacked on `feat/weight` (PR #8).

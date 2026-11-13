@@ -874,3 +874,22 @@ reaching a usable MVP.
 - `vite.config.ts` reads `API_TARGET` (default `http://localhost:8080`) so
   a second backend can be checked without touching the developer's
   running one.
+
+## 2026-11-13 — Daily steps (issue #6): builder's calls
+
+- Same shape as weight on purpose: one entry per day, `PUT /{date}`
+  creates or replaces, owner only.
+- The "not in the future" rule moved out of `WeightService` into
+  `common/EntryDatePolicy`, used by both services — one rule, one place.
+- `StepsRequest.steps` is a `BigDecimal` with `@Digits(fraction = 0)`
+  rather than an `Integer`: with an `Integer`, the JSON parser silently
+  turned `9870.5` into `9870`. Found by calling the real API, pinned by a
+  test.
+- "This week" / "last week" averages are calendar weeks starting on
+  Monday; days without an entry are left out of the average and get no
+  bar. The prototype used rolling 7-day windows under the same labels.
+- The 2-week / 8-week toggle only changes what is drawn; the card always
+  loads 8 weeks.
+- One shared `DayEntryDialog` replaces the weight-only dialog.
+- The sidebar now stays in place while the page scrolls (the Dashboard is
+  the first page taller than the screen).

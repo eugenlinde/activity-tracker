@@ -1,3 +1,4 @@
+import { StepsCard } from '../components/StepsCard'
 import { WeightCard } from '../components/WeightCard'
 import { formatLongToday } from '../lib/dates'
 
@@ -12,6 +13,7 @@ export function DashboardPage() {
       </header>
       <div className="dashboard-grid">
         <WeightCard />
+        <StepsCard />
       </div>
     </>
   )

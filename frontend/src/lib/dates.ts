@@ -40,3 +40,8 @@ export function formatLongToday(): string {
     year: 'numeric',
   })
 }
+
+export function mondayOf(isoDate: string): string {
+  const weekday = new Date(utcMillis(isoDate)).getUTCDay()
+  return addDays(isoDate, -((weekday + 6) % 7))
+}

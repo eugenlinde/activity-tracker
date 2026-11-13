@@ -1,5 +1,6 @@
 package dev.eugenlinde.activitytracker.weight.service;
 
+import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.WeightEntryNotFoundException;
 import dev.eugenlinde.activitytracker.user.UserRepository;
@@ -35,12 +36,13 @@ class WeightServiceTest {
     private final Long userId = 7L;
     private final WeightEntryRepository weightEntryRepository = mock(WeightEntryRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final Clock clock = Clock.fixed(Instant.parse("2026-11-13T10:00:00Z"), ZoneOffset.UTC);
+    private final EntryDatePolicy entryDatePolicy =
+            new EntryDatePolicy(Clock.fixed(Instant.parse("2026-11-13T10:00:00Z"), ZoneOffset.UTC));
     private WeightService weightService;
 
     @BeforeEach
     void setUp() {
-        weightService = new WeightService(weightEntryRepository, userRepository, clock);
+        weightService = new WeightService(weightEntryRepository, userRepository, entryDatePolicy);
         when(weightEntryRepository.saveAndFlush(any(WeightEntry.class))).thenAnswer(call -> call.getArgument(0));
     }
 

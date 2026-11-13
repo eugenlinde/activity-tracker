@@ -7,7 +7,7 @@ import { addDays, formatShortDate, todayIso } from '../lib/dates'
 import { buildWeightChart, CHART, formatDelta, formatKg } from '../lib/weightChart'
 import { palette } from '../theme'
 import { ErrorMessage } from './ErrorMessage'
-import { WeightDialog } from './WeightDialog'
+import { DayEntryDialog } from './DayEntryDialog'
 
 const RANGE_DAYS = 84
 
@@ -119,9 +119,18 @@ export function WeightCard() {
         </>
       )}
 
-      <WeightDialog
+      <DayEntryDialog
         open={dialogOpen}
-        entries={list}
+        title="Add weight"
+        valueLabel="Weight (kg)"
+        min={20}
+        max={400}
+        step={0.1}
+        inputMode="decimal"
+        entries={list.map((entry) => ({ date: entry.date, value: entry.weightKg }))}
+        describe={(value) => `${formatKg(value)} kg`}
+        onSave={weightsApi.save}
+        onRemove={weightsApi.remove}
         onClose={() => setDialogOpen(false)}
         onChanged={() => setVersion((current) => current + 1)}
       />

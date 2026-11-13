@@ -86,10 +86,10 @@ developer's call; this is the suggested one.
 - [ ] Finish CSV import (pre-pivot steps 4d–6; detail in `.claude/SPEC.md`,
       "Phase 5 — CSV import"). Scope to be re-checked against the prototype's
       Import screen (Excel, multiple record kinds, per-row include).
-- [ ] Restyle the existing screens to the prototype (dark, Manrope, sidebar
-      nav, mobile burger)
-- [ ] Body weight: manual entry + dashboard trend
-- [ ] Daily steps: manual entry + dashboard chart with goal
+- [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar
+      nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
+- [ ] Body weight: manual entry + dashboard trend — issue #5
+- [ ] Daily steps: manual entry + dashboard chart with goal — issue #6
 - [ ] Dashboard calendar with workout / aerobic markers
 - [ ] Aerobic view with weekly minutes
 - [ ] Diet log (per-day status + comment)

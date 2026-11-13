@@ -1,3 +1,5 @@
+import { Button, Input } from 'antd'
+import { CloseOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import { emptyExercise, emptySet, MAX_EXERCISES, MAX_SETS, type ExerciseDraft, type SetDraft } from '../lib/details'
 
 interface Props {
@@ -35,25 +37,29 @@ export function ExerciseEditor({ value, onChange }: Props) {
       {value.map((exercise, index) => (
         <div key={index} className="exercise-edit">
           <div className="row">
-            <input
+            <Input
               aria-label="Exercise name"
               placeholder="Exercise name"
               value={exercise.name}
               onChange={(e) => updateExercise(index, { name: e.target.value })}
               required
             />
-            <button type="button" onClick={() => removeExercise(index)}>
-              Remove
-            </button>
+            <Button
+              type="text"
+              danger
+              aria-label="Remove exercise"
+              icon={<DeleteOutlined />}
+              onClick={() => removeExercise(index)}
+            />
           </div>
           <div className="row">
-            <input
+            <Input
               aria-label="Target reps"
               placeholder="Target reps (10-15)"
               value={exercise.targetReps}
               onChange={(e) => updateExercise(index, { targetReps: e.target.value })}
             />
-            <input
+            <Input
               aria-label="Reps in reserve"
               placeholder="RIR (1-2)"
               value={exercise.repsInReserve}
@@ -61,46 +67,54 @@ export function ExerciseEditor({ value, onChange }: Props) {
             />
           </div>
           {exercise.sets.map((set, setIndex) => (
-            <div key={setIndex} className="row">
-              <span className="muted">#{setIndex + 1}</span>
-              <input
+            <div key={setIndex} className="row set-row">
+              <span className="set-index">#{setIndex + 1}</span>
+              <Input
                 aria-label={`Set ${setIndex + 1} weight`}
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="any"
                 placeholder="kg"
                 value={set.weight}
                 onChange={(e) => updateSet(index, setIndex, { weight: e.target.value })}
               />
-              <input
+              <Input
                 aria-label={`Set ${setIndex + 1} reps`}
                 type="number"
+                inputMode="numeric"
                 min={0}
                 step={1}
                 placeholder="reps"
                 value={set.reps}
                 onChange={(e) => updateSet(index, setIndex, { reps: e.target.value })}
               />
-              <button type="button" onClick={() => removeSet(index, setIndex)}>
-                ×
-              </button>
+              <Button
+                type="text"
+                aria-label={`Remove set ${setIndex + 1}`}
+                icon={<CloseOutlined />}
+                onClick={() => removeSet(index, setIndex)}
+              />
             </div>
           ))}
-          <button
-            type="button"
-            className="link"
-            onClick={() => addSet(index)}
-            disabled={exercise.sets.length >= MAX_SETS}
-          >
-            + Add set
-          </button>
-          <input
+          <div>
+            <Button
+              type="link"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => addSet(index)}
+              disabled={exercise.sets.length >= MAX_SETS}
+            >
+              Add set
+            </Button>
+          </div>
+          <Input
             aria-label="Comment"
             placeholder="Comment"
             value={exercise.comment}
             onChange={(e) => updateExercise(index, { comment: e.target.value })}
           />
-          <input
+          <Input
             aria-label="Video URL"
             type="url"
             placeholder="Video URL"
@@ -109,13 +123,15 @@ export function ExerciseEditor({ value, onChange }: Props) {
           />
         </div>
       ))}
-      <button
-        type="button"
-        onClick={() => onChange([...value, emptyExercise()])}
-        disabled={value.length >= MAX_EXERCISES}
-      >
-        Add exercise
-      </button>
+      <div>
+        <Button
+          icon={<PlusOutlined />}
+          onClick={() => onChange([...value, emptyExercise()])}
+          disabled={value.length >= MAX_EXERCISES}
+        >
+          Add exercise
+        </Button>
+      </div>
     </fieldset>
   )
 }

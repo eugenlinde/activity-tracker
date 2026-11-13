@@ -829,3 +829,29 @@ reaching a usable MVP.
   `docs/ARCHITECTURE.md` keeps being updated with every infra change, in
   plain language. The debt is paid back before F6 at the latest. The rule
   in `CLAUDE.md` is unchanged — this is a postponement, not a repeal.
+
+## 2026-11-13 — MVP order: features before deploy; Ant Design for the frontend
+
+**Developer's decisions.**
+- Features first, deploy (F2) after. Builder had recommended deploy first
+  (nothing is usable on a phone until the app is online, and the VPS and
+  domain have lead time). Developer chose features first.
+- MVP = the app is online (F2) and does what the spreadsheet does: manual
+  body weight and daily steps with a dashboard, in the prototype's look.
+  Staging, the agent loop, monitoring, CSV import, diet, comments,
+  templates, Garmin and Xiaomi come after.
+- Use a component library for the frontend, "for example antd".
+
+**Builder's calls.**
+- Ant Design 6 with `ConfigProvider` (dark algorithm + the prototype's
+  tokens), `@ant-design/icons`, Manrope self-hosted via Fontsource. Charts
+  stay hand-drawn SVG as in the prototype — no chart library. Cost: the JS
+  bundle grew from about 277 kB to about 782 kB (253 kB gzipped).
+- Forms keep native `<form>` submission and browser validation with Ant
+  Design inputs inside, instead of Ant Design's `Form` — smallest change
+  to existing logic.
+- Workout create/edit moved into a dialog; delete confirmations use Ant
+  Design's confirm dialog instead of `window.confirm` (old debt item).
+- Weight and steps are owner-only for now, not visible through a share.
+- Work is tracked as GitHub issues (#4 look, #5 weight, #6 steps), one PR
+  each — the same path the agents will take later.

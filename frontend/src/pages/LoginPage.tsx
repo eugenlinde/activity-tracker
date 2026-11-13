@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Button, Input } from 'antd'
 import { authApi } from '../api/auth'
 import { useAuth } from '../auth/AuthContext'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { Field } from '../components/Field'
 
 type Mode = 'login' | 'signup'
 
@@ -40,41 +42,47 @@ export function LoginPage() {
 
   return (
     <div className="centered">
-      <form className="card" onSubmit={onSubmit}>
+      <form className="panel form auth-card" onSubmit={onSubmit}>
+        <div className="logo" style={{ padding: 0 }}>
+          <span className="logo-dot" />
+          tracker
+        </div>
         <h1>{mode === 'login' ? 'Log in' : 'Sign up'}</h1>
         {mode === 'signup' && (
-          <>
-            <label>
-              First name
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required minLength={2} />
-            </label>
-            <label>
-              Last name
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} required minLength={2} />
-            </label>
-          </>
+          <div className="form-grid">
+            <Field label="First name">
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required minLength={2} />
+            </Field>
+            <Field label="Last name">
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required minLength={2} />
+            </Field>
+          </div>
         )}
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
+        <Field label="Email">
+          <Input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </Field>
+        <Field label="Password">
+          <Input.Password
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={mode === 'signup' ? 8 : undefined}
           />
-        </label>
+        </Field>
         <ErrorMessage error={error} />
-        <button type="submit" disabled={busy}>
+        <Button type="primary" htmlType="submit" loading={busy} block>
           {mode === 'login' ? 'Log in' : 'Create account'}
-        </button>
-        <button type="button" className="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
+        </Button>
+        <Button type="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
           {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'}
-        </button>
+        </Button>
       </form>
     </div>
   )

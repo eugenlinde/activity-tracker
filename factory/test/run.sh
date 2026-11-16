@@ -361,6 +361,95 @@ run "$STATE" --pr 12
 expect_status 2
 end
 
+APPLY="$FACTORY/apply.sh"
+
+apply() {
+  run "$APPLY" --repo o/r --pr "$1" --issue 7 --round "$2" --decision "$3" --summary "S x"
+}
+
+begin "apply_pass"
+apply 12 2 PASS
+expect_status 0
+expect_log_exactly \
+  "gh pr comment 12 --repo o/r --body S x" \
+  "gh pr edit 12 --repo o/r --remove-label needs-fix --add-label review-passed"
+end
+
+begin "apply_fix"
+apply 12 2 FIX
+expect_status 0
+expect_log_exactly \
+  "gh pr comment 12 --repo o/r --body S x" \
+  "gh pr edit 12 --repo o/r --remove-label review-round-2 --add-label review-round-3 --add-label needs-fix"
+end
+
+begin "apply_fix_round3_refused"
+apply 12 3 FIX
+expect_status 2
+expect_log_exactly ""
+end
+
+begin "apply_rerun_review"
+apply 12 1 RERUN_REVIEW
+expect_status 0
+expect_log_exactly "gh pr comment 12 --repo o/r --body S x"
+end
+
+begin "apply_scrap"
+apply 12 3 SCRAP
+expect_status 0
+expect_log_exactly \
+  "gh pr comment 12 --repo o/r --body S x" \
+  "gh pr close 12 --repo o/r --delete-branch --comment Scrapped by the review gate. Analysis follows on #7." \
+  "gh issue edit 7 --repo o/r --add-label needs-analysis"
+end
+
+begin "apply_needs_human"
+apply 12 1 NEEDS_HUMAN
+expect_status 0
+expect_log_exactly \
+  "gh pr comment 12 --repo o/r --body S x" \
+  "gh pr edit 12 --repo o/r --add-label needs-human" \
+  "gh issue edit 7 --repo o/r --add-label needs-human"
+end
+
+begin "apply_needs_human_no_issue"
+run "$APPLY" --repo o/r --pr 12 --issue 0 --round 1 --decision NEEDS_HUMAN --summary "S x"
+expect_status 0
+expect_log_exactly \
+  "gh pr comment 12 --repo o/r --body S x" \
+  "gh pr edit 12 --repo o/r --add-label needs-human"
+end
+
+begin "apply_rebuild"
+apply 0 1 REBUILD
+expect_status 0
+expect_log_exactly \
+  "gh issue comment 7 --repo o/r --body S x" \
+  "gh issue edit 7 --repo o/r --remove-label needs-analysis --remove-label attempt-1 --add-label attempt-2"
+end
+
+begin "apply_rebuild_needs_human"
+apply 0 1 NEEDS_HUMAN
+expect_status 0
+expect_log_exactly \
+  "gh issue comment 7 --repo o/r --body S x" \
+  "gh issue edit 7 --repo o/r --remove-label needs-analysis --add-label needs-human"
+end
+
+begin "apply_close_fails"
+export STUB_GH_FAIL_ON="pr close"
+apply 12 3 SCRAP
+expect_status 1
+expect_no_log "gh issue edit"
+end
+
+begin "apply_unknown_decision"
+apply 12 1 MERGE
+expect_status 2
+expect_log_exactly ""
+end
+
 echo
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

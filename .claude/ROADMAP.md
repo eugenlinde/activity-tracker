@@ -70,6 +70,11 @@ piece in their own words before the phase is checked off.
 - [ ] **F4 — Factory loop**
     - [ ] Agent runtime in Actions (plan A or B), switchable by config
     - [ ] Triage agent, spec agent, implementation agent, review agent
+    - [ ] Review loop: 3 rounds, scrap and rebuild (design approved
+          2026-11-16: `docs/superpowers/specs/2026-11-16-review-loop-design.md`)
+        - [x] Part 1: gate script, labels, workflow, tests (2026-11-16,
+              not yet drilled on a real PR)
+        - [ ] Part 2: review, fix, analysis agents (after plan A/B)
     - [ ] Label-driven hand-offs; nothing merges without the developer
     - [ ] Explain-back: every step of the loop and how to stop it
 - [ ] **F5 — Monitoring loop**

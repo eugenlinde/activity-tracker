@@ -973,3 +973,34 @@ pushed. Eight findings, all accepted:
 - A missing `IMAGE_TAG` in `.env` gives a message instead of a silent exit.
 - The restore drill removes its throwaway database volume.
 - The backup service sets `HOME=/root` so restic can keep its cache.
+
+## 2026-11-16 — Server: Hetzner CPX22, over budget (developer's decision)
+
+- **Decided by the developer:** keep the Hetzner CPX22 (2 vCPU, 4 GB,
+  80 GB, shared x86, Helsinki, Ubuntu 26.04) at about €21–22 a month with
+  VAT. The developer called the extra cost tuition and wants headroom to
+  run more apps on subdomains later. A domain was bought for a year from
+  an Estonian registrar.
+- **Effect:** the server alone is over the €20/month project budget,
+  before the domain and OpenRouter. The developer loaded €25 of credit,
+  which covers about the first month.
+- **Builder's position (overridden):** the measured footprint of the whole
+  stack is about 565 MB (backend 500 MB, Postgres 44 MB, Caddy 20 MB;
+  empty database, one user, about 2,400 requests on the laptop), so a
+  2 GB machine at about €13 (Hetzner CPX12, or a DigitalOcean 2 GB
+  droplet) would carry the tracker alone and fit the budget.
+- **Builder's mistake, recorded:** the plan's "about €6–8" came from the
+  old CX22 price and was not re-checked at buying time; a "starting from"
+  price was then read as the 4 GB price. Real prices on 2026-11-16, excl.
+  VAT: CX23 €5.99 (not available), CPX12 €9.99, CPX22 €16.99. Prices are
+  checked on the provider's own plan table before any figure is quoted.
+- **Revisit:** when the credit runs out, or when CX23 is back on sale.
+  Moving is a new server + `provision.sh` + restore from backup; Hetzner
+  cannot scale a server down to a smaller disk.
+- **Builder's calls:** Ubuntu 26.04 is accepted (Docker publishes packages
+  for it; every package `provision.sh` installs exists there — checked in
+  a container, not on the server). Backups will use Backblaze through its
+  S3-compatible interface, as restic's documentation recommends, instead
+  of the native B2 one named in the plan. More apps on the same box are
+  not built for now; when a second app exists, Caddy moves out of the
+  tracker's compose project into a shared front proxy.

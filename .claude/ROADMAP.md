@@ -50,6 +50,11 @@ piece in their own words before the phase is checked off.
           laptop; never run on a real server. Deploys stay off until the
           repo variable `DEPLOY_ENABLED` is `true`.
     - [ ] VPS, domain, Caddy with HTTPS, Docker Compose for prod
+        - [x] Server bought (Hetzner CPX22, Ubuntu 26.04), domain bought,
+              DNS record for the tracker subdomain live, `provision.sh`
+              run and verified on the box (2026-11-16)
+        - [ ] First deploy: `production` environment + secrets, GHCR
+              packages public, `DEPLOY_ENABLED` on
     - [ ] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
           health check
     - [ ] Nightly backup of database + media off-box; one real restore test

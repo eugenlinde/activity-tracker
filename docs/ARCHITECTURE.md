@@ -106,6 +106,29 @@ action's default commercial caching service.
   (`OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`). The app
   refuses to start if they are blank.
 
+On the server and on GitHub (set up 2026-11-16, no deploy has used them
+yet):
+
+- `/opt/tracker/.env` on the server, mode 600, owned by `deploy`: the
+  production database password and JWT secret, generated on the box by
+  `provision.sh` and never shown; the site address; the invited e-mail
+  list; placeholder OpenRouter values. Readable by `root` and `deploy`
+  only. To invite someone: add the address to `SIGNUP_ALLOWED_EMAILS`
+  there and restart the backend.
+- GitHub environment `production`, usable only by runs on `main`:
+  `DEPLOY_HOST` (the server's address) and `DEPLOY_SSH_KEY` (the private
+  half of a key made only for deploys). Pull requests and forks cannot
+  read them. Once stored, GitHub shows a secret to nobody; it can only be
+  replaced.
+- The deploy key's public half is in `deploy`'s `authorized_keys` on the
+  server. That key logs in as `deploy` only: it can run Docker and write
+  in `/opt/tracker`, and it has no sudo. No copy of the private half
+  exists outside GitHub. To cut GitHub off from the server: delete the
+  line ending `github-actions-deploy` from
+  `/home/deploy/.ssh/authorized_keys`.
+- The developer's own SSH key logs in as `root` and as `deploy`.
+- Backup storage keys: not on the server yet (deploy plan, task 6).
+
 ## Built, but not running anywhere yet
 
 Everything needed to run the app on a server exists in `infra/` and was
@@ -134,14 +157,14 @@ image, a weight and a step count were saved; the image was still there
 after the backend container was thrown away and recreated; the backend
 ran as a non-root user and logged no SQL. The stack was then removed.
 
-### Server scripts (written 2026-11-13, never run on a real server)
+### Server scripts (written 2026-11-13; `provision.sh` run on the real server 2026-11-16, the rest not yet)
 
 Four scripts and two workflow pieces that turn an empty server into the
 running app and keep it backed up. All of them wait for a server.
 
 | Piece | What it does | Why it is needed | When it fails |
 |---|---|---|---|
-| `infra/provision.sh` | Run once as root on a fresh Ubuntu 24.04. Installs Docker, the firewall and restic; creates the user `deploy`; turns off password logins; opens only ports 22, 80, 443; writes `/opt/tracker/.env` with a freshly generated database password and JWT secret; installs the nightly backup timer | A new server is an open, empty machine. This makes it safe and ready in one repeatable step instead of a list of hand-typed commands | It stops at the first error and can simply be run again — it never overwrites an existing `.env` |
+| `infra/provision.sh` | Run once as root on a fresh Ubuntu 24.04 or 26.04. Installs Docker, the firewall and restic; creates the user `deploy`; turns off password logins; opens only ports 22, 80, 443; writes `/opt/tracker/.env` with a freshly generated database password and JWT secret; installs the nightly backup timer | A new server is an open, empty machine. This makes it safe and ready in one repeatable step instead of a list of hand-typed commands | It stops at the first error and can simply be run again — it never overwrites an existing `.env` |
 | `infra/deploy.sh <tag>` | Runs on the server. Dumps the database, swaps in the new `compose.yml` if one arrived (keeping the old one aside), pulls the images for `<tag>`, restarts the containers, then asks `https://<site>/actuator/health` every 5 s for up to 2 minutes | One command that either ends with the new version healthy or puts the old one back | Pull fails → the old `compose.yml` is put back, nothing else was changed. Containers do not start, or the new version is not healthy → saves the last 50 lines of the backend log to `/opt/tracker/last-failed-deploy.log` (on the server only — the log may contain users' data and the workflow log is public), switches back to the previous tag and the previous `compose.yml`, restarts, exits with an error so the workflow goes red |
 | `images` job in `ci.yml` | After green checks on `main`: builds the jar and the frontend, packs them into the two images, pushes them to GHCR tagged with the commit SHA | The server needs something to pull; the SHA tag means every version can be named and redeployed | Job goes red, `deploy` does not run, the server is untouched |
 | `deploy` job in `ci.yml` | Copies the scripts to `/opt/tracker/` and the new `compose.yml` to `/opt/tracker/incoming/` over SSH, then runs `deploy.sh <sha>`. The script's output goes to `/opt/tracker/last-deploy.log` on the server and is shown in the workflow when it finishes, so a dropped connection cannot kill a deploy half-way | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
@@ -180,14 +203,24 @@ older images.
   `pg_dump` into the throwaway container and printed correct row counts
   (run twice; the container had no published port and sat on an internal
   network).
-- Checked in an Ubuntu 24.04 container: every package `provision.sh`
-  installs exists under that name, including from Docker's repository.
-- **Not checked, because there is no server:** `provision.sh` end to end
-  (firewall, SSH settings, timer), a real deploy and a real rollback, a
-  real backup to off-server storage, the two workflows' SSH steps, and
-  how the workflow's job conditions behave on GitHub (read and reasoned
-  about, never run). These are the drills in tasks 4–7 of the deploy
-  plan.
+- Checked in Ubuntu 24.04 and 26.04 containers: every package
+  `provision.sh` installs exists under that name, including from Docker's
+  repository. The server bought on 2026-11-16 runs 26.04.
+- `provision.sh` ran end to end on the real server on 2026-11-16 (Hetzner
+  CPX22, Ubuntu 26.04) and was checked afterwards on the box: Docker and
+  the compose plugin installed and running; firewall active with only
+  22, 80, 443 open; password logins refused, key logins work for `root`
+  and `deploy`; `deploy` is in the docker group and has no sudo;
+  `/opt/tracker/.env` exists, mode 600, owned by `deploy`, with all eight
+  variables; the backup timer is enabled for 03:30 UTC; automatic
+  security updates are on. The tracker subdomain resolves to the server
+  from public resolvers.
+- **Not checked yet:** a real deploy and a real rollback, a real backup
+  to off-server storage, the two workflows' SSH steps, and how the
+  workflow's job conditions behave on GitHub (read and reasoned about,
+  never run). These are the drills in tasks 5–7 of the deploy plan.
+  Until `backup.sh` and `backup.env` are on the server the nightly
+  backup unit fails — expected, and nothing is watching it yet.
 
 **Known gaps in these scripts:**
 

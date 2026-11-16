@@ -266,3 +266,53 @@ maps onto this project. Nothing decided yet. Proposals given:
   could kill a deploy mid-way; concurrency could delay a manual rollback;
   three smaller ones). All fixed; tests written first and seen failing
   for the testable ones. Script tests now 31, shellcheck clean.
+
+## 2026-11-16 — Server bought, PRs #11 and #12 merged
+
+- PR #11 and #12 merged by the developer; `main` carries the server
+  scripts, deploys still off (`DEPLOY_ENABLED` unset, no `production`
+  environment yet).
+- Developer created a Hetzner CPX22 with Ubuntu 26.04 and bought a domain.
+  Cost is over budget by the developer's decision — see DECISIONS.
+- Measured memory of the full stack locally: about 565 MB.
+- Ubuntu 26.04 checked: Docker apt repo has `resolute`; all packages from
+  `provision.sh` have candidates there.
+- Still needed from the developer: server IPv4, DNS A record for the
+  tracker subdomain, backup bucket + its endpoint, invited emails.
+- Not done: nothing has run on the server yet.
+
+## 2026-11-16 — Server provisioned (F2 task 4)
+
+- With the developer's go-ahead: `provision.sh` copied to the server and
+  run as root, exit 0. Invited list holds one address (the developer's);
+  more are added later in `/opt/tracker/.env`.
+- Verified on the server afterwards: Docker 29.10 + compose 5.7, restic
+  0.18; ufw active (22, 80, 443 only); password login refused; `root`
+  and `deploy` log in with the key; `deploy` in docker group, no sudo;
+  `.env` mode 600 with eight variables (secret values not read);
+  backup timer enabled, next run 03:30 UTC; unattended upgrades on.
+- DNS: the tracker subdomain resolves to the server from 1.1.1.1 and
+  8.8.8.8.
+- Backup storage known: one private Backblaze bucket, S3-compatible
+  endpoint in EU Central. The keys stay with the developer.
+- Expected until task 6: the nightly backup unit fails (no `backup.sh`,
+  no `backup.env` yet).
+- Next: task 5 — deploy key, `production` environment with
+  `DEPLOY_HOST` / `DEPLOY_SSH_KEY`, `SITE_ADDRESS` variable, GHCR
+  packages public, then the developer turns `DEPLOY_ENABLED` on.
+- Docs for this are on branch `f2-go-live`, not committed yet.
+
+## 2026-11-16 — First deploy prepared (F2 task 5, step 1)
+
+- With the developer's go-ahead: GitHub environment `production` created,
+  deployment branches limited to `main`; secrets `DEPLOY_HOST` and
+  `DEPLOY_SSH_KEY` set in it.
+- Deploy key: ed25519 pair made on the laptop, public half appended to
+  `deploy`'s `authorized_keys`, private half stored in the secret, local
+  copy deleted. Checked: the key logs in as `deploy`; as `root` it is
+  refused.
+- No `SITE_ADDRESS` variable on GitHub: the workflows do not read one,
+  `deploy.sh` takes the address from the server's `.env`.
+- Not done: `DEPLOY_ENABLED` is still unset — the developer's switch. The
+  first run is expected to fail at `docker compose pull` until the two
+  GHCR packages are made public.

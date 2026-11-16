@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Budget €20/month for VPS, backups, domain, and the app's OpenRouter calls. Expected for F2: about €6–8 (to be checked against real prices when buying).
+- Budget €20/month for VPS, backups, domain, and the app's OpenRouter calls. Expected for F2: about €6–8 (to be checked against real prices when buying). **Actual, 2026-11-16: about €21–22 for the server alone — over budget by the developer's decision, see `.claude/DECISIONS.md`.**
 - Bare minimum only: no staging (F3), no agents (F4), no error tracking (F5), no Kubernetes, no Terraform.
 - Secrets never go into git — not in code, config, workflow files, docs, or commit messages. The repo is public.
 - The server's IP address is not written into the repo; it lives in a GitHub secret.
@@ -52,7 +52,7 @@ from the task text below, this list wins:
 
 These cannot be done by the builder (accounts and payments). They can be done in parallel with Tasks 1–3.
 
-1. **Server:** a Hetzner account and one server — type CX22 (2 vCPU, 4 GB, x86), Ubuntu 24.04, location Helsinki, with the developer's SSH public key added at creation. Give the builder the IP address in chat (it goes into a GitHub secret, not the repo).
+1. **Server:** a Hetzner account and one server — type CX22 (2 vCPU, 4 GB, x86), Ubuntu 24.04, location Helsinki (bought 2026-11-16: CPX22, same size, Ubuntu 26.04 — CX22 is no longer sold and its successor was unavailable), with the developer's SSH public key added at creation. Give the builder the IP address in chat (it goes into a GitHub secret, not the repo).
 2. **Domain:** a domain name, with an `A` record pointing at the server's IP. Tell the builder the name.
 3. **Backup storage:** a Backblaze B2 account, one private bucket, and one application key limited to that bucket (free up to 10 GB). The developer types the key on the server themselves in Task 6; the builder never sees it.
 4. **Invited emails:** the addresses allowed to sign up, starting with the developer's own.
@@ -243,7 +243,7 @@ Needs items 1 and 2 from "What the developer provides", and the developer's go-a
 
 - [ ] **Step 1: Write `infra/provision.sh`** (idempotent — safe to run twice)
 
-Run as root on a fresh Ubuntu 24.04. It:
+Run as root on a fresh Ubuntu 24.04 or 26.04. It:
 - installs Docker Engine + compose plugin from Docker's apt repository, `ufw`, `unattended-upgrades`, `restic`
 - creates user `deploy`, copies root's `authorized_keys` to it, adds it to `docker`
 - sets `PasswordAuthentication no` and `PermitRootLogin prohibit-password` in sshd, reloads it
@@ -343,7 +343,7 @@ Needs item 3 from "What the developer provides".
 - Modify: `infra/provision.sh` (installs the timer)
 
 **Interfaces:**
-- Produces on the server: `/opt/tracker/backup.env` (mode 600: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, `B2_ACCOUNT_ID`, `B2_ACCOUNT_KEY`), systemd timer `tracker-backup.timer` (daily 03:30), marker file `/opt/tracker/last-backup-ok` (touched after a successful run).
+- Produces on the server: `/opt/tracker/backup.env` (mode 600: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD`, and the storage keys — `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, because Backblaze is used through its S3-compatible interface as restic recommends), systemd timer `tracker-backup.timer` (daily 03:30), marker file `/opt/tracker/last-backup-ok` (touched after a successful run).
 
 - [ ] **Step 1: `infra/backup.sh`**
 

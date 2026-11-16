@@ -268,10 +268,25 @@ older images.
   empty of user data: 17 schema-history rows, nothing else). The
   backup-check workflow was run by hand twice: green with a fresh
   marker, red after the marker was made to look two days old.
-- **Not checked yet:** a restore with real user data in it, a deploy
-  over a running version (the pre-deploy dump), a real rollback, a
-  reboot, and the timer firing by itself at night. These are the
-  remaining drills in tasks 5–7 of the deploy plan.
+- Second deploy, 2026-11-16, over the running version: green; the
+  database kept running, `api` and `web` were replaced, and
+  `/opt/tracker/predeploy/` holds the dump taken just before (it
+  contains the developer's account, created minutes earlier). A backup
+  and restore after that again matched the live database table for
+  table, this time with one user row in it.
+- Rollback drill, 2026-11-16: a backend image that cannot start (a Java
+  option that does not exist) was merged on purpose. CI was green — the
+  checks never start the image. `deploy` took a dump, started the new
+  version, waited two minutes for a health check that never came, saved
+  the backend's log to `/opt/tracker/last-failed-deploy.log`, put the
+  previous version back and saw it healthy; the job ended red with
+  "Rolled back to …, health check UP" after 3 min 44 s. Checked on the
+  server afterwards: previous image tag in `.env`, all three containers
+  running, the account still in the database. The broken line was
+  removed again in the next change.
+- **Not checked yet:** a restore with workouts and media in it (only an
+  account existed), a rollback where the new version had changed the
+  database schema, a reboot, and the timer firing by itself at night.
 
 **Known gaps in these scripts:**
 

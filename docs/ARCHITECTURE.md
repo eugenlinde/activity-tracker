@@ -4,13 +4,45 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-13 (deploy and backup scripts written and tested on the laptop — nothing is deployed yet, no server exists).
+Last updated: 2026-11-16 (first deploy: the app is live on one server over HTTPS; nightly off-server backups run and a restore has been rehearsed).
 
 ## What exists today
 
-The app itself still runs only on the developer's laptop. There is no
-server. The code lives on GitHub and every pull request is checked there
-automatically.
+Since 2026-11-16 the app runs on one server on the public internet, and
+still on the developer's laptop for development. The code lives on GitHub;
+every pull request is checked there automatically and every merge to
+`main` deploys itself.
+
+**Production**
+
+| Piece | What it is | Where it runs |
+|---|---|---|
+| Server | One Hetzner cloud server (CPX22: 2 vCPU, 4 GB, 80 GB), Ubuntu 26.04, Helsinki | Hetzner |
+| `web` | Caddy: gets and renews the HTTPS certificate by itself (Let's Encrypt), serves the built frontend, forwards `/api/*` and `/actuator/health` to the backend. The only container with public ports (80, 443) | container on the server |
+| `api` | The Spring Boot backend. Reachable only from `web`, inside Docker's network | container on the server |
+| `postgres` | Postgres 17. Reachable only from `api` | container on the server |
+| Data | Database, uploaded media and certificates live in Docker volumes on the server's disk (`tracker_pgdata`, `tracker_media`, `tracker_caddy_data`) — they survive restarts and redeploys, **not** the loss of the server. For that there is the nightly backup — see "Backups and how to restore" | server disk |
+| Images | `ghcr.io/eugenlinde/activity-tracker-api` and `-web`, one tag per commit on `main`, public like the repo | GitHub's registry (GHCR) |
+| Settings and secrets | `/opt/tracker/.env` | server |
+
+**Path of a request:** browser → DNS gives the server's address → Caddy
+on port 443 (HTTP on port 80 is redirected to HTTPS) → a page or script
+is answered by Caddy itself from the built frontend; a call under `/api`
+is passed to the backend → the backend checks the login token and talks
+to Postgres → the answer goes back the same way. Anything else under
+`/actuator` is not forwarded; the backend's management endpoints are not
+reachable from outside.
+
+**If the server restarts:** Docker starts by itself and brings the three
+containers back (`restart: unless-stopped`). Not yet proven with a real
+reboot.
+
+**Memory in use right after the first deploy:** backend about 960 MB,
+Postgres 45 MB, Caddy 17 MB, of 3.7 GB. (On the laptop, held to a 1.9 GB
+limit, the backend settled at 500 MB — the Java runtime takes more when
+more is there.)
+
+**Development (laptop) and tooling**
 
 | Piece | What it is | Where it runs |
 |---|---|---|
@@ -127,12 +159,17 @@ yet):
   line ending `github-actions-deploy` from
   `/home/deploy/.ssh/authorized_keys`.
 - The developer's own SSH key logs in as `root` and as `deploy`.
-- Backup storage keys: not on the server yet (deploy plan, task 6).
+- `/opt/tracker/backup.env` on the server, mode 600, owned by `root`:
+  the address of the backup storage, its access key, and the restic
+  password that encrypts the backups. Typed in by the developer; the
+  builder has not seen the values. **The restic password also lives in
+  the developer's password manager — if both copies are lost, the
+  backups cannot be read by anyone.**
 
-## Built, but not running anywhere yet
+## The server pieces, one by one
 
-Everything needed to run the app on a server exists in `infra/` and was
-rehearsed on the laptop on 2026-11-13. No server exists yet.
+Everything the server runs comes from `infra/`. Rehearsed on the laptop on
+2026-11-13, live since 2026-11-16.
 
 | Piece | What it is |
 |---|---|
@@ -157,7 +194,7 @@ image, a weight and a step count were saved; the image was still there
 after the backend container was thrown away and recreated; the backend
 ran as a non-root user and logged no SQL. The stack was then removed.
 
-### Server scripts (written 2026-11-13; `provision.sh` run on the real server 2026-11-16, the rest not yet)
+### Server scripts (written 2026-11-13; all four have run on the real server)
 
 Four scripts and two workflow pieces that turn an empty server into the
 running app and keep it backed up. All of them wait for a server.
@@ -174,10 +211,10 @@ running app and keep it backed up. All of them wait for a server.
 
 **The deploy switch.** `images`, `deploy` and the backup check all look at
 one repository variable, `DEPLOY_ENABLED`. Unless it is exactly `true`,
-they are skipped. It is unset today, so merging to `main` builds nothing
-and contacts no server. Setting it (Settings → Secrets and variables →
-Actions → Variables) is the developer's go-live decision; deleting it
-later is the way to stop all deploys at once.
+they are skipped. The developer set it on 2026-11-16 (Settings → Secrets
+and variables → Actions → Variables), so every merge to `main` now
+deploys. Deleting it, or setting it to anything else, stops all deploys
+and the backup check at once; the running site is not affected.
 
 **Redeploying an older version by hand** (manual rollback): Actions → CI →
 Run workflow → enter the commit SHA of the version wanted. No image is
@@ -215,12 +252,26 @@ older images.
   variables; the backup timer is enabled for 03:30 UTC; automatic
   security updates are on. The tracker subdomain resolves to the server
   from public resolvers.
-- **Not checked yet:** a real deploy and a real rollback, a real backup
-  to off-server storage, the two workflows' SSH steps, and how the
-  workflow's job conditions behave on GitHub (read and reasoned about,
-  never run). These are the drills in tasks 5–7 of the deploy plan.
-  Until `backup.sh` and `backup.env` are on the server the nightly
-  backup unit fails — expected, and nothing is watching it yet.
+- First real deploy, 2026-11-16: merging to `main` with the switch on ran
+  `backend`, `frontend`, `infra`, `images`, `deploy`, all green, about
+  three minutes from merge to live. Checked from outside afterwards: the
+  health endpoint answers `UP` over HTTPS with a valid Let's Encrypt
+  certificate; HTTP redirects to HTTPS; the front page loads; `/api`
+  without a login answers 401; other `/actuator` paths return the
+  frontend's page, not backend internals; sign-up with a non-invited
+  address is refused with 403. The server pulled the images without
+  logging in, so the packages are public.
+- First real backup and restore, 2026-11-16: the backup unit ran green
+  and stored one snapshot off the server; `restore.sh latest` fetched it
+  back, loaded it into the throwaway database, and its row counts
+  matched the live database table for table (the database was still
+  empty of user data: 17 schema-history rows, nothing else). The
+  backup-check workflow was run by hand twice: green with a fresh
+  marker, red after the marker was made to look two days old.
+- **Not checked yet:** a restore with real user data in it, a deploy
+  over a running version (the pre-deploy dump), a real rollback, a
+  reboot, and the timer firing by itself at night. These are the
+  remaining drills in tasks 5–7 of the deploy plan.
 
 **Known gaps in these scripts:**
 
@@ -239,6 +290,39 @@ older images.
   alone does not decide what is reachable if a compose file ever
   publishes another port.
 
+## Backups and how to restore
+
+**What is backed up:** a full dump of the database and the uploaded media
+files. **Where to:** one private Backblaze B2 bucket in the EU, written
+with restic, which encrypts everything before it leaves the server — the
+storage provider cannot read it. **When:** every night at 03:30 UTC
+(a systemd timer on the server, `tracker-backup.timer`). **How long it is
+kept:** 7 daily, 4 weekly and 6 monthly snapshots.
+
+**How a missed backup is noticed:** after every fully successful run
+`backup.sh` touches `/opt/tracker/last-backup-ok`. Every morning at 06:00
+UTC the GitHub workflow `backup-check.yml` logs in and fails if that file
+is older than 26 hours; a failed scheduled workflow makes GitHub e-mail
+the repository owner.
+
+**To run a backup now** (as `root` on the server):
+`systemctl start tracker-backup.service`, then
+`journalctl -u tracker-backup.service -n 30` to read what it did.
+
+**To check that a backup can be read** (touches nothing live): as `root`,
+`mkdir /root/restore-check && /opt/tracker/restore.sh latest /root/restore-check`.
+It prints the number of rows in every table of the restored copy and the
+number of media files, then the one command that removes the throwaway
+copy again.
+
+**To actually restore after losing the server** — not rehearsed end to
+end yet, and prod data is the developer's call, so do this with the
+builder, not from memory: new server → `provision.sh` → put `backup.env`
+back (storage address and key from Backblaze, restic password from the
+password manager) → deploy → `restore.sh latest <dir>` to fetch the
+snapshot → load `db.sql` into the live database and copy the media files
+into the media volume.
+
 ## Target (not built yet)
 
 Filled in phase by phase as each piece becomes real — see
@@ -250,8 +334,6 @@ into pull requests.
 
 Sections to be written when they become true:
 
-- Path of a request (browser → Caddy → app → Postgres)
 - The rest of the path of a change (issue → spec → … → staging → prod)
-- Backups and how to restore
 - How to stop the factory
 - What it costs per month

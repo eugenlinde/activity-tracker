@@ -316,3 +316,41 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Not done: `DEPLOY_ENABLED` is still unset — the developer's switch. The
   first run is expected to fail at `docker compose pull` until the two
   GHCR packages are made public.
+
+## 2026-11-16 — First deploy: the site is live
+
+- The developer set `DEPLOY_ENABLED=true` and merged PR #13. The run on
+  `main` went green end to end (`images` 1 min, `deploy` 40 s).
+- The builder expected `deploy` to fail at the image pull (new GHCR
+  packages private). It did not: the packages came out public and the
+  server pulled them without a login. No visibility change was needed.
+- Checked from outside: health `UP` over HTTPS, valid Let's Encrypt
+  certificate, HTTP → HTTPS redirect, front page loads, `/api` → 401
+  without a token, other `/actuator` paths are not forwarded, sign-up
+  with a non-invited address → 403.
+- Memory on the server right after start: backend about 960 MB — nearly
+  double the 500 MB measured on the laptop under a 1.9 GB limit. The
+  earlier "2 GB is enough" claim was thinner than stated; the 4 GB server
+  the developer chose has the room.
+- Open: backups (task 6) — the backup check will be red every morning
+  until then; rollback drill; reboot drill; the developer's first
+  account. The pull's progress output makes the public deploy log long
+  and noisy (cosmetic; fix with a quiet pull).
+
+## 2026-11-16 — Backups working (F2 task 6)
+
+- The developer created `/opt/tracker/backup.env` on the server and ran
+  `restic init` (first try failed with "Access Denied": wrong key id
+  typed; fixed by the developer). Storage is reached through Backblaze's
+  S3-compatible interface.
+- Builder ran the backup unit: green, one snapshot, marker touched. Ran
+  `restore.sh latest`: restored copy's row counts equal the live
+  database's (no user data yet). Throwaway container, network and
+  directory removed.
+- `backup-check.yml` by hand: green with a fresh marker; red after the
+  marker was back-dated two days (the developer got GitHub's failure
+  e-mail for that run — it was the drill); backup run again, marker
+  fresh.
+- Still to do in F2: the developer's first account and first real data,
+  then the restore drill again; rollback drill; reboot drill; watch the
+  timer fire by itself tonight (03:30 UTC).

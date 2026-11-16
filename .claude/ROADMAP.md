@@ -53,11 +53,15 @@ piece in their own words before the phase is checked off.
         - [x] Server bought (Hetzner CPX22, Ubuntu 26.04), domain bought,
               DNS record for the tracker subdomain live, `provision.sh`
               run and verified on the box (2026-11-16)
-        - [ ] First deploy: `production` environment + secrets, GHCR
-              packages public, `DEPLOY_ENABLED` on
-    - [ ] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
-          health check
-    - [ ] Nightly backup of database + media off-box; one real restore test
+        - [x] First deploy: `production` environment + secrets,
+              `DEPLOY_ENABLED` on, site live over HTTPS (2026-11-16)
+    - [x] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
+          health check (first real run green 2026-11-16; rollback drill
+          still to do)
+    - [x] Nightly backup of database + media off-box; one real restore test
+          (2026-11-16: first snapshot stored, restore rehearsed and row
+          counts matched — on a database with no user data yet; repeat
+          once real data exists)
     - [ ] Explain-back: path of a request, where data lives, how to restore
 - [ ] **F3 — Staging**
     - [ ] One staging slot on the same VPS, own database and media dir

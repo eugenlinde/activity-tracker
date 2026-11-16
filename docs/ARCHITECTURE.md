@@ -382,9 +382,10 @@ review was wrong"; otherwise the issue gets `needs-human`.
 the `infra` job of CI with a fake `gh`):
 
 - `gate.sh` — the rules above; reads nothing from GitHub.
-- `state.sh` — reads the PR's labels and its linked issue (`Closes #N` in
-  the PR text). Exactly one round label and one linked issue, or it
-  reports the state as broken.
+- `state.sh` — reads the PR's state, labels and its linked issue
+  (`Closes #N` in the PR text; links to issues in other repositories are
+  ignored). A closed or merged PR is left alone. Otherwise exactly one
+  round label and one linked issue, or it reports the state as broken.
 - `apply.sh` — writes the decision to GitHub: a comment with the numbers
   (`Round 2 · CI green · critical 1 · major 3 → fix`), label changes, and
   for a scrap: close the PR, delete its branch, mark the issue
@@ -393,9 +394,12 @@ the `infra` job of CI with a fake `gh`):
 - `labels.sh` — creates the labels once (safe to run again).
 - `.github/workflows/factory-gate.yml` — starts `run-gate.sh`. Today by
   hand (Actions → Factory gate → Run workflow, with a PR number, the CI
-  result and findings as JSON); later the review agent calls it. It runs
-  the scripts from `main`, never from the PR, so a PR cannot change the
-  rules it is judged by.
+  result and findings as JSON); later the review agent calls it. Its
+  checkout is pinned to `main`, never the PR, so a PR cannot change the
+  rules it is judged by. Empty findings are treated as unreadable, never
+  as "no findings", so a caller that forgets to pass them cannot make a
+  PR pass. Findings must use the severities critical, major, minor or
+  info; anything else counts as unreadable.
 
 **What happens when it fails.**
 
@@ -405,6 +409,9 @@ the `infra` job of CI with a fake `gh`):
 - GitHub unreachable or a `gh` call fails: the run is red. Steps already
   done stay done; if the PR could not be closed, the issue is not marked
   `needs-analysis`. Rerun the workflow once the cause is gone.
+- A label missing from the repository makes `gh` fail: run
+  `factory/labels.sh --repo eugenlinde/activity-tracker` once before the
+  first use.
 
 **How to stop it.** Set the repository variable `FACTORY_ENABLED` to
 anything but `true` (Settings → Secrets and variables → Actions →

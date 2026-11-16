@@ -22,13 +22,19 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$repo" ] && [[ $pr =~ ^[0-9]+$ ]] || usage
 
-pr_json=$(gh pr view "$pr" --repo "$repo" --json labels,closingIssuesReferences)
+pr_json=$(gh pr view "$pr" --repo "$repo" --json state,labels,closingIssuesReferences)
 
 if ! jq -e 'any(.labels[]; .name == "factory")' <<< "$pr_json" > /dev/null; then
   echo "factory=false"
   exit 0
 fi
 echo "factory=true"
+
+if [ "$(jq -r .state <<< "$pr_json")" != OPEN ]; then
+  echo "open=false"
+  exit 0
+fi
+echo "open=true"
 
 rounds=$(jq -r '[.labels[].name | select(test("^review-round-[123]$")) | ltrimstr("review-round-")] | join(" ")' <<< "$pr_json")
 read -r -a round_list <<< "$rounds"
@@ -38,9 +44,9 @@ case ${#round_list[@]} in
   *) broken many-round-labels ;;
 esac
 
-issue_count=$(jq '.closingIssuesReferences | length' <<< "$pr_json")
-[ "$issue_count" -eq 1 ] || broken no-linked-issue
-issue=$(jq -r '.closingIssuesReferences[0].number' <<< "$pr_json")
+own_issues=$(jq -c --arg prefix "https://github.com/$repo/issues/" '[.closingIssuesReferences[] | select(.url | startswith($prefix)) | .number]' <<< "$pr_json")
+[ "$(jq length <<< "$own_issues")" -eq 1 ] || broken no-linked-issue
+issue=$(jq -r '.[0]' <<< "$own_issues")
 echo "issue=$issue"
 
 issue_json=$(gh issue view "$issue" --repo "$repo" --json labels)

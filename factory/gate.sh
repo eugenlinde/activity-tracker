@@ -34,15 +34,16 @@ review() {
   fi
   head="$head · CI green"
 
+  local normalize='gsub("^\\s+|\\s+$"; "") | ascii_downcase'
   if [ -z "$findings" ] || [ ! -f "$findings" ] ||
-    ! jq -e 'type == "array" and all(.[]; type == "object" and (.severity | type) == "string")' "$findings" > /dev/null 2>&1; then
+    ! jq -e -s "length == 1 and (.[0] | type == \"array\" and all(.[]; type == \"object\" and (.severity | type) == \"string\" and (.severity | $normalize | IN(\"critical\", \"major\", \"minor\", \"info\"))))" "$findings" > /dev/null 2>&1; then
     if [ "$try" -eq 1 ]; then decide RERUN_REVIEW "$head · findings unreadable → run the review again"; fi
     decide NEEDS_HUMAN "$head · findings unreadable twice → needs human"
   fi
 
   local critical major
-  critical=$(jq '[.[] | select((.severity | ascii_downcase) == "critical")] | length' "$findings")
-  major=$(jq '[.[] | select((.severity | ascii_downcase) == "major")] | length' "$findings")
+  critical=$(jq "[.[] | select(.severity | $normalize | . == \"critical\")] | length" "$findings")
+  major=$(jq "[.[] | select(.severity | $normalize | . == \"major\")] | length" "$findings")
   head="$head · critical $critical · major $major"
 
   if [ "$critical" -ge 6 ]; then decide SCRAP "$head → scrap (critical ≥ 6)"; fi

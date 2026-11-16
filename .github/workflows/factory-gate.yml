@@ -16,7 +16,7 @@ on:
         description: Review findings, a JSON array of objects with a severity
         required: false
         type: string
-        default: '[]'
+        default: ''
       review_try:
         description: 2 when this is the review's second try after unreadable findings
         required: false
@@ -34,7 +34,7 @@ on:
       findings:
         required: false
         type: string
-        default: '[]'
+        default: ''
       review_try:
         required: false
         type: string
@@ -56,6 +56,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: main
       - name: Decide and act
         env:
           GH_TOKEN: ${{ github.token }}

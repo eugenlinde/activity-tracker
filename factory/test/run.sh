@@ -187,6 +187,19 @@ for bad in '' 'looks fine' '{}' 'null'; do
   end
 done
 
+for bad in '{} []' '[{"severity":"critical"}] []' '[{"severity":"high"}]' '[{"severity":"blocker"}]'; do
+  begin "review_unreadable_shape '$bad'"
+  review 1 success "$(findings "$bad")" 1
+  expect_decision RERUN_REVIEW
+  end
+done
+
+begin "review_severity_padded"
+review 1 success "$(findings '[{"severity":" critical "},{"severity":"info"}]')"
+expect_decision FIX
+expect_line 2 "Round 1 · CI green · critical 1 · major 0 → fix"
+end
+
 begin "review_findings_file_missing"
 review 1 success "$CASE_DIR/absent.json" 1
 expect_decision RERUN_REVIEW
@@ -246,6 +259,7 @@ STATE="$FACTORY/state.sh"
 pr_json() {
   local issues=$1 labels="" name
   shift
+  local state=${PR_STATE:-OPEN}
   for name in "$@"; do
     [ -n "$labels" ] && labels+=","
     labels+="{\"name\":\"$name\"}"
@@ -253,9 +267,12 @@ pr_json() {
   local refs="" n
   for n in $issues; do
     [ -n "$refs" ] && refs+=","
-    refs+="{\"number\":$n}"
+    case $n in
+      */*) refs+="{\"number\":${n##*#},\"url\":\"https://github.com/${n%%#*}/issues/${n##*#}\"}" ;;
+      *) refs+="{\"number\":$n,\"url\":\"https://github.com/o/r/issues/$n\"}" ;;
+    esac
   done
-  echo "{\"labels\":[$labels],\"closingIssuesReferences\":[$refs]}"
+  echo "{\"state\":\"$state\",\"labels\":[$labels],\"closingIssuesReferences\":[$refs]}"
 }
 
 issue_json() {
@@ -277,7 +294,7 @@ expect_output "factory=true"
 expect_output "round=2"
 expect_output "issue=7"
 expect_output "attempt=1"
-expect_log "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+expect_log "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
 expect_log "gh issue view 7 --repo o/r --json labels"
 end
 
@@ -296,7 +313,7 @@ STUB_PR_JSON=$(pr_json 7 review-round-1)
 run "$STATE" --repo o/r --pr 12
 expect_status 0
 expect_output "factory=false"
-expect_log_exactly "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
 end
 
 begin "state_no_round"
@@ -354,6 +371,41 @@ begin "state_gh_fails"
 export STUB_GH_FAIL_ON="pr view"
 run "$STATE" --repo o/r --pr 12
 expect_status 1
+end
+
+begin "state_closed_pr"
+export STUB_PR_JSON
+STUB_PR_JSON=$(PR_STATE=CLOSED pr_json 7 factory review-round-3)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "open=false"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+end
+
+begin "state_merged_pr"
+export STUB_PR_JSON
+STUB_PR_JSON=$(PR_STATE=MERGED pr_json 7 factory review-round-1)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "open=false"
+end
+
+begin "state_other_repo_issue_ignored"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json "other/repo#7" factory review-round-1)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=no-linked-issue"
+expect_no_log "gh issue view"
+end
+
+begin "state_other_repo_issue_plus_own"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json "other/repo#7 9" factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "issue=9"
 end
 
 begin "state_missing_args"
@@ -456,7 +508,17 @@ STUB_PR_JSON=$(pr_json 7 enhancement)
 run_gate success "$(findings '[]')"
 expect_status 0
 expect_output "Not a factory PR, nothing to do"
-expect_log_exactly "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+end
+
+begin "run_gate_closed_pr"
+export STUB_PR_JSON
+STUB_PR_JSON=$(PR_STATE=CLOSED pr_json 7 factory review-round-3)
+run_gate success "$(findings '[{"severity":"major"}]')"
+expect_status 0
+expect_output "PR is not open, nothing to do"
+expect_no_log "gh pr comment"
+expect_no_log "gh issue"
 end
 
 begin "run_gate_fix"

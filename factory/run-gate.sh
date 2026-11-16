@@ -47,6 +47,11 @@ if [ "$(field factory)" != true ]; then
   exit 0
 fi
 
+if [ "$(field open)" != true ]; then
+  echo "PR is not open, nothing to do"
+  exit 0
+fi
+
 round=$(field round)
 issue=$(field issue)
 decision=$("$HERE/gate.sh" review --round "$round" --ci "$ci" --findings "$findings" --review-try "$try")

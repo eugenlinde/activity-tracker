@@ -11,4 +11,4 @@ COPY build/libs/*.jar app.jar
 
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+RollbackDrillNoSuchFlag", "-XX:MaxRAMPercentage=60", "-jar", "/app/app.jar"]

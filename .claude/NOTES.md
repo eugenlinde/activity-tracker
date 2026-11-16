@@ -385,3 +385,17 @@ maps onto this project. Nothing decided yet. Proposals given:
   byte-identical to the last good version.
 - Left for F2: reboot drill, the nightly timer firing by itself, a
   restore once workouts and media exist.
+
+## 2026-11-16 — Review loop designed; part 1 (gate) built
+
+- Developer asked for automatic review of factory PRs: only major and
+  critical findings, 6+ critical → scrap, 3 rounds max, scrap → analysis →
+  corrected spec → rebuild. Developer chose: rebuild starts by itself
+  (option B), rules enforced by a tested script (approach 1). Design
+  approved: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.
+- Built on branch `worktree-f4-review-gate` (not pushed): `factory/`
+  scripts (gate, state, apply, run-gate, labels), workflow
+  `factory-gate.yml`, tests in the CI `infra` job (62 cases, fake `gh`).
+- Not done: the drill on a real throwaway PR (needs the developer's ok,
+  `FACTORY_ENABLED=true`, labels created); part 2 (agents) waits for the
+  plan A/B check.

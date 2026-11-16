@@ -4,7 +4,7 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-16 (first deploy: the app is live on one server over HTTPS; nightly off-server backups run and a restore has been rehearsed).
+Last updated: 2026-11-16 (review gate of the factory, part 1: rules, labels, workflow; no agents yet).
 
 ## What exists today
 
@@ -338,6 +338,84 @@ password manager) → deploy → `restore.sh latest <dir>` to fetch the
 snapshot → load `db.sql` into the live database and copy the media files
 into the media volume.
 
+## Factory: review gate (part 1 built, no agents yet)
+
+Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.
+
+**What it is.** The rule book of the review loop, as a script. A review
+agent (not built yet) will read a factory PR and list its major and
+critical findings. The gate takes that list, the round number and the CI
+result, and decides what happens to the PR. The decision is made by plain
+shell code, not by an AI, so the limits cannot be talked around and are
+covered by tests.
+
+**The rules.**
+
+| Situation | Decision |
+|---|---|
+| CI red, round 1 or 2 | fix |
+| CI red, round 3 | scrap |
+| findings unreadable, first time | run the review again |
+| findings unreadable, second time | needs human |
+| 6 or more critical findings, any round | scrap |
+| no major or critical findings | pass |
+| major or critical findings, round 3 | scrap |
+| major or critical findings, round 1 or 2 | fix |
+
+After a scrap the analysis agent (not built yet) names the cause. A rebuild
+starts only on the first attempt and only when the cause is not "the
+review was wrong"; otherwise the issue gets `needs-human`.
+
+**State lives in labels**, so it is visible from the phone:
+
+| Label | On | Meaning |
+|---|---|---|
+| `factory` | PR | the loop acts on this PR; remove it to take the PR over by hand |
+| `review-round-1` / `-2` / `-3` | PR | current round |
+| `needs-fix` | PR | the gate asked the fix agent to work |
+| `review-passed` | PR | no major or critical findings left; ready for the developer |
+| `attempt-1` / `attempt-2` | issue | first build or the one rebuild |
+| `needs-analysis` | issue | PR was scrapped; analysis should run |
+| `needs-human` | issue or PR | the factory stopped; the developer decides |
+
+**The pieces** (all in `factory/`, tests in `factory/test/run.sh`, run by
+the `infra` job of CI with a fake `gh`):
+
+- `gate.sh` — the rules above; reads nothing from GitHub.
+- `state.sh` — reads the PR's labels and its linked issue (`Closes #N` in
+  the PR text). Exactly one round label and one linked issue, or it
+  reports the state as broken.
+- `apply.sh` — writes the decision to GitHub: a comment with the numbers
+  (`Round 2 · CI green · critical 1 · major 3 → fix`), label changes, and
+  for a scrap: close the PR, delete its branch, mark the issue
+  `needs-analysis`. The closed PR keeps its diff and comments.
+- `run-gate.sh` — the three above in order; what the workflow runs.
+- `labels.sh` — creates the labels once (safe to run again).
+- `.github/workflows/factory-gate.yml` — starts `run-gate.sh`. Today by
+  hand (Actions → Factory gate → Run workflow, with a PR number, the CI
+  result and findings as JSON); later the review agent calls it. It runs
+  the scripts from `main`, never from the PR, so a PR cannot change the
+  rules it is judged by.
+
+**What happens when it fails.**
+
+- Broken label state (no round label, two round labels, no linked issue,
+  two attempt labels): the PR, and the issue when known, get
+  `needs-human` with a comment saying which; the run is red.
+- GitHub unreachable or a `gh` call fails: the run is red. Steps already
+  done stay done; if the PR could not be closed, the issue is not marked
+  `needs-analysis`. Rerun the workflow once the cause is gone.
+
+**How to stop it.** Set the repository variable `FACTORY_ENABLED` to
+anything but `true` (Settings → Secrets and variables → Actions →
+Variables): every gate run is skipped. To stop it on one PR only, remove
+the `factory` label.
+
+**Not built yet (part 2, after plan A or B is chosen):** the review, fix
+and analysis agents; report-only review of other PRs; the GitHub App token
+the agents need, because labels set with the workflow's own token do not
+start other workflows.
+
 ## Target (not built yet)
 
 Filled in phase by phase as each piece becomes real — see
@@ -350,5 +428,5 @@ into pull requests.
 Sections to be written when they become true:
 
 - The rest of the path of a change (issue → spec → … → staging → prod)
-- How to stop the factory
+- How to stop the factory as a whole (the review gate already has its switch, see above)
 - What it costs per month

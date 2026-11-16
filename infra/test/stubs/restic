@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+echo "restic $*" >> "$STUB_LOG"
+echo "restic-password $RESTIC_PASSWORD" >> "$STUB_LOG"
+if [ "${STUB_RESTIC_FAILS:-}" = "$1" ]; then exit 1; fi
+if [ "$1" = "backup" ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      */db.sql) if [ -s "$arg" ]; then echo "dump-present" >> "$STUB_LOG"; fi ;;
+    esac
+  done
+fi
+if [ "$1" = "restore" ]; then
+  TARGET=${*: -1}
+  if [ "${STUB_SNAPSHOT_HAS_DUMP:-1}" = "1" ]; then
+    mkdir -p "$TARGET/opt/tracker/backup-staging"
+    echo "-- restored dump" > "$TARGET/opt/tracker/backup-staging/db.sql"
+  fi
+  mkdir -p "$TARGET/var/lib/docker/volumes/tracker_media/_data/7"
+  echo a > "$TARGET/var/lib/docker/volumes/tracker_media/_data/7/a.jpg"
+  echo b > "$TARGET/var/lib/docker/volumes/tracker_media/_data/7/b.jpg"
+fi
+exit 0

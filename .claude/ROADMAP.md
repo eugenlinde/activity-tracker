@@ -44,6 +44,11 @@ piece in their own words before the phase is checked off.
           path) — set in `infra/compose.yml` (2026-11-13)
     - [x] Closed signup (allowlist from `SIGNUP_ALLOWED_EMAILS`) (2026-11-13)
     - [x] Actuator `health` endpoint (2026-11-13)
+    - [x] Server scripts written ahead of the server (2026-11-13):
+          `provision.sh`, `deploy.sh`, `backup.sh`, `restore.sh`, `images` +
+          `deploy` jobs, `backup-check.yml`. Tested with stand-ins on the
+          laptop; never run on a real server. Deploys stay off until the
+          repo variable `DEPLOY_ENABLED` is `true`.
     - [ ] VPS, domain, Caddy with HTTPS, Docker Compose for prod
     - [ ] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
           health check

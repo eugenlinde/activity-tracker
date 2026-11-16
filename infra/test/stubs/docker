@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+echo "docker $*" >> "$STUB_LOG"
+case "$*" in
+  "compose ps --status running --services")
+    if [ "${STUB_DB_RUNNING:-1}" = "1" ]; then echo postgres; fi
+    ;;
+  "compose exec -T postgres pg_dump -U tracker tracker")
+    if [ "${STUB_DUMP_FAILS:-0}" = "1" ]; then exit 1; fi
+    echo "dump-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
+    echo "-- fake dump"
+    ;;
+  "compose pull")
+    echo "pull-tag ${IMAGE_TAG:-unset}" >> "$STUB_LOG"
+    echo "pull-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
+    if [ "${STUB_PULL_FAILS:-0}" = "1" ]; then exit 1; fi
+    ;;
+  "compose up -d --remove-orphans")
+    CURRENT=$(grep -E '^IMAGE_TAG=' "$STUB_APP_DIR/.env" | cut -d= -f2-)
+    echo "up-tag $CURRENT" >> "$STUB_LOG"
+    echo "up-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
+    if [ "${STUB_UP_FAILS_TAG:-}" = "$CURRENT" ]; then exit 1; fi
+    ;;
+  "compose logs --tail 50 api")
+    echo "fake api log line"
+    ;;
+  "volume inspect tracker_media --format {{ .Mountpoint }}")
+    echo "$STUB_MEDIA_DIR"
+    ;;
+  "network inspect tracker-restore-check")
+    exit 1
+    ;;
+  "exec tracker-restore-check pg_isready"*)
+    exit 0
+    ;;
+  "exec -i tracker-restore-check psql -q"*)
+    cat > "$STUB_APP_DIR/loaded.sql"
+    ;;
+  "exec -i tracker-restore-check psql -At"*)
+    cat > /dev/null
+    echo "activities 3"
+    ;;
+esac
+exit 0

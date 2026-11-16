@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+echo "curl $*" >> "$STUB_LOG"
+CURRENT=$(grep -E '^IMAGE_TAG=' "$STUB_APP_DIR/.env" | cut -d= -f2-)
+for tag in ${STUB_HEALTHY_TAGS:-}; do
+  if [ "$tag" = "$CURRENT" ]; then
+    echo '{"status":"UP"}'
+    exit 0
+  fi
+done
+exit 22

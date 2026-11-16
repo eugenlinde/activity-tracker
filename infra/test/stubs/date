@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+if [ "$*" = "-u +%u" ]; then
+  echo "${STUB_WEEKDAY:-3}"
+else
+  echo "20261113T120000Z"
+fi

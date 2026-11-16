@@ -1,0 +1,31 @@
+name: Backup check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  freshness:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Last successful backup is younger than 26 hours
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" 'find /opt/tracker/last-backup-ok -mmin -1560 2>/dev/null | grep -q .'; then
+            echo "Backup is fresh"
+          else
+            echo "No successful backup in the last 26 hours" >&2
+            exit 1
+          fi

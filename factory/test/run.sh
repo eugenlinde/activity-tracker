@@ -444,6 +444,104 @@ expect_status 1
 expect_no_log "gh issue edit"
 end
 
+RUN_GATE="$FACTORY/run-gate.sh"
+
+run_gate() {
+  run "$RUN_GATE" --repo o/r --pr 12 --ci "$1" --findings "$2" --review-try "${3:-1}"
+}
+
+begin "run_gate_not_factory"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 enhancement)
+run_gate success "$(findings '[]')"
+expect_status 0
+expect_output "Not a factory PR, nothing to do"
+expect_log_exactly "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+end
+
+begin "run_gate_fix"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json attempt-1)
+run_gate success "$(findings '[{"severity":"major"},{"severity":"major"}]')"
+expect_status 0
+expect_log "gh pr comment 12 --repo o/r --body Round 1 · CI green · critical 0 · major 2 → fix"
+expect_log "gh pr edit 12 --repo o/r --remove-label review-round-1 --add-label review-round-2 --add-label needs-fix"
+end
+
+begin "run_gate_scrap"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-3)
+STUB_ISSUE_JSON=$(issue_json attempt-1)
+run_gate success "$(findings '[{"severity":"major"}]')"
+expect_status 0
+expect_log "gh pr close 12 --repo o/r --delete-branch --comment Scrapped by the review gate. Analysis follows on #7."
+expect_log "gh issue edit 7 --repo o/r --add-label needs-analysis"
+end
+
+begin "run_gate_ci_red"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+STUB_ISSUE_JSON=$(issue_json)
+run_gate failure "$CASE_DIR/absent.json"
+expect_status 0
+expect_log "gh pr comment 12 --repo o/r --body Round 2 · CI red → fix"
+end
+
+begin "run_gate_unreadable_twice"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json)
+run_gate success "$(findings 'looks fine')" 2
+expect_status 0
+expect_log "gh pr edit 12 --repo o/r --add-label needs-human"
+expect_log "gh issue edit 7 --repo o/r --add-label needs-human"
+end
+
+begin "run_gate_broken_state_no_round"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory)
+run_gate success "$(findings '[]')"
+expect_status 1
+expect_log "gh pr comment 12 --repo o/r --body Factory state is broken (no-round-label) → needs human"
+expect_log "gh pr edit 12 --repo o/r --add-label needs-human"
+expect_no_log "gh issue"
+end
+
+begin "run_gate_broken_state_two_attempts"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+STUB_ISSUE_JSON=$(issue_json attempt-1 attempt-2)
+run_gate success "$(findings '[]')"
+expect_status 1
+expect_log "gh pr comment 12 --repo o/r --body Factory state is broken (many-attempt-labels) → needs human"
+expect_log "gh issue edit 7 --repo o/r --add-label needs-human"
+expect_no_log "review-passed"
+end
+
+begin "run_gate_gh_down"
+export STUB_GH_FAIL_ON="pr view"
+run_gate success "$(findings '[]')"
+expect_status 1
+expect_no_log "gh pr comment"
+end
+
+begin "labels_all_created"
+run "$FACTORY/labels.sh" --repo o/r
+expect_status 0
+for label in factory review-round-1 review-round-2 review-round-3 needs-fix review-passed attempt-1 attempt-2 needs-analysis needs-human; do
+  if ! grep -qE "^gh label create $label --repo o/r --force --color [0-9a-f]{6} --description .+" "$STUB_LOG"; then
+    fail "label $label not created"
+  fi
+done
+if [ "$(wc -l < "$STUB_LOG")" -ne 10 ]; then fail "expected 10 gh calls"; fi
+end
+
+begin "labels_missing_repo"
+run "$FACTORY/labels.sh"
+expect_status 2
+end
+
 begin "apply_unknown_decision"
 apply 12 1 MERGE
 expect_status 2

@@ -56,8 +56,8 @@ piece in their own words before the phase is checked off.
         - [x] First deploy: `production` environment + secrets,
               `DEPLOY_ENABLED` on, site live over HTTPS (2026-11-16)
     - [x] Deploy workflow: merge to `main` → image to GHCR → SSH deploy →
-          health check (first real run green 2026-11-16; rollback drill
-          still to do)
+          health check (first real run green and rollback drill passed
+          2026-11-16)
     - [x] Nightly backup of database + media off-box; one real restore test
           (2026-11-16: first snapshot stored, restore rehearsed and row
           counts matched — on a database with no user data yet; repeat

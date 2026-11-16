@@ -354,3 +354,34 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Still to do in F2: the developer's first account and first real data,
   then the restore drill again; rollback drill; reboot drill; watch the
   timer fire by itself tonight (03:30 UTC).
+
+## 2026-11-16 — Second deploy, first account, restore with a user row
+
+- PR #14 merged by the developer → second deploy green. Postgres stayed
+  up; `api` and `web` recreated; first pre-deploy dump written and
+  readable (8 tables, 1 user row).
+- The developer created their account on the live site.
+- Backup + `restore.sh latest` again: restored row counts identical to
+  live (users 1, everything else empty). Scratch container, network and
+  files removed.
+- Same-day snapshots are thinned to one by the retention rule
+  (keep 7 daily) — expected.
+- Observation: every merge to `main` deploys, including docs-only ones.
+  Harmless (about 20 s of `api` restart) but worth a path filter later.
+- Left for F2: rollback drill, reboot drill, the timer firing by itself
+  tonight, a restore once workouts and media exist. These notes are on
+  branch `f2-drills`, uncommitted, to go with the rollback-drill change.
+
+## 2026-11-16 — Rollback drill passed
+
+- PR #15 (one line: unknown JVM option in `infra/api.Dockerfile`) merged
+  by the developer as a drill. Checks and `images` green, `deploy` red
+  after 3 min 44 s: dump taken, new version never healthy, log saved on
+  the server (not in the public workflow log), previous tag and compose
+  file restored, health `UP`.
+- Verified on the server: `IMAGE_TAG` back to the previous commit, three
+  containers running, 1 user in the database, two pre-deploy dumps kept.
+- This change removes the broken option; `infra/api.Dockerfile` is
+  byte-identical to the last good version.
+- Left for F2: reboot drill, the nightly timer firing by itself, a
+  restore once workouts and media exist.

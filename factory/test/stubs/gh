@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+echo "gh $*" >> "$STUB_LOG"
+if [ -n "${STUB_GH_FAIL_ON:-}" ] && [ "$1 $2" = "$STUB_GH_FAIL_ON" ]; then
+  echo "stub: $STUB_GH_FAIL_ON failed" >&2
+  exit 1
+fi
+case "$1 $2" in
+  "pr view") printf '%s\n' "${STUB_PR_JSON:-}" ;;
+  "issue view") printf '%s\n' "${STUB_ISSUE_JSON:-}" ;;
+esac
+exit 0

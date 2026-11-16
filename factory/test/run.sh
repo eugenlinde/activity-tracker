@@ -241,6 +241,126 @@ run "$GATE" rebuild --attempt 1 --cause other
 expect_status 2
 end
 
+STATE="$FACTORY/state.sh"
+
+pr_json() {
+  local issues=$1 labels="" name
+  shift
+  for name in "$@"; do
+    [ -n "$labels" ] && labels+=","
+    labels+="{\"name\":\"$name\"}"
+  done
+  local refs="" n
+  for n in $issues; do
+    [ -n "$refs" ] && refs+=","
+    refs+="{\"number\":$n}"
+  done
+  echo "{\"labels\":[$labels],\"closingIssuesReferences\":[$refs]}"
+}
+
+issue_json() {
+  local labels="" name
+  for name in "$@"; do
+    [ -n "$labels" ] && labels+=","
+    labels+="{\"name\":\"$name\"}"
+  done
+  echo "{\"labels\":[$labels]}"
+}
+
+begin "state_normal"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-2 enhancement)
+STUB_ISSUE_JSON=$(issue_json attempt-1 bug)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "factory=true"
+expect_output "round=2"
+expect_output "issue=7"
+expect_output "attempt=1"
+expect_log "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+expect_log "gh issue view 7 --repo o/r --json labels"
+end
+
+begin "state_attempt_2"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json attempt-2)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "attempt=2"
+end
+
+begin "state_not_factory"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 review-round-1)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "factory=false"
+expect_log_exactly "gh pr view 12 --repo o/r --json labels,closingIssuesReferences"
+end
+
+begin "state_no_round"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=no-round-label"
+end
+
+begin "state_two_rounds"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1 review-round-2)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=many-round-labels"
+end
+
+begin "state_no_issue"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json "" factory review-round-1)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=no-linked-issue"
+end
+
+begin "state_two_issues"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json "7 8" factory review-round-1)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=no-linked-issue"
+end
+
+begin "state_no_attempt_label"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-3)
+STUB_ISSUE_JSON=$(issue_json)
+run "$STATE" --repo o/r --pr 12
+expect_status 0
+expect_output "round=3"
+expect_output "attempt=1"
+end
+
+begin "state_two_attempts"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json attempt-1 attempt-2)
+run "$STATE" --repo o/r --pr 12
+expect_status 3
+expect_output "error=many-attempt-labels"
+end
+
+begin "state_gh_fails"
+export STUB_GH_FAIL_ON="pr view"
+run "$STATE" --repo o/r --pr 12
+expect_status 1
+end
+
+begin "state_missing_args"
+run "$STATE" --pr 12
+expect_status 2
+end
+
 echo
 echo "$PASSED passed, $FAILED failed"
 [ "$FAILED" -eq 0 ]

@@ -1004,3 +1004,24 @@ pushed. Eight findings, all accepted:
   of the native B2 one named in the plan. More apps on the same box are
   not built for now; when a second app exists, Caddy moves out of the
   tracker's compose project into a shared front proxy.
+
+## 2026-11-16 — Automatic review loop for factory PRs
+
+Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`
+(approved by the developer 2026-11-16).
+
+- **Decided by the developer:** a review agent runs automatically on every
+  factory PR and reports only major and critical findings. 6 or more
+  critical findings → scrap at once (close PR, delete branch, analyse the
+  cause, correct the spec, rebuild from zero). At most 3 review rounds; any
+  major or critical finding after round 3 → scrap the same way. The
+  rebuild starts by itself, without a new `approved` label (option B).
+  Built only on GitHub issues, PRs, labels and Actions. Limits are enforced
+  by a tested script, not by an LLM (approach 1 of 3).
+- **Builder's calls:** one automatic rebuild per issue, then
+  `needs-human`; red CI counts as a failed round; a written severity
+  rubric; the analysis agent stops instead of rebuilding when the cause is
+  a wrong review; the issue body counts as spec v1 when there is no spec;
+  removing `factory` takes a PR out of the loop; `approved` after
+  `needs-human` restarts with counters reset; non-factory PRs get one
+  report-only review per push; stop switch `FACTORY_ENABLED`.

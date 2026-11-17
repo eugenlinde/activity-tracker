@@ -1025,3 +1025,68 @@ Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`
   removing `factory` takes a PR out of the loop; `approved` after
   `needs-human` restarts with counters reset; non-factory PRs get one
   report-only review per push; stop switch `FACTORY_ENABLED`.
+
+## 2026-11-17 — CSV import: scope and how it is built (issue #18)
+
+- **Decided by the developer** (asked 2026-11-17, spec approved the same
+  day): the import brings in workouts, body weight and steps (not
+  aerobic, not diet); CSV only; the user gives each workout its date by
+  hand on the review screen; the import will be used repeatedly, so it
+  must recognise what is already in the app.
+- **Builder's recommendations the developer did not take:** workouts
+  only (developer added weight and steps); dates worked out from a start
+  date and weekdays (developer chose by hand); a one-off migration
+  (developer chose repeated use, which is why the fingerprint exists).
+- **Builder's calls, listed in the issue for the developer to object to:**
+  1. A weight or steps value that differs from the stored one starts
+     unticked — the app's value wins unless the user ticks the row.
+  2. "Already imported" is decided by a workout's content (exercise
+     names, weights, reps), not by its date or its place in the file, and
+     identical workouts are matched by count. A workout corrected in the
+     spreadsheet therefore shows up as new.
+  3. For weight and steps the model only names the columns and the date
+     order; Java reads the rows. The model never retypes a number.
+  4. 20 previews per user per day, counted in memory (resets on restart).
+  5. One retry when the model's answer does not fit, then refuse. The
+     pre-pivot design allowed two retries; one keeps the cost of a bad
+     file at two calls.
+  6. No new dependency: the CSV parser is about 100 lines of our own
+     code. Files saved by Estonian Excel are handled (semicolons, decimal
+     commas, windows-1257).
+  7. All imported workouts are stored as type WEIGHTS, and the file's
+     label ("Nädal 2 / Treening 1") goes into the workout's notes.
+- **Not decided yet, the developer's:** the OpenRouter spending limit and
+  which model to use. No real key was available during the build, so the
+  prompts are untuned and the cost per import is unmeasured.
+
+## 2026-11-17 — CSV import: what the review changed (builder's calls)
+
+An independent reviewer read the branch before the PR. Nothing critical,
+no path to another user's data. Changed as a result:
+
+- Java no longer trusts the model's date order: the order under which
+  most rows are real dates wins; a tie goes to the order that keeps the
+  dates closest together, then to the model's.
+- The delimiter is chosen by which one gives rows of equal width (tab,
+  then semicolon, then comma on a tie), not by counting characters.
+- A data row with more filled cells than the header is refused instead of
+  being read as a shorter number. Years outside 1990–2100 are not dates.
+- A quote only opens a quoted cell at the start of the cell.
+- Preview no longer runs inside a database transaction.
+- In the fingerprint a missing weight counts as 0 and repeated spaces in
+  a name are ignored, so small differences in the model's reading do not
+  turn an old workout into a new one. (Reverses a rule from earlier the
+  same day.)
+- The page refuses a workout date in the future instead of quietly
+  storing "now".
+- A cut-off answer is reported as "split the file" (413), not "try
+  again". The upstream error text is no longer logged, only its status.
+- OpenRouter timeout raised from 60 s to 180 s (`OPENROUTER_TIMEOUT`).
+- The PR is opened as a draft: the spec says prompts are tuned and the
+  cost measured on real files before merge, and neither has happened.
+  Merging anyway is the developer's call.
+- Deferred, listed as known gaps in `docs/ARCHITECTURE.md`: confirm is
+  not idempotent for workouts; no content-type check; one kind per file;
+  encodings other than UTF-8 and windows-1257; storage limits not in the
+  prompt; `provider.require_parameters` and other real-API differences
+  (for the tuning step with a real key).

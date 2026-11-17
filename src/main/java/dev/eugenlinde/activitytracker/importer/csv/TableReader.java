@@ -5,6 +5,8 @@ import dev.eugenlinde.activitytracker.importer.llm.TableMapping;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,13 +31,22 @@ public final class TableReader {
         Map<LocalDate, Integer> steps = new LinkedHashMap<>();
         int unreadable = 0;
 
-        for (List<String> row : rows.subList(Math.min(mapping.headerRows(), rows.size()), rows.size())) {
+        List<List<String>> dataRows = rows.subList(Math.min(mapping.headerRows(), rows.size()), rows.size()).stream()
+                .filter(row -> !row.stream().allMatch(String::isBlank))
+                .toList();
+        DateOrder dateOrder = dateOrder(dataRows, mapping);
+        int headerWidth = mapping.headerRows() > 0 && mapping.headerRows() <= rows.size()
+                ? rows.get(mapping.headerRows() - 1).size()
+                : Integer.MAX_VALUE;
+
+        for (List<String> row : dataRows) {
             String weightCell = cell(row, mapping.weightColumn());
             String stepsCell = cell(row, mapping.stepsColumn());
-            if (row.stream().allMatch(String::isBlank)) {
+            if (filledWidth(row) > headerWidth) {
+                unreadable++;
                 continue;
             }
-            Optional<LocalDate> date = DateReader.read(cell(row, mapping.dateColumn()), mapping.dateOrder());
+            Optional<LocalDate> date = DateReader.read(cell(row, mapping.dateColumn()), dateOrder);
             if (date.isEmpty()) {
                 unreadable++;
                 continue;
@@ -65,6 +76,46 @@ public final class TableReader {
                 steps.entrySet().stream().map(e -> new StepsRow(e.getKey(), e.getValue())).toList(),
                 unreadable
         );
+    }
+
+    private static DateOrder dateOrder(List<List<String>> dataRows, TableMapping mapping) {
+        DateOrder best = mapping.dateOrder();
+        int bestCount = -1;
+        long bestSpan = Long.MAX_VALUE;
+        for (DateOrder order : orderedWithGivenFirst(mapping.dateOrder())) {
+            List<LocalDate> dates = dataRows.stream()
+                    .map(row -> DateReader.read(cell(row, mapping.dateColumn()), order))
+                    .flatMap(Optional::stream)
+                    .toList();
+            long span = dates.isEmpty() ? Long.MAX_VALUE : ChronoUnit.DAYS.between(
+                    dates.stream().min(LocalDate::compareTo).orElseThrow(),
+                    dates.stream().max(LocalDate::compareTo).orElseThrow());
+            if (dates.size() > bestCount || (dates.size() == bestCount && span < bestSpan)) {
+                best = order;
+                bestCount = dates.size();
+                bestSpan = span;
+            }
+        }
+        return best;
+    }
+
+    private static List<DateOrder> orderedWithGivenFirst(DateOrder given) {
+        List<DateOrder> orders = new ArrayList<>();
+        orders.add(given);
+        for (DateOrder order : DateOrder.values()) {
+            if (order != given) {
+                orders.add(order);
+            }
+        }
+        return orders;
+    }
+
+    private static int filledWidth(List<String> row) {
+        int width = row.size();
+        while (width > 0 && row.get(width - 1).isBlank()) {
+            width--;
+        }
+        return width;
     }
 
     private static String cell(List<String> row, Integer column) {

@@ -4,7 +4,7 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-16 (review gate of the factory, part 1: rules, labels, workflow; no agents yet).
+Last updated: 2026-11-17 (CSV import built; the real AI model has not been tried yet).
 
 ## What exists today
 
@@ -34,8 +34,9 @@ to Postgres → the answer goes back the same way. Anything else under
 reachable from outside.
 
 **If the server restarts:** Docker starts by itself and brings the three
-containers back (`restart: unless-stopped`). Not yet proven with a real
-reboot.
+containers back (`restart: unless-stopped`). Proven with a real reboot on
+2026-11-16: the site was unreachable for 29 seconds and came back without
+anyone touching it.
 
 **Memory in use right after the first deploy:** backend about 960 MB,
 Postgres 45 MB, Caddy 17 MB, of 3.7 GB. (On the laptop, held to a 1.9 GB
@@ -50,8 +51,8 @@ more is there.)
 | Database | Postgres 17, schema managed by Liquibase | laptop, `docker-compose.yml` |
 | Media files | Uploaded images on the local filesystem | laptop, `storage/` (git-ignored) |
 | Frontend | React + Vite + TypeScript in `frontend/`, Ant Design components with the prototype's dark theme | laptop, Vite dev server, proxies `/api` to the backend |
-| LLM calls | OpenRouter API, used by the CSV import (client exists, import not finished) | called from the backend |
-| Tests | JUnit suite (115 tests); database tests start their own Postgres via Testcontainers — image `postgres:latest`, not pinned to 17 like the dev database (to be pinned, see backlog) | laptop, `./gradlew test`, and CI |
+| LLM calls | OpenRouter API, used by the CSV import — see "CSV import" below | called from the backend |
+| Tests | JUnit suite (323 tests); database tests start their own Postgres via Testcontainers — image `postgres:latest`, not pinned to 17 like the dev database (to be pinned, see backlog) | laptop, `./gradlew test`, and CI |
 | Code | Public GitHub repo `eugenlinde/activity-tracker` (MIT licence), default branch `main`, protected | GitHub |
 | CI | `.github/workflows/ci.yml` — jobs `backend` and `frontend`, on every pull request and every push to `main` | GitHub Actions runners (GitHub's machines) |
 
@@ -206,7 +207,7 @@ running app and keep it backed up. All of them wait for a server.
 | `images` job in `ci.yml` | After green checks on `main`: builds the jar and the frontend, packs them into the two images, pushes them to GHCR tagged with the commit SHA | The server needs something to pull; the SHA tag means every version can be named and redeployed | Job goes red, `deploy` does not run, the server is untouched |
 | `deploy` job in `ci.yml` | Copies the scripts to `/opt/tracker/` and the new `compose.yml` to `/opt/tracker/incoming/` over SSH, then runs `deploy.sh <sha>`. The script's output goes to `/opt/tracker/last-deploy.log` on the server and is shown in the workflow when it finishes, so a dropped connection cannot kill a deploy half-way | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
 | `infra/backup.sh` | Started by a timer on the server at 03:30 every night. Dumps the database, sends the dump and the media files to off-server storage with restic, thins out old snapshots (7 daily, 4 weekly, 6 monthly), checks the repository on Sundays, then touches `/opt/tracker/last-backup-ok` | The server's disk is the only copy of the data otherwise | Any failing step stops the script before the marker file is touched, so the freshness check below notices |
-| `backup-check.yml` | Every day at 06:00 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
+| `backup-check.yml` | Every day at 06:17 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
 | `infra/restore.sh <snapshot> <dir>` | Fetches a snapshot into an empty directory, loads the dump into a throwaway Postgres container with no network access to anything, prints the row count of every table and the number of media files | A backup is only proven by restoring it. This does so without going near the live database | Prints the error and stops; the live system is never touched either way |
 
 **The deploy switch.** `images`, `deploy` and the backup check all look at
@@ -284,9 +285,20 @@ older images.
   server afterwards: previous image tag in `.env`, all three containers
   running, the account still in the database. The broken line was
   removed again in the next change.
+- Reboot drill, 2026-11-16: the server was restarted on purpose. The
+  site was down for 29 seconds. Afterwards, with nothing done by hand:
+  Docker active, all three containers running, firewall active with the
+  same rules, backup timer enabled and scheduled, password logins still
+  refused, no failed system services, the account still in the database.
+- The night of 2026-11-17 the backup timer fired by itself at 03:30 UTC
+  and the backup succeeded. **The 06:00 UTC backup check did not run at
+  all** — GitHub recorded no scheduled run. GitHub says scheduled runs
+  can be delayed or dropped at the start of an hour; the check now runs
+  at 06:17 UTC. Until a scheduled run has been seen, a backup that stops
+  may go unnoticed.
 - **Not checked yet:** a restore with workouts and media in it (only an
   account existed), a rollback where the new version had changed the
-  database schema, a reboot, and the timer firing by itself at night.
+  database schema, and the backup check running on its schedule.
 
 **Known gaps in these scripts:**
 
@@ -315,7 +327,7 @@ storage provider cannot read it. **When:** every night at 03:30 UTC
 kept:** 7 daily, 4 weekly and 6 monthly snapshots.
 
 **How a missed backup is noticed:** after every fully successful run
-`backup.sh` touches `/opt/tracker/last-backup-ok`. Every morning at 06:00
+`backup.sh` touches `/opt/tracker/last-backup-ok`. Every morning at 06:17
 UTC the GitHub workflow `backup-check.yml` logs in and fails if that file
 is older than 26 hours; a failed scheduled workflow makes GitHub e-mail
 the repository owner.
@@ -337,6 +349,98 @@ back (storage address and key from Backblaze, restic password from the
 password manager) → deploy → `restore.sh latest <dir>` to fetch the
 snapshot → load `db.sql` into the live database and copy the media files
 into the media volume.
+
+## CSV import
+
+Lets a signed-in user bring history in from a spreadsheet: workouts, body
+weight and daily steps. Spec: GitHub issue #18.
+
+**The flow.** The Import page uploads a `.csv` file to
+`POST /api/imports/preview`. The backend reads it, shows what it
+understood, and writes nothing. The user ticks what they want, gives each
+workout a date, and `POST /api/imports/confirm` writes the selection in
+one database transaction — all of it or none.
+
+**What the AI model is asked, and what it is not.** The file's text goes
+to OpenRouter (a third party; the page says so before upload). The first
+call sees only the first 40 rows and answers one question: is this a
+workout grid, a date/value table, or neither?
+
+- *Workout grid* (weeks across, workouts down — irregular): a second call
+  gets the whole text and returns the workouts in a fixed JSON shape,
+  enforced with a JSON schema. Java validates that answer; if it does not
+  fit, the model is asked once more with the list of problems; if it
+  still does not fit, the import is refused.
+- *Date/value table* (weight, steps): the model only says which column is
+  the date and which is the value, and guesses the order of day, month
+  and year. Java reads every row itself, so the model never retypes a
+  number — and Java does not take the date order on trust: it uses the
+  order under which the most rows are real dates, and when that does not
+  settle it, the order that keeps the dates closest together.
+
+**Repeated imports.** Every imported workout keeps a fingerprint of its
+exercise names, weights and reps (`activities.import_fingerprint`). On
+the next import a workout with the same fingerprint is marked "already
+imported" and starts unticked; identical workouts are matched by count.
+Weight and steps hold one value per day anyway: the same value is left
+out, a different one is shown next to the stored one and starts unticked.
+
+**Limits.** Only `.csv`; 10 MB upload; at most 200 kB of text is sent to
+the model; 20 previews per user per day. The daily count lives in the
+backend's memory, so a restart (every deploy) resets it — the real guard
+on spending is the limit set on the OpenRouter key itself.
+
+**When it fails.** Not a CSV → 415, nothing sent to the model. Empty →
+400. Too large, or the model's answer was cut off because the file holds
+too many workouts → 413 with advice to split the file. Over the daily
+limit → 429. The model unreachable or its answer unusable → 502 with a
+plain message; the backend log holds the reason (the upstream status
+code, never the upstream message and never the file's content).
+
+**What was checked, and what was not.**
+
+- Checked: 118 automated tests for the importer (the whole backend suite
+  is 323), with the model's answers supplied by the test, never by the
+  real service. An independent reviewer read the branch and found no way
+  to reach another user's data and nothing critical, and eight important
+  defects; the ones in the code were fixed with a test that failed first
+  (a wrong date order silently swapping day and month; the delimiter
+  guess failing on Estonian decimal commas; numbers cut at an unquoted
+  comma; a database connection held while the model answers; a future
+  workout date silently stored as today; file content able to reach the
+  log through an upstream error; an answer cut off reported as "try
+  again"). One end-to-end run on the laptop — real backend, real
+  Postgres, a stand-in for OpenRouter, the Import page in a browser:
+  table and workout files read, entries written, a second import of the
+  same files recognised what was already there, refusals answered with
+  the right status, no file content in the log.
+- **Not checked: the real model.** No real OpenRouter key was available,
+  so nothing here says how well a real model reads a real spreadsheet,
+  whether a long training plan comes back inside the 180-second timeout,
+  whether the model gives the same answer twice (the "already imported"
+  marking depends on it), or what one import costs. Production holds a
+  placeholder key; until the developer sets a real one, every import
+  there ends with "could not read this file".
+- The page's own logic (what gets ticked, what is sent) has no automated
+  test — the frontend has no test runner. It was checked once with a
+  throwaway script and by hand in the browser.
+
+**Known gaps.**
+
+- One file is one kind: a sheet holding both workouts and a weight table
+  gives workouts only.
+- A comma-separated file with no header row and decimal commas
+  (`03.11.2026,81,3`) cannot be told from a three-column file and is read
+  wrong. With a header row the extra cell is noticed and the row refused.
+- Text that is neither UTF-8 nor windows-1257 (some Mac exports) is read
+  with wrong letters; the names are stored that way.
+- A workout with more than 12 exercises, or an exercise with more than 12
+  sets, cannot be stored and makes the whole file fail.
+- Pressing Import twice after a lost response writes the workouts twice
+  (weight and steps are safe).
+- Worst case one preview is four model calls on up to 200 kB of text; at
+  20 a day per user that can pass the monthly budget in a day on an
+  expensive model. The spending limit on the key is the guard.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

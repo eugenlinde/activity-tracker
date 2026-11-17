@@ -74,4 +74,42 @@ class CsvTextTest {
     void read_emptyInput_hasNoRows() {
         assertEquals(List.of(), CsvText.read(new byte[0]));
     }
+
+    @Test
+    void read_semicolonFileWithCommaInTheHeaderAndDecimalCommas_splitsOnSemicolons() {
+        byte[] bytes = "Kuupäev;Kaal, kg\n01.11.2026;81,3\n02.11.2026;81,1\n".getBytes(StandardCharsets.UTF_8);
+
+        assertEquals(
+                List.of(List.of("Kuupäev", "Kaal, kg"), List.of("01.11.2026", "81,3"), List.of("02.11.2026", "81,1")),
+                CsvText.read(bytes)
+        );
+    }
+
+    @Test
+    void read_headerlessSemicolonRowsWithDecimalCommas_splitOnSemicolons() {
+        byte[] bytes = "03.11.2026 07:15;81,35\n04.11.2026 07:20;80,95\n".getBytes(StandardCharsets.UTF_8);
+
+        assertEquals(
+                List.of(List.of("03.11.2026 07:15", "81,35"), List.of("04.11.2026 07:20", "80,95")),
+                CsvText.read(bytes)
+        );
+    }
+
+    @Test
+    void read_tabFileWithCommasInCells_splitsOnTabs() {
+        byte[] bytes = "Kuupäev\tKaal, kg\n01.11.2026\t81,3\n".getBytes(StandardCharsets.UTF_8);
+
+        assertEquals(List.of(List.of("Kuupäev", "Kaal, kg"), List.of("01.11.2026", "81,3")), CsvText.read(bytes));
+    }
+
+    @Test
+    void read_quoteInTheMiddleOfACell_isAnOrdinaryCharacter() {
+        byte[] bytes = "01.11.2026;81,3;5\" ketas\n02.11.2026;81,1;x\n03.11.2026;80,9;y\n".getBytes(StandardCharsets.UTF_8);
+
+        assertEquals(List.of(
+                List.of("01.11.2026", "81,3", "5\" ketas"),
+                List.of("02.11.2026", "81,1", "x"),
+                List.of("03.11.2026", "80,9", "y")
+        ), CsvText.read(bytes));
+    }
 }

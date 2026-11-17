@@ -59,7 +59,7 @@ Frontend: `api/imports.ts`, `pages/ImportPage.tsx`, route and nav entry, types.
 - Fingerprint ignores exercise-name case and surrounding spaces, comments, target reps; changes with any weight or rep.
 - Already-imported marking is by count: n identical drafts, m stored with that fingerprint → first min(n, m) marked.
 - Weight/steps row equal to the stored value → left out and counted as unchanged; different → returned with the stored value.
-- Preview: wrong extension or content type → 415; empty → 400; text over the cap → 413; over the daily limit → 429; model failure → 502.
+- Preview: wrong extension or binary content → 415 (the browser's content type is not checked: Windows reports CSV files as Excel); empty → 400; text over the cap → 413; over the daily limit → 429; model failure → 502.
 - Model output invalid → one retry carrying the violations; invalid again → 502. HTTP errors and timeouts are not retried.
 - Confirm: future date, missing date, out-of-range weight or steps, invalid exercise → 400 and nothing written.
 

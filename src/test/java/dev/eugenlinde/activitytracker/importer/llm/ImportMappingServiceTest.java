@@ -1,6 +1,7 @@
 package dev.eugenlinde.activitytracker.importer.llm;
 
 import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
+import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
 import dev.eugenlinde.activitytracker.importer.csv.DateOrder;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterClient;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterClientConfig;
@@ -26,7 +27,9 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -172,11 +175,11 @@ class ImportMappingServiceTest {
     }
 
     @Test
-    void extractWorkouts_answerCutOff_failsWithoutRetry() {
+    void extractWorkouts_answerCutOff_isReportedAsTooLargeWithoutRetry() {
         server.expect(ExpectedCount.once(), requestTo(URL))
                 .andRespond(withSuccess(completion("{\"drafts\":[", "length"), MediaType.APPLICATION_JSON));
 
-        assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        assertThrows(ImportTooLargeException.class, () -> service.extractWorkouts("csv"));
     }
 
     @Test
@@ -188,10 +191,23 @@ class ImportMappingServiceTest {
     }
 
     @Test
-    void extractWorkouts_upstreamError_failsWithoutRetry() {
-        server.expect(ExpectedCount.once(), requestTo(URL)).andRespond(withServerError());
+    void extractWorkouts_upstreamError_failsWithoutRetryAndKeepsTheUpstreamBodyOutOfTheMessage() {
+        server.expect(ExpectedCount.once(), requestTo(URL))
+                .andRespond(withServerError().body("flagged input: Kükk kangiga 100 kg").contentType(MediaType.TEXT_PLAIN));
 
-        assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        ImportMappingException failure = assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+
+        assertTrue(failure.getMessage().contains("500"), failure.getMessage());
+        assertFalse(failure.getMessage().contains("Kükk"), failure.getMessage());
+    }
+
+    @Test
+    void analyse_allowsRoomForAModelThatThinksBeforeAnswering() {
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.max_tokens").value(1000))
+                .andRespond(withSuccess(completion(TABLE_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        service.analyse("x");
     }
 
     @Test

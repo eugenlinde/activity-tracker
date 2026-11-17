@@ -11,7 +11,8 @@ import {
   initialSelection,
   selectedCounts,
   toConfirmRequest,
-  workoutsMissingDate,
+  workoutDateProblem,
+  workoutsWithDateProblem,
   type ImportSelection,
 } from '../lib/importing'
 
@@ -103,7 +104,8 @@ export function ImportPage() {
   }
 
   const counts = selectedCounts(selection)
-  const missingDates = workoutsMissingDate(selection)
+  const today = todayIso()
+  const dateProblems = workoutsWithDateProblem(selection, today)
   const nothingFound =
     preview !== null && preview.workouts.length === 0 && preview.weights.length === 0 && preview.steps.length === 0
 
@@ -200,9 +202,15 @@ export function ImportPage() {
                         type="date"
                         aria-label={`Date for ${workout.label}`}
                         style={{ width: 170, marginLeft: 'auto' }}
-                        max={todayIso()}
+                        max={today}
                         value={selection.workouts[index].date}
-                        status={selection.workouts[index].include && !selection.workouts[index].date ? 'warning' : undefined}
+                        status={
+                          workoutDateProblem(selection.workouts[index], today) === 'future'
+                            ? 'error'
+                            : workoutDateProblem(selection.workouts[index], today) === 'missing'
+                              ? 'warning'
+                              : undefined
+                        }
                         onChange={(e) => setWorkout(index, { date: e.target.value })}
                       />
                     </div>
@@ -292,14 +300,18 @@ export function ImportPage() {
                 <span>
                   {plural(counts.workouts, 'workout', 'workouts')}, {plural(counts.weights, 'weight entry', 'weight entries')},{' '}
                   {plural(counts.steps, 'steps entry', 'steps entries')} will be written.
-                  {missingDates > 0 && (
-                    <span className="muted"> {plural(missingDates, 'selected workout needs', 'selected workouts need')} a date.</span>
+                  {dateProblems > 0 && (
+                    <span className="muted">
+                      {' '}
+                      {plural(dateProblems, 'selected workout needs', 'selected workouts need')} a date that is not in the
+                      future.
+                    </span>
                   )}
                 </span>
                 <Button
                   type="primary"
                   loading={busy}
-                  disabled={counts.total === 0 || missingDates > 0}
+                  disabled={counts.total === 0 || dateProblems > 0}
                   onClick={() => void confirm()}
                 >
                   Import {plural(counts.total, 'entry', 'entries')}

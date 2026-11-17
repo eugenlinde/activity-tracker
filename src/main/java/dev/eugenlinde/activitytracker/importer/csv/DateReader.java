@@ -10,6 +10,9 @@ public final class DateReader {
 
     private static final Pattern THREE_NUMBERS = Pattern.compile("^\\s*(\\d{1,4})[./\\-](\\d{1,2})[./\\-](\\d{1,4})(?:[ T].*)?\\s*$");
 
+    private static final int EARLIEST_YEAR = 1990;
+    private static final int LATEST_YEAR = 2100;
+
     private DateReader() {
     }
 
@@ -25,11 +28,15 @@ public final class DateReader {
         int second = Integer.parseInt(matcher.group(2));
         int third = Integer.parseInt(matcher.group(3));
         try {
-            return Optional.of(switch (order) {
+            LocalDate date = switch (order) {
                 case DMY -> LocalDate.of(fullYear(third), second, first);
                 case MDY -> LocalDate.of(fullYear(third), first, second);
                 case YMD -> LocalDate.of(fullYear(first), second, third);
-            });
+            };
+            if (date.getYear() < EARLIEST_YEAR || date.getYear() > LATEST_YEAR) {
+                return Optional.empty();
+            }
+            return Optional.of(date);
         } catch (DateTimeException notADate) {
             return Optional.empty();
         }

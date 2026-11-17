@@ -21,7 +21,7 @@ public final class ImportFingerprint {
         StringBuilder canonical = new StringBuilder();
         List<Exercise> exercises = session.exerciseList() == null ? List.of() : session.exerciseList();
         for (Exercise exercise : exercises) {
-            canonical.append(exercise.name().strip().toLowerCase(Locale.ROOT)).append('\u001f');
+            canonical.append(exercise.name().strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT)).append('\u001f');
             List<WorkoutSet> sets = exercise.workoutSetList() == null ? List.of() : exercise.workoutSetList();
             for (WorkoutSet set : sets) {
                 canonical.append(weight(set.weight())).append('x').append(set.reps() == null ? "-" : set.reps()).append(';');
@@ -38,7 +38,7 @@ public final class ImportFingerprint {
 
     private static String weight(Double weight) {
         if (weight == null) {
-            return "-";
+            return "0";
         }
         return BigDecimal.valueOf(weight).stripTrailingZeros().toPlainString();
     }

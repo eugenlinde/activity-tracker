@@ -44,4 +44,10 @@ class DateReaderTest {
         assertEquals(Optional.of(LocalDate.parse("2026-11-03")), DateReader.read("03/11/2026", DateOrder.DMY));
         assertEquals(Optional.of(LocalDate.parse("2026-03-11")), DateReader.read("03/11/2026", DateOrder.MDY));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"03.11.206", "1.1.1850", "03.11.2206"})
+    void read_implausibleYear_isEmpty(String cell) {
+        assertEquals(Optional.empty(), DateReader.read(cell, DateOrder.DMY));
+    }
 }

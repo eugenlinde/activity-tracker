@@ -1,6 +1,7 @@
 package dev.eugenlinde.activitytracker.importer.llm;
 
 import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
+import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest.Message;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest.Role;
@@ -13,6 +14,7 @@ import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -29,7 +31,7 @@ import java.util.function.Function;
 public class ImportMappingService {
 
     private static final int MAX_ATTEMPTS = 2;
-    private static final int ANALYSIS_MAX_TOKENS = 300;
+    private static final int ANALYSIS_MAX_TOKENS = 1000;
     private static final int WORKOUTS_MAX_TOKENS = 20_000;
     private static final String FINISH_CUT_OFF = "length";
 
@@ -146,7 +148,7 @@ public class ImportMappingService {
         try {
             response = openRouterClient.call(request);
         } catch (OpenRouterException upstream) {
-            throw new ImportMappingException("The model could not be reached", upstream);
+            throw new ImportMappingException("The model could not be reached (" + reason(upstream) + ")");
         }
         if (response.choices() == null || response.choices().isEmpty()
                 || response.choices().getFirst().message() == null
@@ -160,9 +162,20 @@ public class ImportMappingService {
                 usage == null ? null : usage.promptTokens(),
                 usage == null ? null : usage.completionTokens());
         if (FINISH_CUT_OFF.equals(choice.finishReason())) {
-            throw new ImportMappingException("The model's answer was cut off");
+            throw new ImportTooLargeException(
+                    "The file has more in it than can be read in one go. Split it into smaller files, for example a few weeks each.");
         }
         return choice.message().content();
+    }
+
+    private static String reason(OpenRouterException upstream) {
+        if (upstream.getCause() instanceof RestClientResponseException response) {
+            return "upstream status " + response.getStatusCode().value();
+        }
+        if (upstream.getCause() != null) {
+            return upstream.getCause().getClass().getSimpleName();
+        }
+        return "no response";
     }
 
     private static String resource(String path) {

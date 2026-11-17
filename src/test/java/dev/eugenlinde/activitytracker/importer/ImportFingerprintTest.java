@@ -58,10 +58,26 @@ class ImportFingerprintTest {
     }
 
     @Test
-    void of_missingWeightOrRepsIsNotTheSameAsZero() {
-        assertNotEquals(
+    void of_missingWeightIsTheSameAsZero_soABodyweightExerciseReadEitherWayMatches() {
+        assertEquals(
                 ImportFingerprint.of(session("Lõuatõmbed", null, null, new WorkoutSet(0.0, 8))),
                 ImportFingerprint.of(session("Lõuatõmbed", null, null, new WorkoutSet(null, 8)))
+        );
+    }
+
+    @Test
+    void of_missingRepsIsNotTheSameAsZeroReps() {
+        assertNotEquals(
+                ImportFingerprint.of(session("Lõuatõmbed", null, null, new WorkoutSet(0.0, 0))),
+                ImportFingerprint.of(session("Lõuatõmbed", null, null, new WorkoutSet(0.0, null)))
+        );
+    }
+
+    @Test
+    void of_ignoresRepeatedSpacesInsideTheName() {
+        assertEquals(
+                ImportFingerprint.of(session("Kükk kangiga", null, null, new WorkoutSet(100.0, 5))),
+                ImportFingerprint.of(session("Kükk   kangiga", null, null, new WorkoutSet(100.0, 5)))
         );
     }
 

@@ -303,4 +303,23 @@ class ImportPreviewServiceTest {
 
         assertEquals("TABLE", service.preview(USER, "kaal.csv", bytes(TABLE_CSV)).kind());
     }
+
+    @Test
+    void preview_headSentForAnalysis_hasNoBlankLines_soRowCountsMatchWhatJavaReads() {
+        analysedAsTable();
+        properties.setAnalysisRows(3);
+
+        service.preview(USER, "kaal.csv", bytes("Minu kaal\n\n\nKuupäev;Kaal\n01.11.2026;81,3\n"));
+
+        verify(mappingService).analyse("Minu kaal\nKuupäev;Kaal\n01.11.2026;81,3");
+    }
+
+    @Test
+    void preview_doesNotHoldADatabaseTransactionWhileTheModelIsAsked() throws NoSuchMethodException {
+        assertEquals(null, ImportPreviewService.class
+                .getMethod("preview", Long.class, String.class, byte[].class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
+        assertEquals(null, ImportPreviewService.class
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
+    }
 }

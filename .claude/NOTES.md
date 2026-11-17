@@ -399,3 +399,41 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Not done: the drill on a real throwaway PR (needs the developer's ok,
   `FACTORY_ENABLED=true`, labels created); part 2 (agents) waits for the
   plan A/B check.
+
+## 2026-11-16 — Revert deployed, reboot drill passed
+
+- PR #16 merged by the developer; deploy green, the server runs the
+  current `main`.
+- Reboot drill with the developer's go-ahead: 29 s of downtime; Docker,
+  the three containers, ufw, the backup timer and the SSH settings all
+  came back by themselves; no failed units; data intact.
+
+## 2026-11-17 — Night check, import spec, import built
+
+- Night check: the backup timer fired by itself at 03:30 UTC and the
+  backup succeeded. The scheduled 06:00 UTC backup check never ran —
+  GitHub lists no scheduled run for the repo. Cause not established.
+  The cron moves to 06:17 in this change; watch for the first scheduled
+  run.
+- Import: four scope questions answered by the developer, spec written
+  as issue #18 and approved. Built on branch `feat/csv-import` in its
+  own worktree (`.claude/worktrees/csv-import`), because another session
+  shares the main checkout.
+- Built test-first: CSV reading, date and number reading, fingerprint,
+  model layer (two prompts, two JSON schemas, one retry), preview and
+  confirm services, endpoints, Import page. Frontend builds; lint shows only the five
+  old warnings.
+- End-to-end rehearsal on the laptop with a throwaway Postgres and a
+  stand-in for OpenRouter, through the browser: worked, including a
+  second import of the same files. It turned up one real gap — the log
+  did not say why the model could not be reached — now fixed.
+- Independent review of the branch: no critical finding; eight
+  important ones, the code ones fixed test-first (17 new tests seen
+  failing, then passing). Suite now 323, importer 118. Details in
+  DECISIONS.
+- Not verified: anything against the real model. Needed from the
+  developer: sample files in `.claude/private/import-samples/`, a real
+  OpenRouter key with a spending limit (locally and on the server).
+- Housekeeping: the main checkout still holds this session's uncommitted
+  reboot-drill notes on branch `f2-reboot-drill`; they are superseded by
+  this change and can be discarded there.

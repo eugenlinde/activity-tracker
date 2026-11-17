@@ -16,9 +16,16 @@ export function initialSelection(preview: ImportPreview): ImportSelection {
   }
 }
 
+const CLOCK_SKEW_MS = 60_000
+
+export function isFutureDate(isoDate: string, today: string): boolean {
+  return isoDate > today
+}
+
 export function dateToStartedAt(isoDate: string, now: Date = new Date()): string {
   const noon = new Date(`${isoDate}T12:00:00`)
-  return (noon.getTime() > now.getTime() ? now : noon).toISOString()
+  const latest = new Date(now.getTime() - CLOCK_SKEW_MS)
+  return (noon.getTime() > latest.getTime() ? latest : noon).toISOString()
 }
 
 export function workoutNotes(label: string, notes: string | null): string {
@@ -32,8 +39,14 @@ export function selectedCounts(selection: ImportSelection) {
   return { workouts, weights, steps, total: workouts + weights + steps }
 }
 
-export function workoutsMissingDate(selection: ImportSelection): number {
-  return selection.workouts.filter((workout) => workout.include && !workout.date).length
+export function workoutDateProblem(choice: { include: boolean; date: string }, today: string): 'missing' | 'future' | null {
+  if (!choice.include) return null
+  if (!choice.date) return 'missing'
+  return isFutureDate(choice.date, today) ? 'future' : null
+}
+
+export function workoutsWithDateProblem(selection: ImportSelection, today: string): number {
+  return selection.workouts.filter((workout) => workoutDateProblem(workout, today) !== null).length
 }
 
 export function toConfirmRequest(preview: ImportPreview, selection: ImportSelection, now: Date = new Date()): ImportConfirmRequest {

@@ -31,7 +31,6 @@ import dev.eugenlinde.activitytracker.weight.model.WeightEntry;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +77,6 @@ public class ImportPreviewService {
         this.validator = validator;
     }
 
-    @Transactional(readOnly = true)
     public ImportPreviewResponse preview(Long userId, String filename, byte[] bytes) {
         if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(CSV_EXTENSION)) {
             throw new UnsupportedMediaTypeException("Only .csv files can be imported. Save the sheet as CSV first.");
@@ -118,7 +116,10 @@ public class ImportPreviewService {
     }
 
     private String head(String text) {
-        return text.lines().limit(importProperties.getAnalysisRows()).collect(Collectors.joining("\n"));
+        return text.lines()
+                .filter(line -> !line.isBlank())
+                .limit(importProperties.getAnalysisRows())
+                .collect(Collectors.joining("\n"));
     }
 
     private ImportPreviewResponse workoutPreview(Long userId, String text) {
@@ -132,7 +133,8 @@ public class ImportPreviewService {
             Session session = WorkoutDraftMapper.toSession(draft);
             Set<ConstraintViolation<Session>> violations = validator.validate(session);
             if (!violations.isEmpty()) {
-                throw new ImportMappingException("Workout \"" + draft.label() + "\" does not fit what the app can store");
+                throw new ImportMappingException(
+                        "Workout number " + (workouts.size() + 1) + " does not fit what the app can store");
             }
             String fingerprint = ImportFingerprint.of(session);
             long left = remaining.getOrDefault(fingerprint, 0L);

@@ -394,6 +394,33 @@ overlay instead.
 - Validation annotations on `ActivityResponse` are inert.
 - Activity `duration` storage unit still unverified.
 
+## CSV import — as built (2026-11-17, issue #18)
+
+Supersedes the "Phase 5" plan below where they differ; that section is
+kept as the record of the pre-pivot design.
+
+- Package `importer/`: `csv/` (decode, parse, dates, table rows), `llm/`
+  (the two model questions and their records), `service/` (preview,
+  confirm), `controller/`, `dto/`.
+- `POST /api/imports/preview` (multipart `file`) → kind (`WORKOUT_GRID`,
+  `TABLE`, `UNKNOWN`), workouts with an `alreadyImported` flag, weight
+  and steps rows with the stored value when it differs, counts of
+  unchanged and unreadable values. Writes nothing.
+- `POST /api/imports/confirm` → writes selected workouts (type `WEIGHTS`,
+  `import_fingerprint` set), weight and steps through the same services
+  as manual entry, in one transaction.
+- `activities.import_fingerprint`: SHA-256 over exercise names (trimmed,
+  lower case), weights and reps. Not changed by later edits.
+- Model answers: `FileAnalysis { kind, table { headerRows, dateColumn,
+  dateOrder, weightColumn, stepsColumn } }` and `WorkoutExtraction {
+  drafts[] { label, notes, exercises[] { name, targetReps, weight,
+  repsInReserve, reps[], comment, videoUrl } } }`. Schemas and prompts in
+  `src/main/resources/llm/`.
+- Settings: `import.max-text-bytes` (200000), `import.daily-preview-limit`
+  (20), `import.analysis-rows` (40); the model is `openrouter.model`.
+- Frontend: `/import`, `ImportPage`, `lib/importing.ts`, `api/imports.ts`.
+- Not built: Excel, aerobic and diet rows, automatic workout dates.
+
 ## Phase 5 — CSV import with LLM mapping (active, planned 2026-11-02)
 
 Decisions: see DECISIONS.md 2026-11-02 entries. Summary:

@@ -37,6 +37,11 @@ public class Activity {
     @Getter
     @Setter
     private String notes;
+
+    @Column(length = 64)
+    @Getter
+    @Setter
+    private String importFingerprint;
     @Column()
     @Getter
     @Setter

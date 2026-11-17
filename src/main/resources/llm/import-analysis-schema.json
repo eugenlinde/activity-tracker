@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "table"],
+  "properties": {
+    "kind": { "type": "string", "enum": ["WORKOUT_GRID", "TABLE", "UNKNOWN"] },
+    "table": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["headerRows", "dateColumn", "dateOrder", "weightColumn", "stepsColumn"],
+      "properties": {
+        "headerRows": { "type": "integer" },
+        "dateColumn": { "type": "integer" },
+        "dateOrder": { "type": "string", "enum": ["DMY", "MDY", "YMD"] },
+        "weightColumn": { "type": ["integer", "null"] },
+        "stepsColumn": { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

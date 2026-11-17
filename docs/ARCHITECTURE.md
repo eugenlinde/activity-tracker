@@ -206,7 +206,7 @@ running app and keep it backed up. All of them wait for a server.
 | `images` job in `ci.yml` | After green checks on `main`: builds the jar and the frontend, packs them into the two images, pushes them to GHCR tagged with the commit SHA | The server needs something to pull; the SHA tag means every version can be named and redeployed | Job goes red, `deploy` does not run, the server is untouched |
 | `deploy` job in `ci.yml` | Copies the scripts to `/opt/tracker/` and the new `compose.yml` to `/opt/tracker/incoming/` over SSH, then runs `deploy.sh <sha>`. The script's output goes to `/opt/tracker/last-deploy.log` on the server and is shown in the workflow when it finishes, so a dropped connection cannot kill a deploy half-way | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
 | `infra/backup.sh` | Started by a timer on the server at 03:30 every night. Dumps the database, sends the dump and the media files to off-server storage with restic, thins out old snapshots (7 daily, 4 weekly, 6 monthly), checks the repository on Sundays, then touches `/opt/tracker/last-backup-ok` | The server's disk is the only copy of the data otherwise | Any failing step stops the script before the marker file is touched, so the freshness check below notices |
-| `backup-check.yml` | Every day at 06:00 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
+| `backup-check.yml` | Every day at 06:17 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
 | `infra/restore.sh <snapshot> <dir>` | Fetches a snapshot into an empty directory, loads the dump into a throwaway Postgres container with no network access to anything, prints the row count of every table and the number of media files | A backup is only proven by restoring it. This does so without going near the live database | Prints the error and stops; the live system is never touched either way |
 
 **The deploy switch.** `images`, `deploy` and the backup check all look at
@@ -315,7 +315,7 @@ storage provider cannot read it. **When:** every night at 03:30 UTC
 kept:** 7 daily, 4 weekly and 6 monthly snapshots.
 
 **How a missed backup is noticed:** after every fully successful run
-`backup.sh` touches `/opt/tracker/last-backup-ok`. Every morning at 06:00
+`backup.sh` touches `/opt/tracker/last-backup-ok`. Every morning at 06:17
 UTC the GitHub workflow `backup-check.yml` logs in and fails if that file
 is older than 26 hours; a failed scheduled workflow makes GitHub e-mail
 the repository owner.

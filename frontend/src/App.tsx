@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import { ActivitiesPage } from './pages/ActivitiesPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { SharedLogPage } from './pages/SharedLogPage'
 import { SharesPage } from './pages/SharesPage'
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/activities" element={<ActivitiesPage />} />
           <Route path="/shares" element={<SharesPage />} />
+          <Route path="/import" element={<ImportPage />} />
           <Route path="/shared/:ownerId" element={<SharedLogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

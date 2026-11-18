@@ -87,6 +87,11 @@ public class ImportMappingService {
             if (analysis.dayGrid().weightLabel() == null && analysis.dayGrid().stepsLabel() == null) {
                 return List.of("dayGrid: weightLabel and stepsLabel are both null; a DAY_GRID needs at least one of them");
             }
+            String dateLabel = analysis.dayGrid().dateLabel().strip();
+            if (dateLabel.equalsIgnoreCase(String.valueOf(analysis.dayGrid().weightLabel()).strip())
+                    || dateLabel.equalsIgnoreCase(String.valueOf(analysis.dayGrid().stepsLabel()).strip())) {
+                return List.of("dayGrid: dateLabel is the same as weightLabel or stepsLabel; they are different rows");
+            }
             return List.of();
         }
         if (analysis.kind() != FileAnalysis.Kind.TABLE) {

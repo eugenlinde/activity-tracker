@@ -1168,3 +1168,58 @@ A fresh reviewer read the rework. Nothing critical. Changed as a result:
 - Not changed: skip-not-guess stays, including for a weight written as
   words; number coercion of `1.7` to `1` in the model's answer; `1 000`
   read as two sets. Listed as known gaps where a user could meet them.
+
+## 2026-11-18 — CSV import: the real weight and steps file has the days across the columns (builder's call)
+
+The spec assumed one row per date. The developer's real file (a habit
+tracker, half a year) is week blocks with the dates in a row and no
+year. The one-row-per-date reader stays; a third kind was added for
+this shape.
+
+- The model names three row labels in the first call; there is no second
+  call. Java finds the blocks and reads the cells. Measured on the real
+  file: 157 weights and 175 steps, all equal to a separately computed
+  answer; the model's answer was the same in 5 of 5 calls.
+- A week whose days do not follow each other column by column is refused
+  whole. This is also how day-before-month is settled without trusting
+  the model, and what catches a date exported as a number.
+- The year: user's choice, else exactly one year in the file name, else
+  the latest year in which the last filled day is not in the future.
+  Always shown on the page with a way to change it. Cost if wrong: every
+  date one year off — visible on the review page, not silent.
+- Diet, sleep, aerobic minutes and the workout-number row are not
+  imported. Out of scope of issue #18 (roadmap: "Later for import").
+- Left for the developer: body weight is stored with one decimal
+  (`NUMERIC(4,1)`, manual entry too); the real sheet has two (74.45).
+  Import rounds to 74.5. Storing two decimals is a schema change on
+  prod, so it is the developer's decision.
+
+## 2026-11-18 — Days-across reader: what its review changed (builder's calls)
+
+A fresh reviewer read the first version. One critical finding and three
+important ones, all about dates landing a year or months off without
+any sign. The year and week-order logic was rewritten:
+
+- "The year of the file" is the calendar year most of its days fall in,
+  not the year of its first date. A 2025 sheet that begins on 30
+  December reads as 2025. (Was: the given year went onto the first date,
+  so such a sheet landed in 2026 while the page said 2025.)
+- A date-shaped cell that is not a real date makes its whole week
+  unreadable, so a week can no longer be half-parsed under the wrong
+  date order and win.
+- Weeks must follow each other: a week that repeats an earlier one, or
+  starts more than 62 days after the previous one, is refused and its
+  values counted. This replaces "the same date twice: the last one
+  wins" for this kind of sheet. Cost if wrong: a sheet with a real hole
+  of two months is refused after the hole.
+- Weeks listed newest first are detected and read in their real order.
+- The year in the file name is only a hint: it is not used when it would
+  put filled days in the future.
+- Only a readable value counts as "the last filled day" when the year is
+  guessed; a dash or a zero does not.
+- A week ends at a row with an empty label, so a summary row further
+  down cannot attach to it. Labels match without regard to case.
+- An out-of-range year answers 400 with its own message.
+- Not changed: the labels the model gives are not checked against the
+  sheet with a retry (a wrong label gives "nothing to import", not wrong
+  data); every change of year is a new model call.

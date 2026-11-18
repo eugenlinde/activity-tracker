@@ -170,6 +170,19 @@ class ImportMappingServiceTest {
     }
 
     @Test
+    void analyse_dayGridWhoseDateRowAndWeightRowHaveTheSameLabel_isSentBack() {
+        answer("""
+                {"kind":"DAY_GRID","table":null,
+                 "dayGrid":{"labelColumn":0,"dateLabel":"Kaal","weightLabel":" kaal ","stepsLabel":null,"dateOrder":"DMY"}}
+                """);
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.messages[3].content", containsString("dateLabel")))
+                .andRespond(withSuccess(completion(TABLE_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        service.analyse("x");
+    }
+
+    @Test
     void analyse_unknownKind_needsNoTable() {
         answer("{\"kind\":\"UNKNOWN\",\"table\":null}");
 

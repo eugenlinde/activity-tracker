@@ -123,6 +123,15 @@ class ImportControllerTest {
     }
 
     @Test
+    void preview_yearThatIsNotANumber_is400AndNothingIsRead() throws Exception {
+        mockMvc.perform(multipart("/api/imports/preview").file(csv("kaal.csv", "a,b\n")).param("year", "abc")
+                        .with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(importPreviewService);
+    }
+
+    @Test
     void preview_passesTheCallerTheFileNameAndBytesAndReturnsThePreview() throws Exception {
         when(importPreviewService.preview(eq(userId), eq("kaal.csv"), any(), eq(null))).thenReturn(new ImportPreviewResponse(
                 "TABLE",

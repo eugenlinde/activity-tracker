@@ -371,7 +371,8 @@ to OpenRouter (a third party; the page says so before upload). **The
 model never copies a value.** It only says where things are; Java reads
 every number and every name from the cells itself. The first call sees
 only the first 40 rows and answers one question: is this a workout grid,
-a date/value table, or neither?
+a date/value table, a sheet with the days across the columns, or none of
+these?
 
 - *Workout grid* (exercises down the rows grouped into workouts, week
   blocks across the columns): a second call gets the whole sheet, written
@@ -403,6 +404,37 @@ a date/value table, or neither?
   dates, and when that does not settle it, the order that keeps the dates
   closest together.
 
+- *Days across the columns* (the developer's habit tracker: every week is
+  a block — a row of dates, and under it a row for weight, a row for
+  steps and rows for other habits): the model names the label of the
+  date rows, of the weight rows and of the steps rows. No second call.
+  Java finds every block by those labels and reads the cells under each
+  date. What it refuses, counting the values instead of reading them:
+  - a week whose days do not follow each other column by column, or that
+    holds a date that does not exist (this catches a date the
+    spreadsheet exported oddly, and it is how Java settles
+    day-before-month by itself);
+  - a week that repeats an earlier one, or starts more than 62 days
+    after the week before it;
+  - a value under a cell in the date row that is not a date, when it
+    sits between two dates.
+
+  A column right of the last date — the weekly average — is never read.
+  Rows with other labels (diet, sleep, aerobic minutes, workout number)
+  are not imported. Weeks listed newest first are recognised and read in
+  their real order.
+
+  *The year.* These dates have a day and a month but no year. "The year
+  of the file" means the calendar year most of its days fall in, so a
+  sheet for 2025 that begins on 30 December still reads as 2025, and a
+  week running from December into January carries on into the next
+  year. The year is, in this order: the one the user picks on the page;
+  a year in the file name, when the name holds exactly one and it does
+  not put filled days in the future; otherwise the latest year in which
+  the last filled day is not in the future. The page always says which
+  year was used and offers to change it; changing it reads the file
+  again (one more model call).
+
 **Why the model does not copy the workouts out.** It was built that way
 first, and measured on a real training plan with Claude Haiku 5.5 on
 2026-11-18. On the file as it was (three weeks filled) every answer was
@@ -414,9 +446,10 @@ in 14 of 14 runs in about five seconds, and the result matched the file
 value for value.
 
 **The model in use.** `anthropic/claude-haiku-5.5` through OpenRouter
-(`OPENROUTER_MODEL`). One import is two calls and costs about 0.002 USD
-(measured: 6–7 thousand tokens in and 23 out for the first call, 7–12
-thousand in and about 1 300 out for the second). The model's own
+(`OPENROUTER_MODEL`). A training plan is two calls and costs about
+0.002 USD (measured: 6–7 thousand tokens in and 23 out for the first
+call, 7–12 thousand in and about 1 300 out for the second). A weight
+and steps file is one call, about 0.0004 USD. The model's own
 "thinking" is left at its default; this model does not accept the
 temperature setting, so the request's `temperature: 0` has no effect.
 
@@ -441,8 +474,8 @@ code, never the upstream message and never the file's content).
 
 **What was checked, and what was not.**
 
-- Checked: 191 automated tests for the importer (the whole backend
-  suite is 396), with the model's answers supplied by the test,
+- Checked: 233 automated tests for the importer (the whole backend
+  suite is 438), with the model's answers supplied by the test,
   never by the real service. An independent reviewer read the first
   version and found no way to reach another user's data and nothing
   critical, and eight important defects; the ones in the code were fixed
@@ -452,7 +485,13 @@ code, never the upstream message and never the file's content).
   sent back; wrong layouts that still produced believable workouts (the
   checks listed above came from this); skipped exercises were only
   counted, not named. Each check was switched off once to confirm that a
-  test fails without it.
+  test fails without it. A third reviewer read the days-across reader:
+  one critical finding (a sheet starting in late December was read a
+  year late when a year was given) and three more ways to a silently
+  wrong date (a half-parsed week winning under the wrong date order,
+  whole weeks exported as numbers, weeks listed newest first); the year
+  and week-order rules above are the rewrite that came out of it, again
+  with tests and again with each rule switched off once.
 - **Checked against the real model (2026-11-18, Claude Haiku 5.5, the
   developer's key):** one real training plan (3 workouts, 3 of 10 weeks
   filled, a long FAQ under the grid) and the same plan filled to 10
@@ -466,9 +505,19 @@ code, never the upstream message and never the file's content).
   rest. Two invented weight and
   steps tables (Estonian style and US style) were classified with the
   right columns and date order. The key never appeared in the log.
-- **Not checked:** a real weight or steps file (none was available — only
-  invented ones); any training plan with a different layout from this
-  one template; any model other than Haiku 5.5; production, which still
+- **Checked on the real habit tracker (2026-11-18):** half a year of
+  days across the columns, dates without a year. Through the running app
+  with the real model: 157 weight entries and 175 steps entries, every
+  one equal to what a separate script computed from the file; no value
+  unreadable; the weekly averages not imported; confirming wrote them; a
+  second upload left all 332 out as already stored — also when the file
+  was renamed so that its name carries no year. In the browser, an
+  invented sheet of the same shape showed the assumed year, and picking
+  another year re-read the file onto that year.
+- **Not checked:** a one-row-per-date weight or steps file from real life
+  (only invented ones); a habit tracker that crosses New Year from real
+  life (only in tests); any training plan with a different layout from
+  this one template; any model other than Haiku 5.5; production, which still
   holds a placeholder key — until the developer sets a real one there,
   every import ends with "could not read this file".
 - The page's own logic (what gets ticked, what is sent) has no automated
@@ -479,6 +528,22 @@ code, never the upstream message and never the file's content).
 
 - One file is one kind: a sheet holding both workouts and a weight table
   gives workouts only.
+- Body weight is stored with one decimal, like a manual entry. A sheet
+  that holds 74.45 is imported as 74.5.
+- In a days-across sheet a week is refused as a whole when its dates do
+  not follow each other (a missing weekday column, a mistyped date); its
+  values are counted as unreadable, not listed one by one. A sheet with
+  one weigh-in a week across the columns is refused entirely.
+- A days-across sheet with a hole of more than 62 days: everything after
+  the hole is refused.
+- Changing the year on the page asks the model again and uses one of the
+  day's 20 previews.
+- A days-across sheet with no year anywhere: if neither the file name
+  nor the page's year choice is right, every date is a year off. The
+  page says which year it used.
+- The habit tracker's "workout number" row says on which day each
+  workout was done. The import does not use it; workout dates are still
+  typed by hand.
 - A comma-separated file with no header row and decimal commas
   (`03.11.2026,81,3`) cannot be told from a three-column file and is read
   wrong. With a header row the extra cell is noticed and the row refused.

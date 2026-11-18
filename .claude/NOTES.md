@@ -473,3 +473,11 @@ maps onto this project. Nothing decided yet. Proposals given:
   `OPENROUTER_MODEL=anthropic/claude-haiku-5.5` in the server's `.env`
   (the developer's step); whether the key has a spending limit was not
   confirmed.
+- Later the same day the developer supplied the real weight and steps
+  file. It is not one row per date but days across the columns without a
+  year; a third file kind was built for it (`DayGridReader`). Open
+  question handed to the developer: weight precision (one decimal stored,
+  two in the sheet).
+- The habit tracker also holds, per day, which workout was done
+  ("week/workout"). That could date imported workouts automatically one
+  day; not built, the plan numbering restarts with every new plan.

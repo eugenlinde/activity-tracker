@@ -6,7 +6,6 @@ import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
 import dev.eugenlinde.activitytracker.common.exception.ImportLimitExceededException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
-import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
@@ -331,6 +330,13 @@ class ImportPreviewServiceTest {
     }
 
     @Test
+    void preview_dayGrid_yearInTheFileNameThatWouldPutTheDataInTheFuture_isNotUsed() {
+        analysedAsDayGrid();
+
+        assertEquals(2026, service.preview(USER, "plaan 2027.csv", bytes(DAY_GRID_CSV), null).assumedYear());
+    }
+
+    @Test
     void preview_dayGrid_twoDifferentYearsInTheFileName_areNotUsed() {
         analysedAsDayGrid();
 
@@ -360,8 +366,8 @@ class ImportPreviewServiceTest {
 
     @Test
     void preview_yearOutsideTheSupportedRange_isRefusedBeforeTheModelIsAsked() {
-        assertThrows(InvalidEntryDateException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 1999));
-        assertThrows(InvalidEntryDateException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 2101));
+        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 1999));
+        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 2101));
         verifyNoInteractions(mappingService);
     }
 

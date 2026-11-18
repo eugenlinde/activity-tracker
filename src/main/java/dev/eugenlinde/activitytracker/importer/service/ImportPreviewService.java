@@ -5,7 +5,6 @@ import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
-import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
@@ -92,7 +91,7 @@ public class ImportPreviewService {
 
     public ImportPreviewResponse preview(Long userId, String filename, byte[] bytes, Integer year) {
         if (year != null && (year < EARLIEST_YEAR || year > LATEST_YEAR)) {
-            throw new InvalidEntryDateException();
+            throw new EmptyImportFileException("The year must be between " + EARLIEST_YEAR + " and " + LATEST_YEAR + ".");
         }
         if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(CSV_EXTENSION)) {
             throw new UnsupportedMediaTypeException("Only .csv files can be imported. Save the sheet as CSV first.");
@@ -184,8 +183,7 @@ public class ImportPreviewService {
     private ImportPreviewResponse dayGridPreview(
             Long userId, String filename, List<List<String>> rows, DayGridMapping mapping, Integer year
     ) {
-        Integer chosen = year != null ? year : yearInName(filename);
-        DayGridRows grid = DayGridReader.read(rows, mapping, chosen, entryDatePolicy.today());
+        DayGridRows grid = DayGridReader.read(rows, mapping, year, yearInName(filename), entryDatePolicy.today());
         return tablePreview(userId, grid.table(), grid.assumedYear());
     }
 

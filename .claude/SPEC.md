@@ -421,6 +421,13 @@ kept as the record of the pre-pivot design.
   and column numbers for the model; `csv/GridReader` reads the cells
   with the layout and returns `WorkoutDraft`s plus a count of unreadable
   exercise entries.
+- Third kind (2026-11-18): `DAY_GRID`, days across the columns.
+  `FileAnalysis.dayGrid { labelColumn, dateLabel, weightLabel,
+  stepsLabel, dateOrder }`; `csv/DayGridReader` reads it (blocks by
+  label, days of a week must follow each other, year from the user, the
+  file name or the latest non-future year). The response's kind is
+  `TABLE` and it carries `assumedYear`; `POST /api/imports/preview`
+  takes an optional `year` (2000–2100).
 - Settings: `import.max-text-bytes` (200000), `import.daily-preview-limit`
   (20), `import.analysis-rows` (40); the model is `openrouter.model`
   (`anthropic/claude-haiku-5.5` is the one measured), timeout 60 s.

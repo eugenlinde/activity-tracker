@@ -16,6 +16,10 @@ public final class DateReader {
     private DateReader() {
     }
 
+    static boolean looksLikeDate(String cell) {
+        return cell != null && THREE_NUMBERS.matcher(cell).matches();
+    }
+
     public static Optional<LocalDate> read(String cell, DateOrder order) {
         if (cell == null) {
             return Optional.empty();

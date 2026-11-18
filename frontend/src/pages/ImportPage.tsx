@@ -31,7 +31,7 @@ function plural(count: number, one: string, many: string): string {
 }
 
 const SKIPPED_SHOWN = 15
-const YEARS_OFFERED = 6
+const YEARS_OFFERED = 15
 
 export function ImportPage() {
   const navigate = useNavigate()

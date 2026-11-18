@@ -111,6 +111,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(EmptyImportFileException.class)
+    public ResponseEntity<Object> emptyImportFileException(EmptyImportFileException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ImportTooLargeException.class)
+    public ResponseEntity<Object> importTooLargeException(ImportTooLargeException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatusCode.valueOf(413));
+    }
+
+    @ExceptionHandler(ImportLimitExceededException.class)
+    public ResponseEntity<Object> importLimitExceededException(ImportLimitExceededException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @ExceptionHandler(ImportMappingException.class)
+    public ResponseEntity<Object> importMappingException(ImportMappingException exception) {
+        log.warn("Import mapping failed: {}", exception.getMessage());
+        return new ResponseEntity<>("Could not read this file. Trying again may help; if it keeps failing, the sheet is laid out in a way the import does not understand.", HttpStatus.BAD_GATEWAY);
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception,

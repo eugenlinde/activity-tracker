@@ -394,6 +394,46 @@ overlay instead.
 - Validation annotations on `ActivityResponse` are inert.
 - Activity `duration` storage unit still unverified.
 
+## CSV import — as built (2026-11-17, reworked 2026-11-18, issue #18)
+
+Supersedes the "Phase 5" plan below where they differ; that section is
+kept as the record of the pre-pivot design.
+
+- Package `importer/`: `csv/` (decode, parse, dates, table rows, grid
+  cells), `llm/` (the two model questions and their records), `service/`
+  (preview, confirm), `controller/`, `dto/`.
+- `POST /api/imports/preview` (multipart `file`) → kind (`WORKOUT_GRID`,
+  `TABLE`, `UNKNOWN`), workouts with an `alreadyImported` flag, weight
+  and steps rows with the stored value when it differs, counts of
+  unchanged and unreadable values. Writes nothing.
+- `POST /api/imports/confirm` → writes selected workouts (type `WEIGHTS`,
+  `import_fingerprint` set), weight and steps through the same services
+  as manual entry, in one transaction.
+- `activities.import_fingerprint`: SHA-256 over exercise names (trimmed,
+  lower case), weights and reps. Not changed by later edits.
+- Model answers (2026-11-18: the model says where things are and never
+  copies a value): `FileAnalysis { kind, table { headerRows, dateColumn,
+  dateOrder, weightColumn, stepsColumn } }` and `GridLayout { nameColumn,
+  targetRepsColumn, videoColumn, weeks[] { label, weightColumn,
+  repsColumn, repsInReserveColumn, commentColumn }, workouts[] { label,
+  firstRow, lastRow } }`. Schemas and prompts in
+  `src/main/resources/llm/`. `csv/GridText` writes the sheet out with row
+  and column numbers for the model; `csv/GridReader` reads the cells
+  with the layout and returns `WorkoutDraft`s plus a count of unreadable
+  exercise entries.
+- Third kind (2026-11-18): `DAY_GRID`, days across the columns.
+  `FileAnalysis.dayGrid { labelColumn, dateLabel, weightLabel,
+  stepsLabel, dateOrder }`; `csv/DayGridReader` reads it (blocks by
+  label, days of a week must follow each other, year from the user, the
+  file name or the latest non-future year). The response's kind is
+  `TABLE` and it carries `assumedYear`; `POST /api/imports/preview`
+  takes an optional `year` (2000–2100).
+- Settings: `import.max-text-bytes` (200000), `import.daily-preview-limit`
+  (20), `import.analysis-rows` (40); the model is `openrouter.model`
+  (`anthropic/claude-haiku-5.5` is the one measured), timeout 60 s.
+- Frontend: `/import`, `ImportPage`, `lib/importing.ts`, `api/imports.ts`.
+- Not built: Excel, aerobic and diet rows, automatic workout dates.
+
 ## Phase 5 — CSV import with LLM mapping (active, planned 2026-11-02)
 
 Decisions: see DECISIONS.md 2026-11-02 entries. Summary:

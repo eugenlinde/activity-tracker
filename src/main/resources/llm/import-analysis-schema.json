@@ -1,0 +1,104 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "table",
+    "dayGrid"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "WORKOUT_GRID",
+        "TABLE",
+        "DAY_GRID",
+        "UNKNOWN"
+      ]
+    },
+    "table": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "headerRows",
+        "dateColumn",
+        "dateOrder",
+        "weightColumn",
+        "stepsColumn"
+      ],
+      "properties": {
+        "headerRows": {
+          "type": "integer"
+        },
+        "dateColumn": {
+          "type": "integer"
+        },
+        "dateOrder": {
+          "type": "string",
+          "enum": [
+            "DMY",
+            "MDY",
+            "YMD"
+          ]
+        },
+        "weightColumn": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "stepsColumn": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "dayGrid": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "labelColumn",
+        "dateLabel",
+        "weightLabel",
+        "stepsLabel",
+        "dateOrder"
+      ],
+      "properties": {
+        "labelColumn": {
+          "type": "integer"
+        },
+        "dateLabel": {
+          "type": "string"
+        },
+        "weightLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stepsLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dateOrder": {
+          "type": "string",
+          "enum": [
+            "DMY",
+            "MDY",
+            "YMD"
+          ]
+        }
+      }
+    }
+  }
+}

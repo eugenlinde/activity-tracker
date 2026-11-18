@@ -1025,3 +1025,209 @@ Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`
   removing `factory` takes a PR out of the loop; `approved` after
   `needs-human` restarts with counters reset; non-factory PRs get one
   report-only review per push; stop switch `FACTORY_ENABLED`.
+
+## 2026-11-17 — CSV import: scope and how it is built (issue #18)
+
+- **Decided by the developer** (asked 2026-11-17, spec approved the same
+  day): the import brings in workouts, body weight and steps (not
+  aerobic, not diet); CSV only; the user gives each workout its date by
+  hand on the review screen; the import will be used repeatedly, so it
+  must recognise what is already in the app.
+- **Builder's recommendations the developer did not take:** workouts
+  only (developer added weight and steps); dates worked out from a start
+  date and weekdays (developer chose by hand); a one-off migration
+  (developer chose repeated use, which is why the fingerprint exists).
+- **Builder's calls, listed in the issue for the developer to object to:**
+  1. A weight or steps value that differs from the stored one starts
+     unticked — the app's value wins unless the user ticks the row.
+  2. "Already imported" is decided by a workout's content (exercise
+     names, weights, reps), not by its date or its place in the file, and
+     identical workouts are matched by count. A workout corrected in the
+     spreadsheet therefore shows up as new.
+  3. For weight and steps the model only names the columns and the date
+     order; Java reads the rows. The model never retypes a number.
+  4. 20 previews per user per day, counted in memory (resets on restart).
+  5. One retry when the model's answer does not fit, then refuse. The
+     pre-pivot design allowed two retries; one keeps the cost of a bad
+     file at two calls.
+  6. No new dependency: the CSV parser is about 100 lines of our own
+     code. Files saved by Estonian Excel are handled (semicolons, decimal
+     commas, windows-1257).
+  7. All imported workouts are stored as type WEIGHTS, and the file's
+     label ("Nädal 2 / Treening 1") goes into the workout's notes.
+- **Not decided yet, the developer's:** the OpenRouter spending limit and
+  which model to use. No real key was available during the build, so the
+  prompts are untuned and the cost per import is unmeasured.
+
+## 2026-11-17 — CSV import: what the review changed (builder's calls)
+
+An independent reviewer read the branch before the PR. Nothing critical,
+no path to another user's data. Changed as a result:
+
+- Java no longer trusts the model's date order: the order under which
+  most rows are real dates wins; a tie goes to the order that keeps the
+  dates closest together, then to the model's.
+- The delimiter is chosen by which one gives rows of equal width (tab,
+  then semicolon, then comma on a tie), not by counting characters.
+- A data row with more filled cells than the header is refused instead of
+  being read as a shorter number. Years outside 1990–2100 are not dates.
+- A quote only opens a quoted cell at the start of the cell.
+- Preview no longer runs inside a database transaction.
+- In the fingerprint a missing weight counts as 0 and repeated spaces in
+  a name are ignored, so small differences in the model's reading do not
+  turn an old workout into a new one. (Reverses a rule from earlier the
+  same day.)
+- The page refuses a workout date in the future instead of quietly
+  storing "now".
+- A cut-off answer is reported as "split the file" (413), not "try
+  again". The upstream error text is no longer logged, only its status.
+- OpenRouter timeout raised from 60 s to 180 s (`OPENROUTER_TIMEOUT`).
+- The PR is opened as a draft: the spec says prompts are tuned and the
+  cost measured on real files before merge, and neither has happened.
+  Merging anyway is the developer's call.
+- Deferred, listed as known gaps in `docs/ARCHITECTURE.md`: confirm is
+  not idempotent for workouts; no content-type check; one kind per file;
+  encodings other than UTF-8 and windows-1257; storage limits not in the
+  prompt; `provider.require_parameters` and other real-API differences
+  (for the tuning step with a real key).
+
+## 2026-11-18 — CSV import: the model names the layout, code reads the cells (builder's call)
+
+Changes builder's call from the spec of issue #18 (the model extracting
+the workouts as JSON). The developer's four decisions (workouts + weight
++ steps; CSV only; a date typed for every workout; repeated imports) are
+untouched.
+
+Measured with the developer's OpenRouter key on one real training plan
+(`.claude/private/import-samples/`, never committed), model
+`anthropic/claude-haiku-5.5`:
+
+| Approach | File | Runs | Exact | Time | Answer tokens |
+|---|---|---|---|---|---|
+| model copies workouts out | real, 3 of 10 weeks | 7 | 7 | 27–41 s | 8–12 k |
+| same, thinking off | real | 1 | 0 (52 wrong values) | 14 s | 4.5 k |
+| same, thinking low / medium | real | 2 | 0 (2 and 1 wrong) | 30 s | 9.5 k |
+| model copies workouts out | filled to 10 weeks | 5 | 2 (2 silently wrong, 1 rejected by the app's checks) | 92–113 s | 18–34 k |
+| model names the layout | real | 8 | 8, one identical layout | 5–6 s | 1.2–1.6 k |
+| model names the layout | filled to 10 weeks | 6 | 6, one identical layout | 5–7 s | 1.1–1.3 k |
+
+The errors of the first approach on the large file were silent: a wrong
+weight, an exercise of another workout placed into a workout, an
+exercise name reworded. A review page with 30 workouts would
+not catch those.
+
+Decided:
+
+- The model answers with `GridLayout` only; `GridReader` reads the cells.
+  This is the same division of work the weight and steps tables already
+  had.
+- Model: Claude Haiku 5.5. About 0.002 USD per import. A larger model was
+  not tried: with the model no longer copying numbers there is nothing
+  left for it to improve that was measured as wrong.
+- The model's thinking is left at the provider default and not set in the
+  request; the request still sends `temperature: 0`, which this model
+  ignores. `provider.require_parameters` is not used: with it OpenRouter
+  finds no endpoint, because of the temperature field.
+- An exercise entry whose repetitions or weight are not plain numbers is
+  skipped and counted, never guessed. More than 12 sets counts as
+  unreadable. A link that is not http(s) is dropped.
+- `notes` removed from the preview: nothing fills it any more.
+- OpenRouter timeout back to 60 s (was raised to 180 s for long answers
+  that no longer exist).
+- What it costs if wrong: a plan with a different layout gives "nothing
+  to import" instead of a best-effort reading. Only one template has been
+  seen. If another layout turns up, it gets its own layout question; the
+  free-form extraction is not kept as a fallback, because its errors are
+  silent.
+- Spent on the measurements: about 0.2 USD of the developer's key,
+  estimated from the token counts; the OpenRouter dashboard has the exact
+  figure.
+
+## 2026-11-18 — CSV import rework: what the second review changed (builder's calls)
+
+A fresh reviewer read the rework. Nothing critical. Changed as a result:
+
+- A model answer with a missing or null field is sent back for the one
+  retry instead of crashing with a 500.
+- The layout is checked against the sheet before it is used (columns
+  named once; week blocks alike and left to right; week and workout
+  titles must be real cells in the right place; no exercise-looking row
+  outside every workout). Strict on purpose: a refused sheet is visible,
+  a half-read one is not. Cost if wrong: a legitimate but irregular
+  sheet is refused until the check is loosened.
+- Skipped exercise entries are returned and listed (row, exercise,
+  workout), not only counted. A row with repetitions but no name is
+  listed too.
+- Cells longer than 60 characters are not matched against the number
+  patterns (a 4 kB cell overflowed the stack).
+- More than 200 workouts, or a workout with more than 12 exercises, is a
+  413 with a message that says which — not a 502 "try again".
+- A cut-off model answer is a model failure (502), no longer "split the
+  file": a layout answer is small, so a cut-off is the model overrunning.
+- Labels may be 100 characters each (was 60).
+- Not changed: skip-not-guess stays, including for a weight written as
+  words; number coercion of `1.7` to `1` in the model's answer; `1 000`
+  read as two sets. Listed as known gaps where a user could meet them.
+
+## 2026-11-18 — CSV import: the real weight and steps file has the days across the columns (builder's call)
+
+The spec assumed one row per date. The developer's real file (a habit
+tracker, half a year) is week blocks with the dates in a row and no
+year. The one-row-per-date reader stays; a third kind was added for
+this shape.
+
+- The model names three row labels in the first call; there is no second
+  call. Java finds the blocks and reads the cells. Measured on the real
+  file: 157 weights and 175 steps, all equal to a separately computed
+  answer; the model's answer was the same in 5 of 5 calls.
+- A week whose days do not follow each other column by column is refused
+  whole. This is also how day-before-month is settled without trusting
+  the model, and what catches a date exported as a number.
+- The year: user's choice, else exactly one year in the file name, else
+  the latest year in which the last filled day is not in the future.
+  Always shown on the page with a way to change it. Cost if wrong: every
+  date one year off — visible on the review page, not silent.
+- Diet, sleep, aerobic minutes and the workout-number row are not
+  imported. Out of scope of issue #18 (roadmap: "Later for import").
+- Left for the developer: body weight is stored with one decimal
+  (`NUMERIC(4,1)`, manual entry too); the real sheet has two (74.45).
+  Import rounds to 74.5. Storing two decimals is a schema change on
+  prod, so it is the developer's decision.
+
+## 2026-11-18 — Days-across reader: what its review changed (builder's calls)
+
+A fresh reviewer read the first version. One critical finding and three
+important ones, all about dates landing a year or months off without
+any sign. The year and week-order logic was rewritten:
+
+- "The year of the file" is the calendar year most of its days fall in,
+  not the year of its first date. A 2025 sheet that begins on 30
+  December reads as 2025. (Was: the given year went onto the first date,
+  so such a sheet landed in 2026 while the page said 2025.)
+- A date-shaped cell that is not a real date makes its whole week
+  unreadable, so a week can no longer be half-parsed under the wrong
+  date order and win.
+- Weeks must follow each other: a week that repeats an earlier one, or
+  starts more than 62 days after the previous one, is refused and its
+  values counted. This replaces "the same date twice: the last one
+  wins" for this kind of sheet. Cost if wrong: a sheet with a real hole
+  of two months is refused after the hole.
+- Weeks listed newest first are detected and read in their real order.
+- The year in the file name is only a hint: it is not used when it would
+  put filled days in the future.
+- Only a readable value counts as "the last filled day" when the year is
+  guessed; a dash or a zero does not.
+- A week ends at a row with an empty label, so a summary row further
+  down cannot attach to it. Labels match without regard to case.
+- An out-of-range year answers 400 with its own message.
+- Not changed: the labels the model gives are not checked against the
+  sheet with a retry (a wrong label gives "nothing to import", not wrong
+  data); every change of year is a new model call.
+
+## 2026-11-18 — Body weight stays at one decimal (developer's decision)
+
+Asked after the real habit tracker turned out to hold two decimals
+(74.45). The developer's answer: one decimal stays. Import rounds half
+up (74.45 becomes 74.5), the same precision manual entry accepts; no
+schema change. The review page shows the rounded value before the user
+confirms.

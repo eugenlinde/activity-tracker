@@ -4,6 +4,7 @@ import { Button, Menu } from 'antd'
 import {
   AppstoreOutlined,
   CloseOutlined,
+  ImportOutlined,
   LogoutOutlined,
   MenuOutlined,
   TeamOutlined,
@@ -15,11 +16,13 @@ const NAV_ITEMS = [
   { key: '/', icon: <AppstoreOutlined />, label: 'Dashboard' },
   { key: '/activities', icon: <ThunderboltOutlined />, label: 'Workouts' },
   { key: '/shares', icon: <TeamOutlined />, label: 'Shares' },
+  { key: '/import', icon: <ImportOutlined />, label: 'Import' },
 ]
 
 function selectedKey(pathname: string): string {
   if (pathname.startsWith('/shares') || pathname.startsWith('/shared')) return '/shares'
   if (pathname.startsWith('/activities')) return '/activities'
+  if (pathname.startsWith('/import')) return '/import'
   return '/'
 }
 

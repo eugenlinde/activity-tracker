@@ -399,3 +399,93 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Not done: the drill on a real throwaway PR (needs the developer's ok,
   `FACTORY_ENABLED=true`, labels created); part 2 (agents) waits for the
   plan A/B check.
+
+## 2026-11-16 — Revert deployed, reboot drill passed
+
+- PR #16 merged by the developer; deploy green, the server runs the
+  current `main`.
+- Reboot drill with the developer's go-ahead: 29 s of downtime; Docker,
+  the three containers, ufw, the backup timer and the SSH settings all
+  came back by themselves; no failed units; data intact.
+
+## 2026-11-17 — Night check, import spec, import built
+
+- Night check: the backup timer fired by itself at 03:30 UTC and the
+  backup succeeded. The scheduled 06:00 UTC backup check never ran —
+  GitHub lists no scheduled run for the repo. Cause not established.
+  The cron moves to 06:17 in this change; watch for the first scheduled
+  run.
+- Import: four scope questions answered by the developer, spec written
+  as issue #18 and approved. Built on branch `feat/csv-import` in its
+  own worktree (`.claude/worktrees/csv-import`), because another session
+  shares the main checkout.
+- Built test-first: CSV reading, date and number reading, fingerprint,
+  model layer (two prompts, two JSON schemas, one retry), preview and
+  confirm services, endpoints, Import page. Frontend builds; lint shows only the five
+  old warnings.
+- End-to-end rehearsal on the laptop with a throwaway Postgres and a
+  stand-in for OpenRouter, through the browser: worked, including a
+  second import of the same files. It turned up one real gap — the log
+  did not say why the model could not be reached — now fixed.
+- Independent review of the branch: no critical finding; eight
+  important ones, the code ones fixed test-first (17 new tests seen
+  failing, then passing). Suite now 323, importer 118. Details in
+  DECISIONS.
+- Not verified: anything against the real model. Needed from the
+  developer: sample files in `.claude/private/import-samples/`, a real
+  OpenRouter key with a spending limit (locally and on the server).
+- Housekeeping: the main checkout still holds this session's uncommitted
+  reboot-drill notes on branch `f2-reboot-drill`; they are superseded by
+  this change and can be discarded there.
+
+## 2026-11-18 — Correction: the backup check did run, nine hours late
+
+- The entry above says the scheduled backup check "never ran" on
+  2026-11-17. Wrong: it was looked up before the run existed. GitHub
+  started it at 15:19 UTC (asked for 06:00) and it passed.
+- On 2026-11-18 no scheduled run by 09:30 UTC.
+- The move to 06:17 stays (GitHub's own advice, costs nothing), but
+  there is no evidence yet that it shortens the delay. `ARCHITECTURE.md`
+  and the text of PR #20 were corrected.
+- Lesson: "no run listed" a few hours after the scheduled time is not
+  "did not run". Look again at the end of the day before concluding.
+- Developer's answer on PR #19: wait with the merge until sample files
+  and a real OpenRouter key exist.
+
+## 2026-11-18 — Import measured on a real plan; reworked
+
+- PR #20 merged by the developer; deploy green. The scheduled check with
+  the old time came at 14:53 UTC on 2026-11-18, again about nine hours
+  late. First run with 06:17 is due 2026-11-19.
+- The developer supplied one real training plan (kept in
+  `.claude/private/import-samples/`) and an OpenRouter key (in
+  `.claude/private/openrouter.env`, mode 600, written by the developer
+  from the clipboard; never read into the session).
+- Measured, then reworked: the model no longer copies workouts out, it
+  names the layout and `GridReader` reads the cells. Numbers and
+  reasoning in `DECISIONS.md`, 2026-11-18.
+- Tools left in the private folder for the next tuning round:
+  `expected.py` (computes the right answer from a plan with this
+  template), `tune.py` (asks the model directly and compares),
+  `kava12-full10.csv` (the real plan filled to ten weeks with made-up
+  numbers).
+- Still open before merge: a real weight/steps file; the real key and
+  `OPENROUTER_MODEL=anthropic/claude-haiku-5.5` in the server's `.env`
+  (the developer's step); whether the key has a spending limit was not
+  confirmed.
+- Later the same day the developer supplied the real weight and steps
+  file. It is not one row per date but days across the columns without a
+  year; a third file kind was built for it (`DayGridReader`). Open
+  question handed to the developer: weight precision (one decimal stored,
+  two in the sheet).
+- The habit tracker also holds, per day, which workout was done
+  ("week/workout"). That could date imported workouts automatically one
+  day; not built, the plan numbering restarts with every new plan.
+- Third review (days-across reader) found a critical year bug; the year
+  and week-order rules were rewritten (DECISIONS, same date). PR #19
+  taken out of draft; merging and the server's key are the developer's.
+- CI failed once on the last push with "Could not find
+  org.mockito:mockito-core:5.23.0" — a download failure, green on rerun.
+  `build.gradle` asks for `mockito-core:5.+`; pinning it would remove
+  one lookup that can fail. Backlog.
+- Weight precision settled by the developer: one decimal stays.

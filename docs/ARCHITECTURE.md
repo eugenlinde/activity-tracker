@@ -4,7 +4,7 @@ The one living description of what runs where. Updated in the same change
 as any infra or factory change. If this file and reality disagree, that is
 a bug.
 
-Last updated: 2026-11-16 (review gate of the factory, part 1: rules, labels, workflow; no agents yet).
+Last updated: 2026-11-17 (CSV import built; the real AI model has not been tried yet).
 
 ## What exists today
 
@@ -34,8 +34,9 @@ to Postgres → the answer goes back the same way. Anything else under
 reachable from outside.
 
 **If the server restarts:** Docker starts by itself and brings the three
-containers back (`restart: unless-stopped`). Not yet proven with a real
-reboot.
+containers back (`restart: unless-stopped`). Proven with a real reboot on
+2026-11-16: the site was unreachable for 29 seconds and came back without
+anyone touching it.
 
 **Memory in use right after the first deploy:** backend about 960 MB,
 Postgres 45 MB, Caddy 17 MB, of 3.7 GB. (On the laptop, held to a 1.9 GB
@@ -50,8 +51,8 @@ more is there.)
 | Database | Postgres 17, schema managed by Liquibase | laptop, `docker-compose.yml` |
 | Media files | Uploaded images on the local filesystem | laptop, `storage/` (git-ignored) |
 | Frontend | React + Vite + TypeScript in `frontend/`, Ant Design components with the prototype's dark theme | laptop, Vite dev server, proxies `/api` to the backend |
-| LLM calls | OpenRouter API, used by the CSV import (client exists, import not finished) | called from the backend |
-| Tests | JUnit suite (115 tests); database tests start their own Postgres via Testcontainers — image `postgres:latest`, not pinned to 17 like the dev database (to be pinned, see backlog) | laptop, `./gradlew test`, and CI |
+| LLM calls | OpenRouter API, used by the CSV import — see "CSV import" below | called from the backend |
+| Tests | JUnit suite (323 tests); database tests start their own Postgres via Testcontainers — image `postgres:latest`, not pinned to 17 like the dev database (to be pinned, see backlog) | laptop, `./gradlew test`, and CI |
 | Code | Public GitHub repo `eugenlinde/activity-tracker` (MIT licence), default branch `main`, protected | GitHub |
 | CI | `.github/workflows/ci.yml` — jobs `backend` and `frontend`, on every pull request and every push to `main` | GitHub Actions runners (GitHub's machines) |
 
@@ -284,9 +285,25 @@ older images.
   server afterwards: previous image tag in `.env`, all three containers
   running, the account still in the database. The broken line was
   removed again in the next change.
+- Reboot drill, 2026-11-16: the server was restarted on purpose. The
+  site was down for 29 seconds. Afterwards, with nothing done by hand:
+  Docker active, all three containers running, firewall active with the
+  same rules, backup timer enabled and scheduled, password logins still
+  refused, no failed system services, the account still in the database.
+- The night of 2026-11-17 the backup timer fired by itself at 03:30 UTC
+  and the backup succeeded. **The 06:00 UTC backup check ran at 15:19
+  UTC, nine hours late**, and passed. On 2026-11-18 it had not run by
+  09:30 UTC. GitHub says scheduled runs can be delayed or dropped at
+  the start of an hour; the check now asks for 06:17 UTC. Whether that
+  shortens the delay is not known yet.
+- **What a late check means:** a missed backup is still noticed, only
+  hours later than the table above says. If the check were ever more
+  than 21 hours late and the next night's backup succeeded in between,
+  one missed night would pass without an alarm.
 - **Not checked yet:** a restore with workouts and media in it (only an
   account existed), a rollback where the new version had changed the
-  database schema, a reboot, and the timer firing by itself at night.
+  database schema, and how late the backup check runs with the new
+  time.
 
 **Known gaps in these scripts:**
 
@@ -337,6 +354,229 @@ back (storage address and key from Backblaze, restic password from the
 password manager) → deploy → `restore.sh latest <dir>` to fetch the
 snapshot → load `db.sql` into the live database and copy the media files
 into the media volume.
+
+## CSV import
+
+Lets a signed-in user bring history in from a spreadsheet: workouts, body
+weight and daily steps. Spec: GitHub issue #18.
+
+**The flow.** The Import page uploads a `.csv` file to
+`POST /api/imports/preview`. The backend reads it, shows what it
+understood, and writes nothing. The user ticks what they want, gives each
+workout a date, and `POST /api/imports/confirm` writes the selection in
+one database transaction — all of it or none.
+
+**What the AI model is asked, and what it is not.** The file's text goes
+to OpenRouter (a third party; the page says so before upload). **The
+model never copies a value.** It only says where things are; Java reads
+every number and every name from the cells itself. The first call sees
+only the first 40 rows and answers one question: is this a workout grid,
+a date/value table, a sheet with the days across the columns, or none of
+these?
+
+- *Workout grid* (exercises down the rows grouped into workouts, week
+  blocks across the columns): a second call gets the whole sheet, written
+  out with a number on every row and every column, and answers with the
+  layout only — which column holds the exercise names, which columns
+  belong to each week block (weight, repetitions, reps in reserve,
+  comment), and which rows belong to each workout. Java checks that
+  answer against the sheet before using it:
+  - every column is named once;
+  - every week block has its columns in the same order and spacing as
+    the first one, and the blocks go from left to right;
+  - every week title and workout title the model gives is the text of a
+    real cell in the right place (above the workouts and inside that
+    block; between the previous workout and this one);
+  - no two workouts share rows, and no row that looks like an exercise
+    (a name and repetitions) is left outside every workout.
+
+  If a check fails, the model is asked once more with the list of
+  problems; if it still fails, the import is refused. Then Java walks
+  the cells: a workout in a week is taken when at least one of its
+  exercises has repetitions written; an exercise whose repetitions or
+  weight are not plain numbers (`3x10`, `raske`, `kehakaal`) is skipped,
+  never guessed, and the page lists every skipped one by row, exercise
+  and workout.
+- *Date/value table* (weight, steps): the model only says which column is
+  the date and which is the value, and guesses the order of day, month
+  and year. Java reads every row itself — and does not take the date
+  order on trust: it uses the order under which the most rows are real
+  dates, and when that does not settle it, the order that keeps the dates
+  closest together.
+
+- *Days across the columns* (the developer's habit tracker: every week is
+  a block — a row of dates, and under it a row for weight, a row for
+  steps and rows for other habits): the model names the label of the
+  date rows, of the weight rows and of the steps rows. No second call.
+  Java finds every block by those labels and reads the cells under each
+  date. What it refuses, counting the values instead of reading them:
+  - a week whose days do not follow each other column by column, or that
+    holds a date that does not exist (this catches a date the
+    spreadsheet exported oddly, and it is how Java settles
+    day-before-month by itself);
+  - a week that repeats an earlier one, or starts more than 62 days
+    after the week before it;
+  - a value under a cell in the date row that is not a date, when it
+    sits between two dates.
+
+  A column right of the last date — the weekly average — is never read.
+  Rows with other labels (diet, sleep, aerobic minutes, workout number)
+  are not imported. Weeks listed newest first are recognised and read in
+  their real order.
+
+  *The year.* These dates have a day and a month but no year. "The year
+  of the file" means the calendar year most of its days fall in, so a
+  sheet for 2025 that begins on 30 December still reads as 2025, and a
+  week running from December into January carries on into the next
+  year. The year is, in this order: the one the user picks on the page;
+  a year in the file name, when the name holds exactly one and it does
+  not put filled days in the future; otherwise the latest year in which
+  the last filled day is not in the future. The page always says which
+  year was used and offers to change it; changing it reads the file
+  again (one more model call).
+
+**Why the model does not copy the workouts out.** It was built that way
+first, and measured on a real training plan with Claude Haiku 5.5 on
+2026-11-18. On the file as it was (three weeks filled) every answer was
+exact. On the same plan filled to ten weeks, two of five answers had
+silent errors — a wrong weight, an exercise from another workout, an
+exercise name reworded — a third was rejected by the app's own checks,
+and one answer took 34 000 tokens and 113 seconds. Asked for the layout only, the model gave the identical answer
+in 14 of 14 runs in about five seconds, and the result matched the file
+value for value.
+
+**The model in use.** `anthropic/claude-haiku-5.5` through OpenRouter
+(`OPENROUTER_MODEL`). A training plan is two calls and costs about
+0.002 USD (measured: 6–7 thousand tokens in and 23 out for the first
+call, 7–12 thousand in and about 1 300 out for the second). A weight
+and steps file is one call, about 0.0004 USD. The model's own
+"thinking" is left at its default; this model does not accept the
+temperature setting, so the request's `temperature: 0` has no effect.
+
+**Repeated imports.** Every imported workout keeps a fingerprint of its
+exercise names, weights and reps (`activities.import_fingerprint`). On
+the next import a workout with the same fingerprint is marked "already
+imported" and starts unticked; identical workouts are matched by count.
+Weight and steps hold one value per day anyway: the same value is left
+out, a different one is shown next to the stored one and starts unticked.
+
+**Limits.** Only `.csv`; 10 MB upload; at most 200 kB of text is sent to
+the model; 20 previews per user per day. The daily count lives in the
+backend's memory, so a restart (every deploy) resets it — the real guard
+on spending is the limit set on the OpenRouter key itself.
+
+**When it fails.** Not a CSV → 415, nothing sent to the model. Empty →
+400. Too large (over 200 kB of text, more than 200 workouts, or a
+workout with more than 12 exercises) → 413 saying which. Over the daily
+limit → 429. The model unreachable or its answer unusable → 502 with a
+plain message; the backend log holds the reason (the upstream status
+code, never the upstream message and never the file's content).
+
+**What was checked, and what was not.**
+
+- Checked: 233 automated tests for the importer (the whole backend
+  suite is 438), with the model's answers supplied by the test,
+  never by the real service. An independent reviewer read the first
+  version and found no way to reach another user's data and nothing
+  critical, and eight important defects; the ones in the code were fixed
+  with a test that failed first. A second reviewer read the rework of
+  2026-11-18: nothing critical; three important findings, all fixed with
+  tests — a model answer with a missing field crashed instead of being
+  sent back; wrong layouts that still produced believable workouts (the
+  checks listed above came from this); skipped exercises were only
+  counted, not named. Each check was switched off once to confirm that a
+  test fails without it. A third reviewer read the days-across reader:
+  one critical finding (a sheet starting in late December was read a
+  year late when a year was given) and three more ways to a silently
+  wrong date (a half-parsed week winning under the wrong date order,
+  whole weeks exported as numbers, weeks listed newest first); the year
+  and week-order rules above are the rewrite that came out of it, again
+  with tests and again with each rule switched off once.
+- **Checked against the real model (2026-11-18, Claude Haiku 5.5, the
+  developer's key):** one real training plan (3 workouts, 3 of 10 weeks
+  filled, a long FAQ under the grid) and the same plan filled to 10
+  weeks. Through the running app on the laptop — real backend, real
+  Postgres, real model: the real file gave 9 workouts with all 308
+  values equal to the file, in 8 seconds; confirming wrote 9 workouts; a
+  second upload marked all 9 as already imported. The ten-week file gave
+  30 workouts with all 1 141 values equal, five times, in 5–7 seconds. An
+  invented sheet with a `3x10` cell and a weight written `kehakaal`
+  listed the three skipped entries by row in the browser and read the
+  rest. Two invented weight and
+  steps tables (Estonian style and US style) were classified with the
+  right columns and date order. The key never appeared in the log.
+- **Checked on the real habit tracker (2026-11-18):** half a year of
+  days across the columns, dates without a year. Through the running app
+  with the real model: 157 weight entries and 175 steps entries, every
+  one equal to what a separate script computed from the file; no value
+  unreadable; the weekly averages not imported; confirming wrote them; a
+  second upload left all 332 out as already stored — also when the file
+  was renamed so that its name carries no year. In the browser, an
+  invented sheet of the same shape showed the assumed year, and picking
+  another year re-read the file onto that year.
+- **Not checked:** a one-row-per-date weight or steps file from real life
+  (only invented ones); a habit tracker that crosses New Year from real
+  life (only in tests); any training plan with a different layout from
+  this one template; any model other than Haiku 5.5; production, which still
+  holds a placeholder key — until the developer sets a real one there,
+  every import ends with "could not read this file".
+- The page's own logic (what gets ticked, what is sent) has no automated
+  test — the frontend has no test runner. It was checked once with a
+  throwaway script and by hand in the browser.
+
+**Known gaps.**
+
+- One file is one kind: a sheet holding both workouts and a weight table
+  gives workouts only.
+- Body weight is stored with one decimal, like a manual entry. A sheet
+  that holds 74.45 is imported as 74.5. Kept that way on purpose (the
+  developer's decision, 2026-11-18); the review page shows the rounded
+  value before anything is written.
+- In a days-across sheet a week is refused as a whole when its dates do
+  not follow each other (a missing weekday column, a mistyped date); its
+  values are counted as unreadable, not listed one by one. A sheet with
+  one weigh-in a week across the columns is refused entirely.
+- A days-across sheet with a hole of more than 62 days: everything after
+  the hole is refused.
+- Changing the year on the page asks the model again and uses one of the
+  day's 20 previews.
+- A days-across sheet with no year anywhere: if neither the file name
+  nor the page's year choice is right, every date is a year off. The
+  page says which year it used.
+- The habit tracker's "workout number" row says on which day each
+  workout was done. The import does not use it; workout dates are still
+  typed by hand.
+- A comma-separated file with no header row and decimal commas
+  (`03.11.2026,81,3`) cannot be told from a three-column file and is read
+  wrong. With a header row the extra cell is noticed and the row refused.
+- Text that is neither UTF-8 nor windows-1257 (some Mac exports) is read
+  with wrong letters; the names are stored that way.
+- Only one grid layout is understood: exercises down, week blocks across,
+  one row per exercise. A log with one row per set, or weeks down the
+  rows, gives "nothing to import".
+- If the model moves a whole week block onto wrong columns that still
+  hold numbers (sets instead of repetitions in every week), the checks do
+  not see it and every exercise would be read wrong in the same way. It
+  did not happen in 23 runs; the review page is where it would be seen.
+- The checks are strict on purpose: a sheet where one week has an extra
+  column, or where a stray table with names and numbers sits beside the
+  plan, is refused rather than half read.
+- A weight written as words (`kehakaal`, `BW`) makes that exercise entry
+  skipped, not stored without a weight. It is listed on the page.
+- If Excel has turned a typed `12,10` into the number 12,1, the file
+  says `12,1` and that is what is read. Not seen in the real file.
+- A workout that is half filled in when imported and complete at the next
+  import has a different fingerprint, so it shows up as new and would be
+  stored a second time. Untick a workout that is not finished yet.
+- A workout with more than 12 exercises cannot be stored and makes the
+  whole file be refused, with the workout named. An exercise with more
+  than 12 sets is skipped and listed.
+- Pressing Import twice after a lost response writes the workouts twice
+  (weight and steps are safe).
+- Worst case one preview is four model calls on up to 200 kB of text
+  (about 0.03 USD with Haiku 5.5); at 20 a day per user that stays under
+  1 USD a day. With an expensive model set in `OPENROUTER_MODEL` it would
+  not. The spending limit on the key is the guard.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

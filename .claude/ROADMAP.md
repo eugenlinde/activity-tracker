@@ -106,9 +106,14 @@ developer's call; this is the suggested one.
       `oxlint --deny-warnings`; pin the Testcontainers image to
       `postgres:17-alpine` to match dev/prod. Small, good first factory
       tickets.
-- [ ] Finish CSV import (pre-pivot steps 4d–6; detail in `.claude/SPEC.md`,
-      "Phase 5 — CSV import"). Scope to be re-checked against the prototype's
-      Import screen (Excel, multiple record kinds, per-row include).
+- [ ] CSV import: workouts, weight and steps — issue #18 (2026-11-17
+      built; 2026-11-18 measured on a real training plan with a real key
+      and reworked so the model only names the layout and code reads the
+      cells; PR open). Before it can be called done: a real weight/steps
+      file tried, the developer's merge, the real key and model name in
+      the server's `.env`.
+- [ ] Later for import: Excel files, aerobic and diet rows, workout
+      dates filled in automatically.
 - [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar
       nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
 - [x] Body weight: manual entry + dashboard trend — issue #5 (2026-11-13,

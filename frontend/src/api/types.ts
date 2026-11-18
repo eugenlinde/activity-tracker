@@ -82,3 +82,53 @@ export interface StepsEntry {
   date: string
   steps: number
 }
+
+export type ImportKind = 'WORKOUT_GRID' | 'TABLE' | 'UNKNOWN'
+
+export interface SkippedEntry {
+  row: number
+  workout: string
+  exercise: string | null
+}
+
+export interface WorkoutPreview {
+  label: string
+  details: ActivityDetails
+  alreadyImported: boolean
+}
+
+export interface WeightPreview {
+  date: string
+  weightKg: number
+  existingWeightKg: number | null
+}
+
+export interface StepsPreview {
+  date: string
+  steps: number
+  existingSteps: number | null
+}
+
+export interface ImportPreview {
+  kind: ImportKind
+  workouts: WorkoutPreview[]
+  weights: WeightPreview[]
+  steps: StepsPreview[]
+  unchangedWeights: number
+  unchangedSteps: number
+  unreadableRows: number
+  skippedEntries: SkippedEntry[]
+  assumedYear: number | null
+}
+
+export interface ImportConfirmRequest {
+  workouts: { startedAt: string; details: ActivityDetails; notes: string | null }[]
+  weights: { date: string; weightKg: number }[]
+  steps: { date: string; steps: number }[]
+}
+
+export interface ImportResult {
+  workouts: number
+  weights: number
+  steps: number
+}

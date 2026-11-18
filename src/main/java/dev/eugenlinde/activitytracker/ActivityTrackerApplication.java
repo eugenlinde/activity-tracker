@@ -2,13 +2,19 @@ package dev.eugenlinde.activitytracker;
 
 import dev.eugenlinde.activitytracker.config.SignupProperties;
 import dev.eugenlinde.activitytracker.config.StorageProperties;
+import dev.eugenlinde.activitytracker.importer.ImportProperties;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({StorageProperties.class, OpenRouterProperties.class, SignupProperties.class})
+@EnableConfigurationProperties({
+        StorageProperties.class,
+        OpenRouterProperties.class,
+        SignupProperties.class,
+        ImportProperties.class
+})
 public class ActivityTrackerApplication {
 
     public static void main(String[] args) {

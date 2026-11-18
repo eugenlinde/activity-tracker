@@ -490,7 +490,7 @@ code, never the upstream message and never the file's content).
 - If the model moves a whole week block onto wrong columns that still
   hold numbers (sets instead of repetitions in every week), the checks do
   not see it and every exercise would be read wrong in the same way. It
-  did not happen in 19 runs; the review page is where it would be seen.
+  did not happen in 23 runs; the review page is where it would be seen.
 - The checks are strict on purpose: a sheet where one week has an extra
   column, or where a stray table with names and numbers sits beside the
   plan, is refused rather than half read.

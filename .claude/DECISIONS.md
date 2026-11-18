@@ -1223,3 +1223,11 @@ any sign. The year and week-order logic was rewritten:
 - Not changed: the labels the model gives are not checked against the
   sheet with a retry (a wrong label gives "nothing to import", not wrong
   data); every change of year is a new model call.
+
+## 2026-11-18 — Body weight stays at one decimal (developer's decision)
+
+Asked after the real habit tracker turned out to hold two decimals
+(74.45). The developer's answer: one decimal stays. Import rounds half
+up (74.45 becomes 74.5), the same precision manual entry accepts; no
+schema change. The review page shows the rounded value before the user
+confirms.

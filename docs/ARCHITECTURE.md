@@ -529,7 +529,9 @@ code, never the upstream message and never the file's content).
 - One file is one kind: a sheet holding both workouts and a weight table
   gives workouts only.
 - Body weight is stored with one decimal, like a manual entry. A sheet
-  that holds 74.45 is imported as 74.5.
+  that holds 74.45 is imported as 74.5. Kept that way on purpose (the
+  developer's decision, 2026-11-18); the review page shows the rounded
+  value before anything is written.
 - In a days-across sheet a week is refused as a whole when its dates do
   not follow each other (a missing weekday column, a mistyped date); its
   values are counted as unreadable, not listed one by one. A sheet with

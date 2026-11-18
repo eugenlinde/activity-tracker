@@ -488,3 +488,4 @@ maps onto this project. Nothing decided yet. Proposals given:
   org.mockito:mockito-core:5.23.0" — a download failure, green on rerun.
   `build.gradle` asks for `mockito-core:5.+`; pinning it would remove
   one lookup that can fail. Backlog.
+- Weight precision settled by the developer: one decimal stays.

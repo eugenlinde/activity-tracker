@@ -5,6 +5,7 @@ import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
+import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
@@ -12,6 +13,8 @@ import dev.eugenlinde.activitytracker.importer.PreviewLimiter;
 import dev.eugenlinde.activitytracker.importer.WorkoutDraft;
 import dev.eugenlinde.activitytracker.importer.WorkoutDraftMapper;
 import dev.eugenlinde.activitytracker.importer.csv.CsvText;
+import dev.eugenlinde.activitytracker.importer.csv.DayGridReader;
+import dev.eugenlinde.activitytracker.importer.csv.DayGridRows;
 import dev.eugenlinde.activitytracker.importer.csv.GridReader;
 import dev.eugenlinde.activitytracker.importer.csv.GridRows;
 import dev.eugenlinde.activitytracker.importer.csv.StepsRow;
@@ -23,10 +26,10 @@ import dev.eugenlinde.activitytracker.importer.dto.SkippedEntryPreview;
 import dev.eugenlinde.activitytracker.importer.dto.StepsPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WeightPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WorkoutPreview;
+import dev.eugenlinde.activitytracker.importer.llm.DayGridMapping;
 import dev.eugenlinde.activitytracker.importer.llm.FileAnalysis;
 import dev.eugenlinde.activitytracker.importer.llm.GridLayout;
 import dev.eugenlinde.activitytracker.importer.llm.ImportMappingService;
-import dev.eugenlinde.activitytracker.importer.llm.TableMapping;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.weight.WeightEntryRepository;
@@ -40,10 +43,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +57,9 @@ public class ImportPreviewService {
 
     private static final String CSV_EXTENSION = ".csv";
     private static final int MAX_WORKOUTS = 200;
+    private static final int EARLIEST_YEAR = 2000;
+    private static final int LATEST_YEAR = 2100;
+    private static final Pattern YEAR_IN_NAME = Pattern.compile("(?<!\\d)(20\\d{2})(?!\\d)");
 
     private final ImportMappingService importMappingService;
     private final ActivityRepository activityRepository;
@@ -81,7 +90,10 @@ public class ImportPreviewService {
         this.validator = validator;
     }
 
-    public ImportPreviewResponse preview(Long userId, String filename, byte[] bytes) {
+    public ImportPreviewResponse preview(Long userId, String filename, byte[] bytes, Integer year) {
+        if (year != null && (year < EARLIEST_YEAR || year > LATEST_YEAR)) {
+            throw new InvalidEntryDateException();
+        }
         if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(CSV_EXTENSION)) {
             throw new UnsupportedMediaTypeException("Only .csv files can be imported. Save the sheet as CSV first.");
         }
@@ -104,7 +116,8 @@ public class ImportPreviewService {
 
         FileAnalysis analysis = importMappingService.analyse(head(text));
         return switch (analysis.kind()) {
-            case TABLE -> tablePreview(userId, rows, analysis.table());
+            case TABLE -> tablePreview(userId, TableReader.read(rows, analysis.table()), null);
+            case DAY_GRID -> dayGridPreview(userId, filename, rows, analysis.dayGrid(), year);
             case WORKOUT_GRID -> workoutPreview(userId, rows);
             case UNKNOWN -> nothingToImport();
         };
@@ -160,15 +173,32 @@ public class ImportPreviewService {
                 .map(entry -> new SkippedEntryPreview(entry.row(), entry.workout(), entry.exercise()))
                 .toList();
         return new ImportPreviewResponse(
-                FileAnalysis.Kind.WORKOUT_GRID.name(), workouts, List.of(), List.of(), 0, 0, skipped.size(), skipped);
+                FileAnalysis.Kind.WORKOUT_GRID.name(), workouts, List.of(), List.of(), 0, 0, skipped.size(), skipped, null);
     }
 
     private static ImportPreviewResponse nothingToImport() {
-        return new ImportPreviewResponse(FileAnalysis.Kind.UNKNOWN.name(), List.of(), List.of(), List.of(), 0, 0, 0, List.of());
+        return new ImportPreviewResponse(
+                FileAnalysis.Kind.UNKNOWN.name(), List.of(), List.of(), List.of(), 0, 0, 0, List.of(), null);
     }
 
-    private ImportPreviewResponse tablePreview(Long userId, List<List<String>> rows, TableMapping mapping) {
-        TableRows table = TableReader.read(rows, mapping);
+    private ImportPreviewResponse dayGridPreview(
+            Long userId, String filename, List<List<String>> rows, DayGridMapping mapping, Integer year
+    ) {
+        Integer chosen = year != null ? year : yearInName(filename);
+        DayGridRows grid = DayGridReader.read(rows, mapping, chosen, entryDatePolicy.today());
+        return tablePreview(userId, grid.table(), grid.assumedYear());
+    }
+
+    private static Integer yearInName(String filename) {
+        Set<Integer> years = new HashSet<>();
+        Matcher matcher = YEAR_IN_NAME.matcher(filename);
+        while (matcher.find()) {
+            years.add(Integer.valueOf(matcher.group(1)));
+        }
+        return years.size() == 1 ? years.iterator().next() : null;
+    }
+
+    private ImportPreviewResponse tablePreview(Long userId, TableRows table, Integer assumedYear) {
         LocalDate latest = entryDatePolicy.latestAllowedDate();
         int unreadable = table.unreadable();
 
@@ -218,6 +248,6 @@ public class ImportPreviewService {
         }
         return new ImportPreviewResponse(
                 FileAnalysis.Kind.TABLE.name(), List.of(), weights, steps, unchangedWeights, unchangedSteps, unreadable,
-                List.of());
+                List.of(), assumedYear);
     }
 }

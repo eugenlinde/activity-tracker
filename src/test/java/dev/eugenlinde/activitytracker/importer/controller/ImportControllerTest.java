@@ -114,14 +114,24 @@ class ImportControllerTest {
     }
 
     @Test
+    void preview_passesTheChosenYear() throws Exception {
+        mockMvc.perform(multipart("/api/imports/preview").file(csv("kaal.csv", "a,b\n")).param("year", "2025")
+                        .with(authenticatedAs(userId)))
+                .andExpect(status().isOk());
+
+        verify(importPreviewService).preview(eq(userId), eq("kaal.csv"), any(), eq(2025));
+    }
+
+    @Test
     void preview_passesTheCallerTheFileNameAndBytesAndReturnsThePreview() throws Exception {
-        when(importPreviewService.preview(eq(userId), eq("kaal.csv"), any())).thenReturn(new ImportPreviewResponse(
+        when(importPreviewService.preview(eq(userId), eq("kaal.csv"), any(), eq(null))).thenReturn(new ImportPreviewResponse(
                 "TABLE",
                 List.of(),
                 List.of(new WeightPreview(LocalDate.parse("2026-11-02"), new BigDecimal("81.1"), new BigDecimal("82.0"))),
                 List.of(new StepsPreview(LocalDate.parse("2026-11-02"), 9876, null)),
                 1, 0, 2,
-                List.of(new SkippedEntryPreview(12, "Nädal 2 / Treening 1", "Kükk"))
+                List.of(new SkippedEntryPreview(12, "Nädal 2 / Treening 1", "Kükk")),
+                2026
         ));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("kaal.csv", "Kuupäev;Kaal\n")).with(authenticatedAs(userId)))
@@ -133,13 +143,14 @@ class ImportControllerTest {
                 .andExpect(jsonPath("$.steps[0].steps").value(9876))
                 .andExpect(jsonPath("$.steps[0].existingSteps").doesNotExist())
                 .andExpect(jsonPath("$.unchangedWeights").value(1))
+                .andExpect(jsonPath("$.assumedYear").value(2026))
                 .andExpect(jsonPath("$.skippedEntries[0].row").value(12))
                 .andExpect(jsonPath("$.skippedEntries[0].workout").value("Nädal 2 / Treening 1"))
                 .andExpect(jsonPath("$.skippedEntries[0].exercise").value("Kükk"))
                 .andExpect(jsonPath("$.unreadableRows").value(2));
 
         ArgumentCaptor<byte[]> bytes = ArgumentCaptor.forClass(byte[].class);
-        verify(importPreviewService).preview(eq(userId), eq("kaal.csv"), bytes.capture());
+        verify(importPreviewService).preview(eq(userId), eq("kaal.csv"), bytes.capture(), eq(null));
         assertEquals("Kuupäev;Kaal\n", new String(bytes.getValue(), StandardCharsets.UTF_8));
     }
 
@@ -152,7 +163,7 @@ class ImportControllerTest {
 
     @Test
     void preview_notACsv_returns415() throws Exception {
-        when(importPreviewService.preview(any(), any(), any())).thenThrow(new UnsupportedMediaTypeException("Only .csv"));
+        when(importPreviewService.preview(any(), any(), any(), any())).thenThrow(new UnsupportedMediaTypeException("Only .csv"));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("plaan.xlsx", "x")).with(authenticatedAs(userId)))
                 .andExpect(status().isUnsupportedMediaType());
@@ -160,7 +171,7 @@ class ImportControllerTest {
 
     @Test
     void preview_emptyFile_returns400() throws Exception {
-        when(importPreviewService.preview(any(), any(), any())).thenThrow(new EmptyImportFileException("The file is empty."));
+        when(importPreviewService.preview(any(), any(), any(), any())).thenThrow(new EmptyImportFileException("The file is empty."));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("x.csv", "")).with(authenticatedAs(userId)))
                 .andExpect(status().isBadRequest())
@@ -169,7 +180,7 @@ class ImportControllerTest {
 
     @Test
     void preview_tooLarge_returns413() throws Exception {
-        when(importPreviewService.preview(any(), any(), any())).thenThrow(new ImportTooLargeException("too large"));
+        when(importPreviewService.preview(any(), any(), any(), any())).thenThrow(new ImportTooLargeException("too large"));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("x.csv", "a")).with(authenticatedAs(userId)))
                 .andExpect(status().is(413))
@@ -178,7 +189,7 @@ class ImportControllerTest {
 
     @Test
     void preview_overTheDailyLimit_returns429() throws Exception {
-        when(importPreviewService.preview(any(), any(), any())).thenThrow(new ImportLimitExceededException("limit"));
+        when(importPreviewService.preview(any(), any(), any(), any())).thenThrow(new ImportLimitExceededException("limit"));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("x.csv", "a")).with(authenticatedAs(userId)))
                 .andExpect(status().isTooManyRequests())
@@ -187,7 +198,7 @@ class ImportControllerTest {
 
     @Test
     void preview_modelFailure_returns502WithoutInternalDetail() throws Exception {
-        when(importPreviewService.preview(any(), any(), any()))
+        when(importPreviewService.preview(any(), any(), any(), any()))
                 .thenThrow(new ImportMappingException("drafts[0].exercises[0].reps: must not be empty"));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("x.csv", "a")).with(authenticatedAs(userId)))

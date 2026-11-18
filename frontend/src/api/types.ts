@@ -118,6 +118,7 @@ export interface ImportPreview {
   unchangedSteps: number
   unreadableRows: number
   skippedEntries: SkippedEntry[]
+  assumedYear: number | null
 }
 
 export interface ImportConfirmRequest {

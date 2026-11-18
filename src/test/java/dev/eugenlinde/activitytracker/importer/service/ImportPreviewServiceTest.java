@@ -6,6 +6,7 @@ import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
 import dev.eugenlinde.activitytracker.common.exception.ImportLimitExceededException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
+import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
@@ -18,6 +19,7 @@ import dev.eugenlinde.activitytracker.importer.dto.ImportPreviewResponse;
 import dev.eugenlinde.activitytracker.importer.dto.SkippedEntryPreview;
 import dev.eugenlinde.activitytracker.importer.dto.StepsPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WeightPreview;
+import dev.eugenlinde.activitytracker.importer.llm.DayGridMapping;
 import dev.eugenlinde.activitytracker.importer.llm.FileAnalysis;
 import dev.eugenlinde.activitytracker.importer.llm.GridLayout;
 import dev.eugenlinde.activitytracker.importer.llm.ImportMappingService;
@@ -94,7 +96,7 @@ class ImportPreviewServiceTest {
 
     private void analysedAsTable() {
         when(mappingService.analyse(anyString()))
-                .thenReturn(new FileAnalysis(FileAnalysis.Kind.TABLE, new TableMapping(1, 0, DateOrder.DMY, 1, 2)));
+                .thenReturn(new FileAnalysis(FileAnalysis.Kind.TABLE, new TableMapping(1, 0, DateOrder.DMY, 1, 2), null));
     }
 
     private static WeightEntry storedWeight(String date, String kg) {
@@ -145,7 +147,7 @@ class ImportPreviewServiceTest {
     void preview_table_returnsNewRowsWithNothingStored() {
         analysedAsTable();
 
-        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(TABLE_CSV));
+        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null);
 
         assertEquals("TABLE", preview.kind());
         assertEquals(List.of(
@@ -169,7 +171,7 @@ class ImportPreviewServiceTest {
         analysedAsTable();
         properties.setAnalysisRows(2);
 
-        service.preview(USER, "kaal.csv", bytes(TABLE_CSV));
+        service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null);
 
         verify(mappingService).analyse("Kuupäev;Kaal;Sammud\n01.11.2026;81,3;10 234");
     }
@@ -184,7 +186,7 @@ class ImportPreviewServiceTest {
                 USER, LocalDate.parse("2026-11-01"), LocalDate.parse("2026-11-02")))
                 .thenReturn(List.of(storedSteps("2026-11-01", 10234), storedSteps("2026-11-02", 9000)));
 
-        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(TABLE_CSV));
+        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null);
 
         assertEquals(List.of(
                 new WeightPreview(LocalDate.parse("2026-11-02"), new BigDecimal("81.1"), new BigDecimal("82.0")),
@@ -200,7 +202,7 @@ class ImportPreviewServiceTest {
         analysedAsTable();
         String csv = "Kuupäev;Kaal;Sammud\n01.11.2026;abc;100\n25.12.2026;80,0;200\nkokku;1;2\n";
 
-        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(csv));
+        ImportPreviewResponse preview = service.preview(USER, "kaal.csv", bytes(csv), null);
 
         assertTrue(preview.weights().isEmpty());
         assertEquals(List.of(new StepsPreview(LocalDate.parse("2026-11-01"), 100, null)), preview.steps());
@@ -209,11 +211,11 @@ class ImportPreviewServiceTest {
 
     @Test
     void preview_workoutGrid_asksWhereThingsAreAndReadsTheCellsItself() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null, null));
         List<List<String>> parsed = CsvText.parse(GRID_CSV);
         when(mappingService.gridLayout(parsed)).thenReturn(LAYOUT);
 
-        ImportPreviewResponse preview = service.preview(USER, "plaan.CSV", bytes(GRID_CSV));
+        ImportPreviewResponse preview = service.preview(USER, "plaan.CSV", bytes(GRID_CSV), null);
 
         assertEquals(5, parsed.size());
         assertEquals("WORKOUT_GRID", preview.kind());
@@ -228,7 +230,7 @@ class ImportPreviewServiceTest {
 
     @Test
     void preview_workoutGrid_moreWorkoutsThanOneConfirmCanTake_isTooLarge() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null, null));
         List<GridLayout.Workout> workouts = new ArrayList<>();
         StringBuilder csv = new StringBuilder();
         for (int i = 1; i <= 201; i++) {
@@ -238,12 +240,12 @@ class ImportPreviewServiceTest {
         when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
                 List.of(new GridLayout.Week("N1", null, 1, null, null)), workouts));
 
-        assertThrows(ImportTooLargeException.class, () -> service.preview(USER, "plaan.csv", bytes(csv.toString())));
+        assertThrows(ImportTooLargeException.class, () -> service.preview(USER, "plaan.csv", bytes(csv.toString()), null));
     }
 
     @Test
     void preview_workoutGrid_marksAlreadyImportedByCount() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null, null));
         when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
                 List.of(new GridLayout.Week("N1", 1, 2, null, null), new GridLayout.Week("N2", 3, 4, null, null),
                         new GridLayout.Week("N3", 5, 6, null, null), new GridLayout.Week("N4", 7, 8, null, null)),
@@ -252,7 +254,7 @@ class ImportPreviewServiceTest {
                 .thenReturn(List.of(stored(ImportFingerprint.of(session(100.0, 8, 7)), 2), stored("someoneelse", 5)));
 
         ImportPreviewResponse preview = service.preview(USER, "plaan.csv",
-                bytes("Kükk,100,\"8, 7\",100,\"8, 7\",102.5,\"8, 7\",100,\"8, 7\"\n"));
+                bytes("Kükk,100,\"8, 7\",100,\"8, 7\",102.5,\"8, 7\",100,\"8, 7\"\n"), null);
 
         List<Boolean> marks = new ArrayList<>();
         preview.workouts().forEach(workout -> marks.add(workout.alreadyImported()));
@@ -261,7 +263,7 @@ class ImportPreviewServiceTest {
 
     @Test
     void preview_workoutGrid_tooManyExercisesForAStoredWorkout_isRefusedWithItsLabel() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null, null));
         when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
                 List.of(new GridLayout.Week("N1", null, 1, null, null)),
                 List.of(new GridLayout.Workout("T1", 1, 13))));
@@ -271,26 +273,110 @@ class ImportPreviewServiceTest {
         }
 
         ImportTooLargeException refusal = assertThrows(ImportTooLargeException.class,
-                () -> service.preview(USER, "plaan.csv", bytes(csv.toString())));
+                () -> service.preview(USER, "plaan.csv", bytes(csv.toString()), null));
         assertTrue(refusal.getMessage().contains("N1 / T1"), refusal.getMessage());
     }
 
     @Test
     void preview_workoutGrid_sheetWithoutTheGridLayout_returnsNothingToImport() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null, null));
         when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null, List.of(), List.of()));
 
-        ImportPreviewResponse preview = service.preview(USER, "plaan.csv", bytes(GRID_CSV));
+        ImportPreviewResponse preview = service.preview(USER, "plaan.csv", bytes(GRID_CSV), null);
 
         assertEquals("UNKNOWN", preview.kind());
         assertTrue(preview.workouts().isEmpty());
     }
 
+    private static final String DAY_GRID_CSV = """
+            Harjumused,,,,
+            Kuupäev,5.01,6.01,7.01,Keskmine
+            Kaal,81.3,,80.9,81.1
+            Sammud,10234,9876,,10055.0
+            """;
+
+    private void analysedAsDayGrid() {
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.DAY_GRID, null,
+                new DayGridMapping(0, "Kuupäev", "Kaal", "Sammud", DateOrder.DMY)));
+    }
+
+    @Test
+    void preview_dayGrid_readsWeightAndStepsLikeATable_andSaysWhichYearItAssumed() {
+        analysedAsDayGrid();
+
+        ImportPreviewResponse preview = service.preview(USER, "harjumused.csv", bytes(DAY_GRID_CSV), null);
+
+        assertEquals("TABLE", preview.kind());
+        assertEquals(2026, preview.assumedYear());
+        assertEquals(List.of(
+                new WeightPreview(LocalDate.parse("2026-01-05"), new BigDecimal("81.3"), null),
+                new WeightPreview(LocalDate.parse("2026-01-07"), new BigDecimal("80.9"), null)
+        ), preview.weights());
+        assertEquals(List.of(
+                new StepsPreview(LocalDate.parse("2026-01-05"), 10234, null),
+                new StepsPreview(LocalDate.parse("2026-01-06"), 9876, null)
+        ), preview.steps());
+        assertEquals(0, preview.unreadableRows());
+        verify(mappingService, never()).gridLayout(any());
+    }
+
+    @Test
+    void preview_dayGrid_yearInTheFileName_isUsedBeforeGuessing() {
+        analysedAsDayGrid();
+
+        ImportPreviewResponse preview = service.preview(USER, "Eugen - 2025 Q1-2.csv", bytes(DAY_GRID_CSV), null);
+
+        assertEquals(2025, preview.assumedYear());
+        assertEquals(LocalDate.parse("2025-01-05"), preview.weights().getFirst().date());
+    }
+
+    @Test
+    void preview_dayGrid_twoDifferentYearsInTheFileName_areNotUsed() {
+        analysedAsDayGrid();
+
+        assertEquals(2026, service.preview(USER, "2024-2025 kokku.csv", bytes(DAY_GRID_CSV), null).assumedYear());
+    }
+
+    @Test
+    void preview_dayGrid_yearChosenByTheUser_winsOverTheFileName() {
+        analysedAsDayGrid();
+
+        ImportPreviewResponse preview = service.preview(USER, "Eugen - 2025 Q1-2.csv", bytes(DAY_GRID_CSV), 2024);
+
+        assertEquals(2024, preview.assumedYear());
+        assertEquals(LocalDate.parse("2024-01-05"), preview.weights().getFirst().date());
+    }
+
+    @Test
+    void preview_dayGrid_valuesInTheFuture_areCountedAndLeftOut() {
+        analysedAsDayGrid();
+
+        ImportPreviewResponse preview = service.preview(USER, "harjumused.csv", bytes(DAY_GRID_CSV), 2027);
+
+        assertTrue(preview.weights().isEmpty() && preview.steps().isEmpty());
+        assertEquals(4, preview.unreadableRows());
+        assertEquals(2027, preview.assumedYear());
+    }
+
+    @Test
+    void preview_yearOutsideTheSupportedRange_isRefusedBeforeTheModelIsAsked() {
+        assertThrows(InvalidEntryDateException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 1999));
+        assertThrows(InvalidEntryDateException.class, () -> service.preview(USER, "x.csv", bytes(DAY_GRID_CSV), 2101));
+        verifyNoInteractions(mappingService);
+    }
+
+    @Test
+    void preview_table_hasNoAssumedYear() {
+        analysedAsTable();
+
+        assertEquals(null, service.preview(USER, "kaal.csv", bytes(TABLE_CSV), 2020).assumedYear());
+    }
+
     @Test
     void preview_unknownKind_returnsNothingToImport() {
-        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.UNKNOWN, null));
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.UNKNOWN, null, null));
 
-        ImportPreviewResponse preview = service.preview(USER, "x.csv", bytes("tere,maailm\n"));
+        ImportPreviewResponse preview = service.preview(USER, "x.csv", bytes("tere,maailm\n"), null);
 
         assertEquals("UNKNOWN", preview.kind());
         assertTrue(preview.workouts().isEmpty() && preview.weights().isEmpty() && preview.steps().isEmpty());
@@ -298,8 +384,8 @@ class ImportPreviewServiceTest {
 
     @Test
     void preview_notACsvName_isRefusedBeforeTheModelIsAsked() {
-        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.xlsx", bytes("a,b\n")));
-        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, null, bytes("a,b\n")));
+        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.xlsx", bytes("a,b\n"), null));
+        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, null, bytes("a,b\n"), null));
         verifyNoInteractions(mappingService);
     }
 
@@ -307,14 +393,14 @@ class ImportPreviewServiceTest {
     void preview_binaryContentWithCsvName_isRefused() {
         byte[] zipLike = {'P', 'K', 3, 4, 0, 0, 0, 0, 'a', ','};
 
-        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.csv", zipLike));
+        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.csv", zipLike, null));
         verifyNoInteractions(mappingService);
     }
 
     @Test
     void preview_emptyOrBlankFile_isRefused() {
-        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", new byte[0]));
-        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", bytes("\n\n  \n")));
+        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", new byte[0], null));
+        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", bytes("\n\n  \n"), null));
         verifyNoInteractions(mappingService);
     }
 
@@ -322,7 +408,7 @@ class ImportPreviewServiceTest {
     void preview_textOverTheCap_isRefusedBeforeTheModelIsAsked() {
         properties.setMaxTextBytes(20);
 
-        assertThrows(ImportTooLargeException.class, () -> service.preview(USER, "x.csv", bytes(TABLE_CSV)));
+        assertThrows(ImportTooLargeException.class, () -> service.preview(USER, "x.csv", bytes(TABLE_CSV), null));
         verifyNoInteractions(mappingService);
     }
 
@@ -330,9 +416,9 @@ class ImportPreviewServiceTest {
     void preview_overTheDailyLimit_isRefusedBeforeTheModelIsAsked() {
         properties.setDailyPreviewLimit(1);
         analysedAsTable();
-        service.preview(USER, "kaal.csv", bytes(TABLE_CSV));
+        service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null);
 
-        assertThrows(ImportLimitExceededException.class, () -> service.preview(USER, "kaal.csv", bytes(TABLE_CSV)));
+        assertThrows(ImportLimitExceededException.class, () -> service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null));
         verify(mappingService).analyse(anyString());
     }
 
@@ -340,10 +426,10 @@ class ImportPreviewServiceTest {
     void preview_refusedFiles_doNotUseUpTheDailyLimit() {
         properties.setDailyPreviewLimit(1);
         analysedAsTable();
-        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.xlsx", bytes("a,b\n")));
-        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", new byte[0]));
+        assertThrows(UnsupportedMediaTypeException.class, () -> service.preview(USER, "plaan.xlsx", bytes("a,b\n"), null));
+        assertThrows(EmptyImportFileException.class, () -> service.preview(USER, "x.csv", new byte[0], null));
 
-        assertEquals("TABLE", service.preview(USER, "kaal.csv", bytes(TABLE_CSV)).kind());
+        assertEquals("TABLE", service.preview(USER, "kaal.csv", bytes(TABLE_CSV), null).kind());
     }
 
     @Test
@@ -351,7 +437,7 @@ class ImportPreviewServiceTest {
         analysedAsTable();
         properties.setAnalysisRows(3);
 
-        service.preview(USER, "kaal.csv", bytes("Minu kaal\n\n\nKuupäev;Kaal\n01.11.2026;81,3\n"));
+        service.preview(USER, "kaal.csv", bytes("Minu kaal\n\n\nKuupäev;Kaal\n01.11.2026;81,3\n"), null);
 
         verify(mappingService).analyse("Minu kaal\nKuupäev;Kaal\n01.11.2026;81,3");
     }
@@ -359,7 +445,7 @@ class ImportPreviewServiceTest {
     @Test
     void preview_doesNotHoldADatabaseTransactionWhileTheModelIsAsked() throws NoSuchMethodException {
         assertEquals(null, ImportPreviewService.class
-                .getMethod("preview", Long.class, String.class, byte[].class)
+                .getMethod("preview", Long.class, String.class, byte[].class, Integer.class)
                 .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
         assertEquals(null, ImportPreviewService.class
                 .getAnnotation(org.springframework.transaction.annotation.Transactional.class));

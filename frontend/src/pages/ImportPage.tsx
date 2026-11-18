@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Checkbox, Input, Steps, Tag } from 'antd'
+import { Alert, Button, Checkbox, Input, Select, Steps, Tag } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
 import { importsApi } from '../api/imports'
 import type { ImportPreview, ImportResult } from '../api/types'
@@ -20,15 +20,23 @@ type Stage = 'upload' | 'review' | 'done'
 
 const STAGES: Stage[] = ['upload', 'review', 'done']
 
+function yearsOffered(assumed: number): number[] {
+  const latest = Math.max(new Date().getFullYear(), assumed)
+  const years = Array.from({ length: YEARS_OFFERED }, (_, i) => latest - i)
+  return years.includes(assumed) ? years : [...years, assumed]
+}
+
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
 const SKIPPED_SHOWN = 15
+const YEARS_OFFERED = 6
 
 export function ImportPage() {
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('upload')
+  const [file, setFile] = useState<File | null>(null)
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [selection, setSelection] = useState<ImportSelection>({ workouts: [], weights: [], steps: [] })
@@ -37,11 +45,12 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
-  async function read(file: File) {
+  async function read(file: File, year?: number) {
     setError(null)
     setBusy(true)
     try {
-      const read = await importsApi.preview(file)
+      const read = await importsApi.preview(file, year)
+      setFile(file)
       setFileName(file.name)
       setPreview(read)
       setSelection(initialSelection(read))
@@ -158,6 +167,27 @@ export function ImportPage() {
                 Choose another file
               </Button>
             </div>
+            {preview.assumedYear !== null && (
+              <Alert
+                type="info"
+                showIcon
+                title="The dates in this file have no year."
+                description={
+                  <span>
+                    They were read as{' '}
+                    <Select
+                      size="small"
+                      aria-label="Year of the dates in this file"
+                      value={preview.assumedYear}
+                      disabled={busy}
+                      options={yearsOffered(preview.assumedYear).map((year) => ({ value: year, label: String(year) }))}
+                      onChange={(year) => file && void read(file, year)}
+                    />
+                    . Change the year if that is wrong; the file is read again.
+                  </span>
+                }
+              />
+            )}
             {nothingFound && (
               <div className="empty">
                 {preview.unchangedWeights + preview.unchangedSteps > 0

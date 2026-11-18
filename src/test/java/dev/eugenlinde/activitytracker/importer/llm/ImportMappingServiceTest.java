@@ -119,7 +119,7 @@ class ImportMappingServiceTest {
 
         FileAnalysis analysis = service.analyse("Kuupäev;Kaal\n01.11.2026;81,3");
 
-        assertEquals(new FileAnalysis(FileAnalysis.Kind.TABLE, new TableMapping(1, 0, DateOrder.DMY, 1, null)), analysis);
+        assertEquals(new FileAnalysis(FileAnalysis.Kind.TABLE, new TableMapping(1, 0, DateOrder.DMY, 1, null), null), analysis);
     }
 
     @Test
@@ -136,10 +136,44 @@ class ImportMappingServiceTest {
     }
 
     @Test
+    void analyse_dayGrid_returnsTheLabels() {
+        answer("""
+                {"kind":"DAY_GRID","table":null,
+                 "dayGrid":{"labelColumn":0,"dateLabel":"Kuupäev","weightLabel":"Tühikaal","stepsLabel":null,"dateOrder":"DMY"}}
+                """);
+
+        assertEquals(new FileAnalysis(FileAnalysis.Kind.DAY_GRID, null,
+                new DayGridMapping(0, "Kuupäev", "Tühikaal", null, DateOrder.DMY)), service.analyse("x"));
+    }
+
+    @Test
+    void analyse_dayGridWithoutLabels_isSentBackOnceThenAccepted() {
+        answer("{\"kind\":\"DAY_GRID\",\"table\":null,\"dayGrid\":null}");
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.messages[3].content", containsString("dayGrid")))
+                .andRespond(withSuccess(completion(TABLE_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        assertEquals(FileAnalysis.Kind.TABLE, service.analyse("x").kind());
+    }
+
+    @Test
+    void analyse_dayGridWithNeitherWeightNorSteps_isSentBack() {
+        answer("""
+                {"kind":"DAY_GRID","table":null,
+                 "dayGrid":{"labelColumn":0,"dateLabel":"Kuupäev","weightLabel":null,"stepsLabel":null,"dateOrder":"DMY"}}
+                """);
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.messages[3].content", containsString("weightLabel")))
+                .andRespond(withSuccess(completion(TABLE_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        service.analyse("x");
+    }
+
+    @Test
     void analyse_unknownKind_needsNoTable() {
         answer("{\"kind\":\"UNKNOWN\",\"table\":null}");
 
-        assertEquals(new FileAnalysis(FileAnalysis.Kind.UNKNOWN, null), service.analyse("x"));
+        assertEquals(new FileAnalysis(FileAnalysis.Kind.UNKNOWN, null, null), service.analyse("x"));
     }
 
     @Test
@@ -264,7 +298,8 @@ class ImportMappingServiceTest {
         assertEquals(components(GridLayout.Workout.class), required(workout));
         assertEquals(components(FileAnalysis.class), required(analysis));
         assertEquals(components(TableMapping.class), required(table));
-        for (JsonNode object : List.of(layout, week, workout, analysis, table)) {
+        assertEquals(components(DayGridMapping.class), required(analysis.at("/properties/dayGrid")));
+        for (JsonNode object : List.of(layout, week, workout, analysis, table, analysis.at("/properties/dayGrid"))) {
             assertEquals(false, object.get("additionalProperties").asBoolean(true));
         }
     }

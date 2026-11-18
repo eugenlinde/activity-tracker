@@ -10,6 +10,7 @@ public record ImportPreviewResponse(
         int unchangedWeights,
         int unchangedSteps,
         int unreadableRows,
-        List<SkippedEntryPreview> skippedEntries
+        List<SkippedEntryPreview> skippedEntries,
+        Integer assumedYear
 ) {
 }

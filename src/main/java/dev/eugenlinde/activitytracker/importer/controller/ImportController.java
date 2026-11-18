@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,9 +35,11 @@ public class ImportController {
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImportPreviewResponse> preview(
             @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) Integer year,
             @AuthenticationPrincipal Jwt jwt
     ) throws IOException {
-        return ResponseEntity.ok(importPreviewService.preview(userId(jwt), file.getOriginalFilename(), file.getBytes()));
+        return ResponseEntity.ok(
+                importPreviewService.preview(userId(jwt), file.getOriginalFilename(), file.getBytes(), year));
     }
 
     @PostMapping("/confirm")

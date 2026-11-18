@@ -63,7 +63,7 @@ public class ImportMappingService {
 
     public FileAnalysis analyse(String fileHead) {
         return ask(analysisPrompt, "file_analysis", analysisSchema, fileHead, ANALYSIS_MAX_TOKENS,
-                FileAnalysis.class, ImportMappingService::tableProblems);
+                FileAnalysis.class, ImportMappingService::analysisProblems);
     }
 
     public GridLayout gridLayout(List<List<String>> rows) {
@@ -79,7 +79,16 @@ public class ImportMappingService {
         return gridSchema;
     }
 
-    private static List<String> tableProblems(FileAnalysis analysis) {
+    private static List<String> analysisProblems(FileAnalysis analysis) {
+        if (analysis.kind() == FileAnalysis.Kind.DAY_GRID) {
+            if (analysis.dayGrid() == null) {
+                return List.of("dayGrid: must be given when kind is DAY_GRID");
+            }
+            if (analysis.dayGrid().weightLabel() == null && analysis.dayGrid().stepsLabel() == null) {
+                return List.of("dayGrid: weightLabel and stepsLabel are both null; a DAY_GRID needs at least one of them");
+            }
+            return List.of();
+        }
         if (analysis.kind() != FileAnalysis.Kind.TABLE) {
             return List.of();
         }

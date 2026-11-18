@@ -150,7 +150,7 @@ public final class GridLayoutChecks {
         return false;
     }
 
-    private static String normalise(String text) {
+    static String normalise(String text) {
         return WHITESPACE.matcher(text.replace(' ', ' ').replace(' ', ' ').strip()).replaceAll(" ");
     }
 }

@@ -125,7 +125,7 @@ public final class TableReader {
         return row.get(column).strip();
     }
 
-    private static Optional<BigDecimal> weight(String cell) {
+    static Optional<BigDecimal> weight(String cell) {
         String number = cell.replaceAll("(?i)kg", "").replace(',', '.').replaceAll("[\\s\\u00a0\\u202f]", "");
         if (!DECIMAL.matcher(number).matches()) {
             return Optional.empty();
@@ -137,7 +137,7 @@ public final class TableReader {
         return Optional.of(value);
     }
 
-    private static Optional<Integer> steps(String cell) {
+    static Optional<Integer> steps(String cell) {
         String digits;
         var spreadsheetWhole = SPREADSHEET_WHOLE.matcher(cell);
         if (PLAIN_NUMBER.matcher(cell).matches()) {

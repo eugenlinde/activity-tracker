@@ -437,3 +437,17 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Housekeeping: the main checkout still holds this session's uncommitted
   reboot-drill notes on branch `f2-reboot-drill`; they are superseded by
   this change and can be discarded there.
+
+## 2026-11-18 — Correction: the backup check did run, nine hours late
+
+- The entry above says the scheduled backup check "never ran" on
+  2026-11-17. Wrong: it was looked up before the run existed. GitHub
+  started it at 15:19 UTC (asked for 06:00) and it passed.
+- On 2026-11-18 no scheduled run by 09:30 UTC.
+- The move to 06:17 stays (GitHub's own advice, costs nothing), but
+  there is no evidence yet that it shortens the delay. `ARCHITECTURE.md`
+  and the text of PR #20 were corrected.
+- Lesson: "no run listed" a few hours after the scheduled time is not
+  "did not run". Look again at the end of the day before concluding.
+- Developer's answer on PR #19: wait with the merge until sample files
+  and a real OpenRouter key exist.

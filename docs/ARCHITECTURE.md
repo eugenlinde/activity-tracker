@@ -291,14 +291,19 @@ older images.
   same rules, backup timer enabled and scheduled, password logins still
   refused, no failed system services, the account still in the database.
 - The night of 2026-11-17 the backup timer fired by itself at 03:30 UTC
-  and the backup succeeded. **The 06:00 UTC backup check did not run at
-  all** — GitHub recorded no scheduled run. GitHub says scheduled runs
-  can be delayed or dropped at the start of an hour; the check now runs
-  at 06:17 UTC. Until a scheduled run has been seen, a backup that stops
-  may go unnoticed.
+  and the backup succeeded. **The 06:00 UTC backup check ran at 15:19
+  UTC, nine hours late**, and passed. On 2026-11-18 it had not run by
+  09:30 UTC. GitHub says scheduled runs can be delayed or dropped at
+  the start of an hour; the check now asks for 06:17 UTC. Whether that
+  shortens the delay is not known yet.
+- **What a late check means:** a missed backup is still noticed, only
+  hours later than the table above says. If the check were ever more
+  than 21 hours late and the next night's backup succeeded in between,
+  one missed night would pass without an alarm.
 - **Not checked yet:** a restore with workouts and media in it (only an
   account existed), a rollback where the new version had changed the
-  database schema, and the backup check running on its schedule.
+  database schema, and how late the backup check runs with the new
+  time.
 
 **Known gaps in these scripts:**
 

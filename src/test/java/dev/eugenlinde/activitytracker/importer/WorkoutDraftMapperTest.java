@@ -3,7 +3,6 @@ package dev.eugenlinde.activitytracker.importer;
 import dev.eugenlinde.activitytracker.activity.model.Exercise;
 import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.activity.model.WorkoutSet;
-import dev.eugenlinde.activitytracker.importer.llm.WorkoutExtraction;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,9 +13,9 @@ class WorkoutDraftMapperTest {
 
     @Test
     void toSession_expandsOneWeightAndARepsListIntoSets() {
-        WorkoutExtraction.Draft draft = new WorkoutExtraction.Draft("Nädal 1 / Treening 1", "märkus", List.of(
-                new WorkoutExtraction.DraftExercise("Kükk", "5-8", 100.0, "1-2", List.of(8, 7, 6), "raske", null),
-                new WorkoutExtraction.DraftExercise("Lõuatõmbed", null, 0.0, null, List.of(10), null, "https://example.com/v")
+        WorkoutDraft draft = new WorkoutDraft("Nädal 1 / Treening 1", List.of(
+                new WorkoutDraft.DraftExercise("Kükk", "5-8", 100.0, "1-2", List.of(8, 7, 6), "raske", null),
+                new WorkoutDraft.DraftExercise("Lõuatõmbed", null, 0.0, null, List.of(10), null, "https://example.com/v")
         ));
 
         Session session = WorkoutDraftMapper.toSession(draft);
@@ -31,8 +30,8 @@ class WorkoutDraftMapperTest {
 
     @Test
     void toSession_missingWeight_staysMissingOnEverySet() {
-        WorkoutExtraction.Draft draft = new WorkoutExtraction.Draft("x", null, List.of(
-                new WorkoutExtraction.DraftExercise("Plank", null, null, null, List.of(60, 45), null, null)
+        WorkoutDraft draft = new WorkoutDraft("x", List.of(
+                new WorkoutDraft.DraftExercise("Plank", null, null, null, List.of(60, 45), null, null)
         ));
 
         assertEquals(

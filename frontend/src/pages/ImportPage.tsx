@@ -24,6 +24,8 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
+const SKIPPED_SHOWN = 15
+
 export function ImportPage() {
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('upload')
@@ -137,7 +139,7 @@ export function ImportPage() {
           >
             <InboxOutlined aria-hidden="true" style={{ fontSize: 32 }} />
             <strong>{busy ? 'Reading the file…' : 'Drop a CSV file here, or click to choose'}</strong>
-            <span className="muted">.csv · workouts, body weight or daily steps · any column layout</span>
+            <span className="muted">.csv · a training plan with weeks side by side, or body weight and daily steps by date</span>
             <input type="file" accept=".csv,text/csv" onChange={onChoose} disabled={busy} hidden />
           </label>
           <p className="muted">
@@ -174,7 +176,25 @@ export function ImportPage() {
               <Alert
                 type="warning"
                 showIcon
-                title={`${plural(preview.unreadableRows, 'value', 'values')} could not be read (not a date, out of range, or in the future) and ${preview.unreadableRows === 1 ? 'was' : 'were'} skipped.`}
+                title={
+                  preview.kind === 'WORKOUT_GRID'
+                    ? `${plural(preview.unreadableRows, 'exercise entry', 'exercise entries')} could not be read (repetitions or weight not written as plain numbers) and ${preview.unreadableRows === 1 ? 'was' : 'were'} skipped.`
+                    : `${plural(preview.unreadableRows, 'value', 'values')} could not be read (not a date, out of range, or in the future) and ${preview.unreadableRows === 1 ? 'was' : 'were'} skipped.`
+                }
+                description={
+                  preview.skippedEntries.length > 0 && (
+                    <ul className="import-skipped">
+                      {preview.skippedEntries.slice(0, SKIPPED_SHOWN).map((entry) => (
+                        <li key={`${entry.row}-${entry.workout}`}>
+                          Row {entry.row} · {entry.exercise ?? 'no exercise name'} · {entry.workout}
+                        </li>
+                      ))}
+                      {preview.skippedEntries.length > SKIPPED_SHOWN && (
+                        <li>and {preview.skippedEntries.length - SKIPPED_SHOWN} more</li>
+                      )}
+                    </ul>
+                  )
+                }
               />
             )}
           </section>
@@ -214,7 +234,6 @@ export function ImportPage() {
                         onChange={(e) => setWorkout(index, { date: e.target.value })}
                       />
                     </div>
-                    {workout.notes && <div className="muted">{workout.notes}</div>}
                     <ExerciseDetails details={workout.details} />
                   </div>
                 ))}

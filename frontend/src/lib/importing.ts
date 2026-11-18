@@ -28,8 +28,8 @@ export function dateToStartedAt(isoDate: string, now: Date = new Date()): string
   return (noon.getTime() > latest.getTime() ? latest : noon).toISOString()
 }
 
-export function workoutNotes(label: string, notes: string | null): string {
-  return [label, notes].filter(Boolean).join(' — ').slice(0, NOTES_MAX)
+export function workoutNotes(label: string): string {
+  return label.slice(0, NOTES_MAX)
 }
 
 export function selectedCounts(selection: ImportSelection) {
@@ -57,7 +57,7 @@ export function toConfirmRequest(preview: ImportPreview, selection: ImportSelect
       .map(({ workout, choice }) => ({
         startedAt: dateToStartedAt(choice.date, now),
         details: workout.details,
-        notes: workoutNotes(workout.label, workout.notes),
+        notes: workoutNotes(workout.label),
       })),
     weights: preview.weights
       .filter((_, index) => selection.weights[index])

@@ -451,3 +451,25 @@ maps onto this project. Nothing decided yet. Proposals given:
   "did not run". Look again at the end of the day before concluding.
 - Developer's answer on PR #19: wait with the merge until sample files
   and a real OpenRouter key exist.
+
+## 2026-11-18 — Import measured on a real plan; reworked
+
+- PR #20 merged by the developer; deploy green. The scheduled check with
+  the old time came at 14:53 UTC on 2026-11-18, again about nine hours
+  late. First run with 06:17 is due 2026-11-19.
+- The developer supplied one real training plan (kept in
+  `.claude/private/import-samples/`) and an OpenRouter key (in
+  `.claude/private/openrouter.env`, mode 600, written by the developer
+  from the clipboard; never read into the session).
+- Measured, then reworked: the model no longer copies workouts out, it
+  names the layout and `GridReader` reads the cells. Numbers and
+  reasoning in `DECISIONS.md`, 2026-11-18.
+- Tools left in the private folder for the next tuning round:
+  `expected.py` (computes the right answer from a plan with this
+  template), `tune.py` (asks the model directly and compares),
+  `kava12-full10.csv` (the real plan filled to ten weeks with made-up
+  numbers).
+- Still open before merge: a real weight/steps file; the real key and
+  `OPENROUTER_MODEL=anthropic/claude-haiku-5.5` in the server's `.env`
+  (the developer's step); whether the key has a spending limit was not
+  confirmed.

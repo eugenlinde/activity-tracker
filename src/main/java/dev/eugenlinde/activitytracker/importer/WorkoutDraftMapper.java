@@ -3,7 +3,6 @@ package dev.eugenlinde.activitytracker.importer;
 import dev.eugenlinde.activitytracker.activity.model.Exercise;
 import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.activity.model.WorkoutSet;
-import dev.eugenlinde.activitytracker.importer.llm.WorkoutExtraction;
 
 public final class WorkoutDraftMapper {
 
@@ -12,11 +11,11 @@ public final class WorkoutDraftMapper {
     private WorkoutDraftMapper() {
     }
 
-    public static Session toSession(WorkoutExtraction.Draft draft) {
+    public static Session toSession(WorkoutDraft draft) {
         return new Session(SESSION_VERSION, draft.exercises().stream().map(WorkoutDraftMapper::toExercise).toList());
     }
 
-    private static Exercise toExercise(WorkoutExtraction.DraftExercise exercise) {
+    private static Exercise toExercise(WorkoutDraft.DraftExercise exercise) {
         return new Exercise(
                 exercise.name(),
                 exercise.targetReps(),

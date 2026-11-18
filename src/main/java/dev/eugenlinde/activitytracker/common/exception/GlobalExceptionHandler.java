@@ -129,7 +129,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ImportMappingException.class)
     public ResponseEntity<Object> importMappingException(ImportMappingException exception) {
         log.warn("Import mapping failed: {}", exception.getMessage());
-        return new ResponseEntity<>("Could not read this file. Try again in a moment.", HttpStatus.BAD_GATEWAY);
+        return new ResponseEntity<>("Could not read this file. Trying again may help; if it keeps failing, the sheet is laid out in a way the import does not understand.", HttpStatus.BAD_GATEWAY);
     }
 
     @Override

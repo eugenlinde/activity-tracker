@@ -1090,3 +1090,81 @@ no path to another user's data. Changed as a result:
   encodings other than UTF-8 and windows-1257; storage limits not in the
   prompt; `provider.require_parameters` and other real-API differences
   (for the tuning step with a real key).
+
+## 2026-11-18 — CSV import: the model names the layout, code reads the cells (builder's call)
+
+Changes builder's call from the spec of issue #18 (the model extracting
+the workouts as JSON). The developer's four decisions (workouts + weight
++ steps; CSV only; a date typed for every workout; repeated imports) are
+untouched.
+
+Measured with the developer's OpenRouter key on one real training plan
+(`.claude/private/import-samples/`, never committed), model
+`anthropic/claude-haiku-5.5`:
+
+| Approach | File | Runs | Exact | Time | Answer tokens |
+|---|---|---|---|---|---|
+| model copies workouts out | real, 3 of 10 weeks | 7 | 7 | 27–41 s | 8–12 k |
+| same, thinking off | real | 1 | 0 (52 wrong values) | 14 s | 4.5 k |
+| same, thinking low / medium | real | 2 | 0 (2 and 1 wrong) | 30 s | 9.5 k |
+| model copies workouts out | filled to 10 weeks | 5 | 2 (2 silently wrong, 1 rejected by the app's checks) | 92–113 s | 18–34 k |
+| model names the layout | real | 8 | 8, one identical layout | 5–6 s | 1.2–1.6 k |
+| model names the layout | filled to 10 weeks | 6 | 6, one identical layout | 5–7 s | 1.1–1.3 k |
+
+The errors of the first approach on the large file were silent: a wrong
+weight, an exercise of another workout placed into a workout, an
+exercise name reworded. A review page with 30 workouts would
+not catch those.
+
+Decided:
+
+- The model answers with `GridLayout` only; `GridReader` reads the cells.
+  This is the same division of work the weight and steps tables already
+  had.
+- Model: Claude Haiku 5.5. About 0.002 USD per import. A larger model was
+  not tried: with the model no longer copying numbers there is nothing
+  left for it to improve that was measured as wrong.
+- The model's thinking is left at the provider default and not set in the
+  request; the request still sends `temperature: 0`, which this model
+  ignores. `provider.require_parameters` is not used: with it OpenRouter
+  finds no endpoint, because of the temperature field.
+- An exercise entry whose repetitions or weight are not plain numbers is
+  skipped and counted, never guessed. More than 12 sets counts as
+  unreadable. A link that is not http(s) is dropped.
+- `notes` removed from the preview: nothing fills it any more.
+- OpenRouter timeout back to 60 s (was raised to 180 s for long answers
+  that no longer exist).
+- What it costs if wrong: a plan with a different layout gives "nothing
+  to import" instead of a best-effort reading. Only one template has been
+  seen. If another layout turns up, it gets its own layout question; the
+  free-form extraction is not kept as a fallback, because its errors are
+  silent.
+- Spent on the measurements: about 0.2 USD of the developer's key,
+  estimated from the token counts; the OpenRouter dashboard has the exact
+  figure.
+
+## 2026-11-18 — CSV import rework: what the second review changed (builder's calls)
+
+A fresh reviewer read the rework. Nothing critical. Changed as a result:
+
+- A model answer with a missing or null field is sent back for the one
+  retry instead of crashing with a 500.
+- The layout is checked against the sheet before it is used (columns
+  named once; week blocks alike and left to right; week and workout
+  titles must be real cells in the right place; no exercise-looking row
+  outside every workout). Strict on purpose: a refused sheet is visible,
+  a half-read one is not. Cost if wrong: a legitimate but irregular
+  sheet is refused until the check is loosened.
+- Skipped exercise entries are returned and listed (row, exercise,
+  workout), not only counted. A row with repetitions but no name is
+  listed too.
+- Cells longer than 60 characters are not matched against the number
+  patterns (a 4 kB cell overflowed the stack).
+- More than 200 workouts, or a workout with more than 12 exercises, is a
+  413 with a message that says which — not a 502 "try again".
+- A cut-off model answer is a model failure (502), no longer "split the
+  file": a layout answer is small, so a cut-off is the model overrunning.
+- Labels may be 100 characters each (was 60).
+- Not changed: skip-not-guess stays, including for a weight written as
+  words; number coercion of `1.7` to `1` in the model's answer; `1 000`
+  read as two sets. Listed as known gaps where a user could meet them.

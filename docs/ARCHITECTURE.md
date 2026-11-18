@@ -367,21 +367,58 @@ workout a date, and `POST /api/imports/confirm` writes the selection in
 one database transaction — all of it or none.
 
 **What the AI model is asked, and what it is not.** The file's text goes
-to OpenRouter (a third party; the page says so before upload). The first
-call sees only the first 40 rows and answers one question: is this a
-workout grid, a date/value table, or neither?
+to OpenRouter (a third party; the page says so before upload). **The
+model never copies a value.** It only says where things are; Java reads
+every number and every name from the cells itself. The first call sees
+only the first 40 rows and answers one question: is this a workout grid,
+a date/value table, or neither?
 
-- *Workout grid* (weeks across, workouts down — irregular): a second call
-  gets the whole text and returns the workouts in a fixed JSON shape,
-  enforced with a JSON schema. Java validates that answer; if it does not
-  fit, the model is asked once more with the list of problems; if it
-  still does not fit, the import is refused.
+- *Workout grid* (exercises down the rows grouped into workouts, week
+  blocks across the columns): a second call gets the whole sheet, written
+  out with a number on every row and every column, and answers with the
+  layout only — which column holds the exercise names, which columns
+  belong to each week block (weight, repetitions, reps in reserve,
+  comment), and which rows belong to each workout. Java checks that
+  answer against the sheet before using it:
+  - every column is named once;
+  - every week block has its columns in the same order and spacing as
+    the first one, and the blocks go from left to right;
+  - every week title and workout title the model gives is the text of a
+    real cell in the right place (above the workouts and inside that
+    block; between the previous workout and this one);
+  - no two workouts share rows, and no row that looks like an exercise
+    (a name and repetitions) is left outside every workout.
+
+  If a check fails, the model is asked once more with the list of
+  problems; if it still fails, the import is refused. Then Java walks
+  the cells: a workout in a week is taken when at least one of its
+  exercises has repetitions written; an exercise whose repetitions or
+  weight are not plain numbers (`3x10`, `raske`, `kehakaal`) is skipped,
+  never guessed, and the page lists every skipped one by row, exercise
+  and workout.
 - *Date/value table* (weight, steps): the model only says which column is
   the date and which is the value, and guesses the order of day, month
-  and year. Java reads every row itself, so the model never retypes a
-  number — and Java does not take the date order on trust: it uses the
-  order under which the most rows are real dates, and when that does not
-  settle it, the order that keeps the dates closest together.
+  and year. Java reads every row itself — and does not take the date
+  order on trust: it uses the order under which the most rows are real
+  dates, and when that does not settle it, the order that keeps the dates
+  closest together.
+
+**Why the model does not copy the workouts out.** It was built that way
+first, and measured on a real training plan with Claude Haiku 5.5 on
+2026-11-18. On the file as it was (three weeks filled) every answer was
+exact. On the same plan filled to ten weeks, two of five answers had
+silent errors — a wrong weight, an exercise from another workout, an
+exercise name reworded — a third was rejected by the app's own checks,
+and one answer took 34 000 tokens and 113 seconds. Asked for the layout only, the model gave the identical answer
+in 14 of 14 runs in about five seconds, and the result matched the file
+value for value.
+
+**The model in use.** `anthropic/claude-haiku-5.5` through OpenRouter
+(`OPENROUTER_MODEL`). One import is two calls and costs about 0.002 USD
+(measured: 6–7 thousand tokens in and 23 out for the first call, 7–12
+thousand in and about 1 300 out for the second). The model's own
+"thinking" is left at its default; this model does not accept the
+temperature setting, so the request's `temperature: 0` has no effect.
 
 **Repeated imports.** Every imported workout keeps a fingerprint of its
 exercise names, weights and reps (`activities.import_fingerprint`). On
@@ -396,36 +433,44 @@ backend's memory, so a restart (every deploy) resets it — the real guard
 on spending is the limit set on the OpenRouter key itself.
 
 **When it fails.** Not a CSV → 415, nothing sent to the model. Empty →
-400. Too large, or the model's answer was cut off because the file holds
-too many workouts → 413 with advice to split the file. Over the daily
+400. Too large (over 200 kB of text, more than 200 workouts, or a
+workout with more than 12 exercises) → 413 saying which. Over the daily
 limit → 429. The model unreachable or its answer unusable → 502 with a
 plain message; the backend log holds the reason (the upstream status
 code, never the upstream message and never the file's content).
 
 **What was checked, and what was not.**
 
-- Checked: 118 automated tests for the importer (the whole backend suite
-  is 323), with the model's answers supplied by the test, never by the
-  real service. An independent reviewer read the branch and found no way
-  to reach another user's data and nothing critical, and eight important
-  defects; the ones in the code were fixed with a test that failed first
-  (a wrong date order silently swapping day and month; the delimiter
-  guess failing on Estonian decimal commas; numbers cut at an unquoted
-  comma; a database connection held while the model answers; a future
-  workout date silently stored as today; file content able to reach the
-  log through an upstream error; an answer cut off reported as "try
-  again"). One end-to-end run on the laptop — real backend, real
-  Postgres, a stand-in for OpenRouter, the Import page in a browser:
-  table and workout files read, entries written, a second import of the
-  same files recognised what was already there, refusals answered with
-  the right status, no file content in the log.
-- **Not checked: the real model.** No real OpenRouter key was available,
-  so nothing here says how well a real model reads a real spreadsheet,
-  whether a long training plan comes back inside the 180-second timeout,
-  whether the model gives the same answer twice (the "already imported"
-  marking depends on it), or what one import costs. Production holds a
-  placeholder key; until the developer sets a real one, every import
-  there ends with "could not read this file".
+- Checked: 191 automated tests for the importer (the whole backend
+  suite is 396), with the model's answers supplied by the test,
+  never by the real service. An independent reviewer read the first
+  version and found no way to reach another user's data and nothing
+  critical, and eight important defects; the ones in the code were fixed
+  with a test that failed first. A second reviewer read the rework of
+  2026-11-18: nothing critical; three important findings, all fixed with
+  tests — a model answer with a missing field crashed instead of being
+  sent back; wrong layouts that still produced believable workouts (the
+  checks listed above came from this); skipped exercises were only
+  counted, not named. Each check was switched off once to confirm that a
+  test fails without it.
+- **Checked against the real model (2026-11-18, Claude Haiku 5.5, the
+  developer's key):** one real training plan (3 workouts, 3 of 10 weeks
+  filled, a long FAQ under the grid) and the same plan filled to 10
+  weeks. Through the running app on the laptop — real backend, real
+  Postgres, real model: the real file gave 9 workouts with all 308
+  values equal to the file, in 8 seconds; confirming wrote 9 workouts; a
+  second upload marked all 9 as already imported. The ten-week file gave
+  30 workouts with all 1 141 values equal, five times, in 5–7 seconds. An
+  invented sheet with a `3x10` cell and a weight written `kehakaal`
+  listed the three skipped entries by row in the browser and read the
+  rest. Two invented weight and
+  steps tables (Estonian style and US style) were classified with the
+  right columns and date order. The key never appeared in the log.
+- **Not checked:** a real weight or steps file (none was available — only
+  invented ones); any training plan with a different layout from this
+  one template; any model other than Haiku 5.5; production, which still
+  holds a placeholder key — until the developer sets a real one there,
+  every import ends with "could not read this file".
 - The page's own logic (what gets ticked, what is sent) has no automated
   test — the frontend has no test runner. It was checked once with a
   throwaway script and by hand in the browser.
@@ -439,13 +484,32 @@ code, never the upstream message and never the file's content).
   wrong. With a header row the extra cell is noticed and the row refused.
 - Text that is neither UTF-8 nor windows-1257 (some Mac exports) is read
   with wrong letters; the names are stored that way.
-- A workout with more than 12 exercises, or an exercise with more than 12
-  sets, cannot be stored and makes the whole file fail.
+- Only one grid layout is understood: exercises down, week blocks across,
+  one row per exercise. A log with one row per set, or weeks down the
+  rows, gives "nothing to import".
+- If the model moves a whole week block onto wrong columns that still
+  hold numbers (sets instead of repetitions in every week), the checks do
+  not see it and every exercise would be read wrong in the same way. It
+  did not happen in 19 runs; the review page is where it would be seen.
+- The checks are strict on purpose: a sheet where one week has an extra
+  column, or where a stray table with names and numbers sits beside the
+  plan, is refused rather than half read.
+- A weight written as words (`kehakaal`, `BW`) makes that exercise entry
+  skipped, not stored without a weight. It is listed on the page.
+- If Excel has turned a typed `12,10` into the number 12,1, the file
+  says `12,1` and that is what is read. Not seen in the real file.
+- A workout that is half filled in when imported and complete at the next
+  import has a different fingerprint, so it shows up as new and would be
+  stored a second time. Untick a workout that is not finished yet.
+- A workout with more than 12 exercises cannot be stored and makes the
+  whole file be refused, with the workout named. An exercise with more
+  than 12 sets is skipped and listed.
 - Pressing Import twice after a lost response writes the workouts twice
   (weight and steps are safe).
-- Worst case one preview is four model calls on up to 200 kB of text; at
-  20 a day per user that can pass the monthly budget in a day on an
-  expensive model. The spending limit on the key is the guard.
+- Worst case one preview is four model calls on up to 200 kB of text
+  (about 0.03 USD with Haiku 5.5); at 20 a day per user that stays under
+  1 USD a day. With an expensive model set in `OPENROUTER_MODEL` it would
+  not. The spending limit on the key is the guard.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

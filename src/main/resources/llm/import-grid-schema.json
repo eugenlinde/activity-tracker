@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nameColumn",
+    "targetRepsColumn",
+    "videoColumn",
+    "weeks",
+    "workouts"
+  ],
+  "properties": {
+    "nameColumn": {
+      "type": "integer"
+    },
+    "targetRepsColumn": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "videoColumn": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "weeks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "weightColumn",
+          "repsColumn",
+          "repsInReserveColumn",
+          "commentColumn"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "weightColumn": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "repsColumn": {
+            "type": "integer"
+          },
+          "repsInReserveColumn": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "commentColumn": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "workouts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "firstRow",
+          "lastRow"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "firstRow": {
+            "type": "integer"
+          },
+          "lastRow": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

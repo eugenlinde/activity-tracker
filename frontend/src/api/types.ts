@@ -85,9 +85,14 @@ export interface StepsEntry {
 
 export type ImportKind = 'WORKOUT_GRID' | 'TABLE' | 'UNKNOWN'
 
+export interface SkippedEntry {
+  row: number
+  workout: string
+  exercise: string | null
+}
+
 export interface WorkoutPreview {
   label: string
-  notes: string | null
   details: ActivityDetails
   alreadyImported: boolean
 }
@@ -112,6 +117,7 @@ export interface ImportPreview {
   unchangedWeights: number
   unchangedSteps: number
   unreadableRows: number
+  skippedEntries: SkippedEntry[]
 }
 
 export interface ImportConfirmRequest {

@@ -9,6 +9,7 @@ public record ImportPreviewResponse(
         List<StepsPreview> steps,
         int unchangedWeights,
         int unchangedSteps,
-        int unreadableRows
+        int unreadableRows,
+        List<SkippedEntryPreview> skippedEntries
 ) {
 }

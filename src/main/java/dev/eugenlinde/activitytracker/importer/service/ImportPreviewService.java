@@ -4,26 +4,29 @@ import dev.eugenlinde.activitytracker.activity.ActivityRepository;
 import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
-import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
 import dev.eugenlinde.activitytracker.importer.PreviewLimiter;
+import dev.eugenlinde.activitytracker.importer.WorkoutDraft;
 import dev.eugenlinde.activitytracker.importer.WorkoutDraftMapper;
 import dev.eugenlinde.activitytracker.importer.csv.CsvText;
+import dev.eugenlinde.activitytracker.importer.csv.GridReader;
+import dev.eugenlinde.activitytracker.importer.csv.GridRows;
 import dev.eugenlinde.activitytracker.importer.csv.StepsRow;
 import dev.eugenlinde.activitytracker.importer.csv.TableReader;
 import dev.eugenlinde.activitytracker.importer.csv.TableRows;
 import dev.eugenlinde.activitytracker.importer.csv.WeightRow;
 import dev.eugenlinde.activitytracker.importer.dto.ImportPreviewResponse;
+import dev.eugenlinde.activitytracker.importer.dto.SkippedEntryPreview;
 import dev.eugenlinde.activitytracker.importer.dto.StepsPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WeightPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WorkoutPreview;
 import dev.eugenlinde.activitytracker.importer.llm.FileAnalysis;
+import dev.eugenlinde.activitytracker.importer.llm.GridLayout;
 import dev.eugenlinde.activitytracker.importer.llm.ImportMappingService;
 import dev.eugenlinde.activitytracker.importer.llm.TableMapping;
-import dev.eugenlinde.activitytracker.importer.llm.WorkoutExtraction;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.weight.WeightEntryRepository;
@@ -47,6 +50,7 @@ import java.util.stream.Collectors;
 public class ImportPreviewService {
 
     private static final String CSV_EXTENSION = ".csv";
+    private static final int MAX_WORKOUTS = 200;
 
     private final ImportMappingService importMappingService;
     private final ActivityRepository activityRepository;
@@ -101,8 +105,8 @@ public class ImportPreviewService {
         FileAnalysis analysis = importMappingService.analyse(head(text));
         return switch (analysis.kind()) {
             case TABLE -> tablePreview(userId, rows, analysis.table());
-            case WORKOUT_GRID -> workoutPreview(userId, text);
-            case UNKNOWN -> new ImportPreviewResponse(analysis.kind().name(), List.of(), List.of(), List.of(), 0, 0, 0);
+            case WORKOUT_GRID -> workoutPreview(userId, rows);
+            case UNKNOWN -> nothingToImport();
         };
     }
 
@@ -122,19 +126,27 @@ public class ImportPreviewService {
                 .collect(Collectors.joining("\n"));
     }
 
-    private ImportPreviewResponse workoutPreview(Long userId, String text) {
-        WorkoutExtraction extraction = importMappingService.extractWorkouts(text);
+    private ImportPreviewResponse workoutPreview(Long userId, List<List<String>> rows) {
+        GridLayout layout = importMappingService.gridLayout(rows);
+        if (layout.weeks().isEmpty() || layout.workouts().isEmpty()) {
+            return nothingToImport();
+        }
+        GridRows grid = GridReader.read(rows, layout);
+        if (grid.drafts().size() > MAX_WORKOUTS) {
+            throw new ImportTooLargeException("This file holds more than " + MAX_WORKOUTS
+                    + " workouts. Split it into smaller files.");
+        }
         Map<String, Long> remaining = new HashMap<>();
         activityRepository.countImportFingerprints(userId)
                 .forEach(count -> remaining.put(count.getFingerprint(), count.getTotal()));
 
         List<WorkoutPreview> workouts = new ArrayList<>();
-        for (WorkoutExtraction.Draft draft : extraction.drafts()) {
+        for (WorkoutDraft draft : grid.drafts()) {
             Session session = WorkoutDraftMapper.toSession(draft);
             Set<ConstraintViolation<Session>> violations = validator.validate(session);
             if (!violations.isEmpty()) {
-                throw new ImportMappingException(
-                        "Workout number " + (workouts.size() + 1) + " does not fit what the app can store");
+                throw new ImportTooLargeException("\"" + draft.label()
+                        + "\" has more exercises than the app can store in one workout.");
             }
             String fingerprint = ImportFingerprint.of(session);
             long left = remaining.getOrDefault(fingerprint, 0L);
@@ -142,9 +154,17 @@ public class ImportPreviewService {
             if (alreadyImported) {
                 remaining.put(fingerprint, left - 1);
             }
-            workouts.add(new WorkoutPreview(draft.label(), draft.notes(), session, alreadyImported));
+            workouts.add(new WorkoutPreview(draft.label(), session, alreadyImported));
         }
-        return new ImportPreviewResponse(FileAnalysis.Kind.WORKOUT_GRID.name(), workouts, List.of(), List.of(), 0, 0, 0);
+        List<SkippedEntryPreview> skipped = grid.skipped().stream()
+                .map(entry -> new SkippedEntryPreview(entry.row(), entry.workout(), entry.exercise()))
+                .toList();
+        return new ImportPreviewResponse(
+                FileAnalysis.Kind.WORKOUT_GRID.name(), workouts, List.of(), List.of(), 0, 0, skipped.size(), skipped);
+    }
+
+    private static ImportPreviewResponse nothingToImport() {
+        return new ImportPreviewResponse(FileAnalysis.Kind.UNKNOWN.name(), List.of(), List.of(), List.of(), 0, 0, 0, List.of());
     }
 
     private ImportPreviewResponse tablePreview(Long userId, List<List<String>> rows, TableMapping mapping) {
@@ -197,6 +217,7 @@ public class ImportPreviewService {
             }
         }
         return new ImportPreviewResponse(
-                FileAnalysis.Kind.TABLE.name(), List.of(), weights, steps, unchangedWeights, unchangedSteps, unreadable);
+                FileAnalysis.Kind.TABLE.name(), List.of(), weights, steps, unchangedWeights, unchangedSteps, unreadable,
+                List.of());
     }
 }

@@ -5,21 +5,23 @@ import dev.eugenlinde.activitytracker.activity.model.Session;
 import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.EmptyImportFileException;
 import dev.eugenlinde.activitytracker.common.exception.ImportLimitExceededException;
-import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
 import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
 import dev.eugenlinde.activitytracker.common.exception.UnsupportedMediaTypeException;
 import dev.eugenlinde.activitytracker.importer.ImportFingerprint;
 import dev.eugenlinde.activitytracker.importer.ImportProperties;
 import dev.eugenlinde.activitytracker.importer.PreviewLimiter;
+import dev.eugenlinde.activitytracker.importer.WorkoutDraft;
 import dev.eugenlinde.activitytracker.importer.WorkoutDraftMapper;
 import dev.eugenlinde.activitytracker.importer.csv.DateOrder;
+import dev.eugenlinde.activitytracker.importer.csv.CsvText;
 import dev.eugenlinde.activitytracker.importer.dto.ImportPreviewResponse;
+import dev.eugenlinde.activitytracker.importer.dto.SkippedEntryPreview;
 import dev.eugenlinde.activitytracker.importer.dto.StepsPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WeightPreview;
 import dev.eugenlinde.activitytracker.importer.llm.FileAnalysis;
+import dev.eugenlinde.activitytracker.importer.llm.GridLayout;
 import dev.eugenlinde.activitytracker.importer.llm.ImportMappingService;
 import dev.eugenlinde.activitytracker.importer.llm.TableMapping;
-import dev.eugenlinde.activitytracker.importer.llm.WorkoutExtraction;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.weight.WeightEntryRepository;
@@ -109,10 +111,20 @@ class ImportPreviewServiceTest {
         return entry;
     }
 
-    private static WorkoutExtraction.Draft draft(String label, double weight, Integer... reps) {
-        return new WorkoutExtraction.Draft(label, null, List.of(
-                new WorkoutExtraction.DraftExercise("Kükk", "5-8", weight, null, List.of(reps), null, null)
-        ));
+    private static final GridLayout LAYOUT = new GridLayout(1, 0, null,
+            List.of(new GridLayout.Week("Nädal 1", 3, 4, null, null), new GridLayout.Week("Nädal 2", 6, 7, null, null)),
+            List.of(new GridLayout.Workout("Treening 1", 4, 5)));
+    private static final String GRID_CSV = """
+            KAVA,,,Nädal 1,,,Nädal 2,
+            ,,,,,,,
+            ,Treening 1,,Raskus,Kordused,,Raskus,Kordused
+            5-8,Kükk,,100,"8, 7",,100,"8, 7"
+            5-8,Surumine,,60,3x10,,,
+            """;
+
+    private static Session session(double weight, Integer... reps) {
+        return WorkoutDraftMapper.toSession(new WorkoutDraft("x", List.of(
+                new WorkoutDraft.DraftExercise("Kükk", "5-8", weight, null, List.of(reps), null, null))));
     }
 
     private static ActivityRepository.FingerprintCount stored(String fingerprint, long total) {
@@ -149,7 +161,7 @@ class ImportPreviewServiceTest {
         assertEquals(0, preview.unchangedSteps());
         assertEquals(0, preview.unreadableRows());
         assertTrue(preview.workouts().isEmpty());
-        verify(mappingService, never()).extractWorkouts(anyString());
+        verify(mappingService, never()).gridLayout(any());
     }
 
     @Test
@@ -196,35 +208,51 @@ class ImportPreviewServiceTest {
     }
 
     @Test
-    void preview_workoutGrid_sendsTheWholeTextAndReturnsSessions() {
+    void preview_workoutGrid_asksWhereThingsAreAndReadsTheCellsItself() {
         when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
-        WorkoutExtraction.Draft draft = draft("Nädal 1 / Treening 1", 100.0, 8, 7);
-        when(mappingService.extractWorkouts("plaan,andmed\n1,2\n")).thenReturn(new WorkoutExtraction(List.of(draft)));
+        List<List<String>> parsed = CsvText.parse(GRID_CSV);
+        when(mappingService.gridLayout(parsed)).thenReturn(LAYOUT);
 
-        ImportPreviewResponse preview = service.preview(USER, "plaan.CSV", bytes("plaan,andmed\n1,2\n"));
+        ImportPreviewResponse preview = service.preview(USER, "plaan.CSV", bytes(GRID_CSV));
 
+        assertEquals(5, parsed.size());
         assertEquals("WORKOUT_GRID", preview.kind());
-        assertEquals(1, preview.workouts().size());
-        assertEquals("Nädal 1 / Treening 1", preview.workouts().getFirst().label());
-        assertEquals(WorkoutDraftMapper.toSession(draft), preview.workouts().getFirst().details());
+        assertEquals(List.of("Nädal 1 / Treening 1", "Nädal 2 / Treening 1"),
+                preview.workouts().stream().map(workout -> workout.label()).toList());
+        assertEquals(session(100.0, 8, 7), preview.workouts().getFirst().details());
         assertEquals(false, preview.workouts().getFirst().alreadyImported());
+        assertEquals(1, preview.unreadableRows());
+        assertEquals(List.of(new SkippedEntryPreview(5, "Nädal 1 / Treening 1", "Surumine")), preview.skippedEntries());
         verifyNoInteractions(weightEntryRepository, stepEntryRepository);
+    }
+
+    @Test
+    void preview_workoutGrid_moreWorkoutsThanOneConfirmCanTake_isTooLarge() {
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        List<GridLayout.Workout> workouts = new ArrayList<>();
+        StringBuilder csv = new StringBuilder();
+        for (int i = 1; i <= 201; i++) {
+            workouts.add(new GridLayout.Workout("T" + i, i, i));
+            csv.append("Kükk,5\n");
+        }
+        when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
+                List.of(new GridLayout.Week("N1", null, 1, null, null)), workouts));
+
+        assertThrows(ImportTooLargeException.class, () -> service.preview(USER, "plaan.csv", bytes(csv.toString())));
     }
 
     @Test
     void preview_workoutGrid_marksAlreadyImportedByCount() {
         when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
-        WorkoutExtraction.Draft same = draft("Nädal 1 / Treening 1", 100.0, 8, 7);
-        WorkoutExtraction.Draft sameAgain = draft("Nädal 2 / Treening 1", 100.0, 8, 7);
-        WorkoutExtraction.Draft sameThird = draft("Nädal 3 / Treening 1", 100.0, 8, 7);
-        WorkoutExtraction.Draft different = draft("Nädal 4 / Treening 1", 102.5, 8, 7);
-        when(mappingService.extractWorkouts(anyString()))
-                .thenReturn(new WorkoutExtraction(List.of(same, sameAgain, different, sameThird)));
-        Session session = WorkoutDraftMapper.toSession(same);
+        when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
+                List.of(new GridLayout.Week("N1", 1, 2, null, null), new GridLayout.Week("N2", 3, 4, null, null),
+                        new GridLayout.Week("N3", 5, 6, null, null), new GridLayout.Week("N4", 7, 8, null, null)),
+                List.of(new GridLayout.Workout("T1", 1, 1))));
         when(activityRepository.countImportFingerprints(USER))
-                .thenReturn(List.of(stored(ImportFingerprint.of(session), 2), stored("someoneelse", 5)));
+                .thenReturn(List.of(stored(ImportFingerprint.of(session(100.0, 8, 7)), 2), stored("someoneelse", 5)));
 
-        ImportPreviewResponse preview = service.preview(USER, "plaan.csv", bytes("a,b\n"));
+        ImportPreviewResponse preview = service.preview(USER, "plaan.csv",
+                bytes("Kükk,100,\"8, 7\",100,\"8, 7\",102.5,\"8, 7\",100,\"8, 7\"\n"));
 
         List<Boolean> marks = new ArrayList<>();
         preview.workouts().forEach(workout -> marks.add(workout.alreadyImported()));
@@ -232,16 +260,30 @@ class ImportPreviewServiceTest {
     }
 
     @Test
-    void preview_workoutGrid_tooManyExercisesForAStoredWorkout_isAMappingFailure() {
+    void preview_workoutGrid_tooManyExercisesForAStoredWorkout_isRefusedWithItsLabel() {
         when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
-        List<WorkoutExtraction.DraftExercise> thirteen = new ArrayList<>();
+        when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null,
+                List.of(new GridLayout.Week("N1", null, 1, null, null)),
+                List.of(new GridLayout.Workout("T1", 1, 13))));
+        StringBuilder csv = new StringBuilder();
         for (int i = 0; i < 13; i++) {
-            thirteen.add(new WorkoutExtraction.DraftExercise("Harjutus " + i, null, 10.0, null, List.of(5), null, null));
+            csv.append("Harjutus ").append(i).append(",5\n");
         }
-        when(mappingService.extractWorkouts(anyString()))
-                .thenReturn(new WorkoutExtraction(List.of(new WorkoutExtraction.Draft("x", null, thirteen))));
 
-        assertThrows(ImportMappingException.class, () -> service.preview(USER, "plaan.csv", bytes("a,b\n")));
+        ImportTooLargeException refusal = assertThrows(ImportTooLargeException.class,
+                () -> service.preview(USER, "plaan.csv", bytes(csv.toString())));
+        assertTrue(refusal.getMessage().contains("N1 / T1"), refusal.getMessage());
+    }
+
+    @Test
+    void preview_workoutGrid_sheetWithoutTheGridLayout_returnsNothingToImport() {
+        when(mappingService.analyse(anyString())).thenReturn(new FileAnalysis(FileAnalysis.Kind.WORKOUT_GRID, null));
+        when(mappingService.gridLayout(any())).thenReturn(new GridLayout(0, null, null, List.of(), List.of()));
+
+        ImportPreviewResponse preview = service.preview(USER, "plaan.csv", bytes(GRID_CSV));
+
+        assertEquals("UNKNOWN", preview.kind());
+        assertTrue(preview.workouts().isEmpty());
     }
 
     @Test

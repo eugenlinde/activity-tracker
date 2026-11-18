@@ -11,6 +11,7 @@ import dev.eugenlinde.activitytracker.config.SecurityConfig;
 import dev.eugenlinde.activitytracker.importer.dto.ImportConfirmRequest;
 import dev.eugenlinde.activitytracker.importer.dto.ImportConfirmResponse;
 import dev.eugenlinde.activitytracker.importer.dto.ImportPreviewResponse;
+import dev.eugenlinde.activitytracker.importer.dto.SkippedEntryPreview;
 import dev.eugenlinde.activitytracker.importer.dto.StepsPreview;
 import dev.eugenlinde.activitytracker.importer.dto.WeightPreview;
 import dev.eugenlinde.activitytracker.importer.service.ImportConfirmService;
@@ -119,7 +120,8 @@ class ImportControllerTest {
                 List.of(),
                 List.of(new WeightPreview(LocalDate.parse("2026-11-02"), new BigDecimal("81.1"), new BigDecimal("82.0"))),
                 List.of(new StepsPreview(LocalDate.parse("2026-11-02"), 9876, null)),
-                1, 0, 2
+                1, 0, 2,
+                List.of(new SkippedEntryPreview(12, "Nädal 2 / Treening 1", "Kükk"))
         ));
 
         mockMvc.perform(multipart("/api/imports/preview").file(csv("kaal.csv", "Kuupäev;Kaal\n")).with(authenticatedAs(userId)))
@@ -131,6 +133,9 @@ class ImportControllerTest {
                 .andExpect(jsonPath("$.steps[0].steps").value(9876))
                 .andExpect(jsonPath("$.steps[0].existingSteps").doesNotExist())
                 .andExpect(jsonPath("$.unchangedWeights").value(1))
+                .andExpect(jsonPath("$.skippedEntries[0].row").value(12))
+                .andExpect(jsonPath("$.skippedEntries[0].workout").value("Nädal 2 / Treening 1"))
+                .andExpect(jsonPath("$.skippedEntries[0].exercise").value("Kükk"))
                 .andExpect(jsonPath("$.unreadableRows").value(2));
 
         ArgumentCaptor<byte[]> bytes = ArgumentCaptor.forClass(byte[].class);

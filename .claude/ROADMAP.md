@@ -106,11 +106,12 @@ developer's call; this is the suggested one.
       `oxlint --deny-warnings`; pin the Testcontainers image to
       `postgres:17-alpine` to match dev/prod. Small, good first factory
       tickets.
-- [ ] CSV import: workouts, weight and steps — issue #18 (2026-11-17,
-      built and tested with a stand-in for the model, PR open). Before it
-      can be called done: real sample files from the developer, a real
-      OpenRouter key with a spending limit, prompts tuned and the cost of
-      one import measured on those files.
+- [ ] CSV import: workouts, weight and steps — issue #18 (2026-11-17
+      built; 2026-11-18 measured on a real training plan with a real key
+      and reworked so the model only names the layout and code reads the
+      cells; PR open). Before it can be called done: a real weight/steps
+      file tried, the developer's merge, the real key and model name in
+      the server's `.env`.
 - [ ] Later for import: Excel files, aerobic and diet rows, workout
       dates filled in automatically.
 - [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar

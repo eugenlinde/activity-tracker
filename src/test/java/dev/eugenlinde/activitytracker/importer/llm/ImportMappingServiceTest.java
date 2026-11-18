@@ -1,8 +1,9 @@
 package dev.eugenlinde.activitytracker.importer.llm;
 
 import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
-import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
+import dev.eugenlinde.activitytracker.importer.csv.CsvText;
 import dev.eugenlinde.activitytracker.importer.csv.DateOrder;
+import dev.eugenlinde.activitytracker.importer.csv.GridText;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterClient;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterClientConfig;
 import dev.eugenlinde.activitytracker.openrouter.OpenRouterProperties;
@@ -45,15 +46,25 @@ class ImportMappingServiceTest {
     private static final String TABLE_WITHOUT_VALUES = """
             {"kind":"TABLE","table":{"headerRows":1,"dateColumn":0,"dateOrder":"DMY","weightColumn":null,"stepsColumn":null}}
             """;
-    private static final String WORKOUT_ANSWER = """
-            {"drafts":[{"label":"Nädal 1 / Treening 1","notes":null,"exercises":[
-              {"name":"Kükk","targetReps":"5-8","weight":100,"repsInReserve":"1-2","reps":[8,7,6],"comment":"raske","videoUrl":null}
-            ]}]}
+    private static final List<List<String>> SHEET = CsvText.parse("""
+            KAVA,,,,,,,,,,,
+            ,,,Nädal 1,,,,,Nädal 2,,,
+            ,Treening 1,,Raskus,Varus,Kordused,Kommentaar,,Raskus,Varus,Kordused,Kommentaar
+            5-8,Kükk,,100,3,"8, 7",,,"102,5",1-2,"8, 7, 6",RP
+            8-12,Surumine,,60,3,"10, 9",,,60,1-2,"10, 9",KP
+            ,,,,,,,,,,,
+            ,Treening 2,,,,,,,,,,
+            10-15,Lõuatõmbed,,0,3,"12, 12",,,,,,
+            """);
+    private static final String LAYOUT_ANSWER = """
+            {"nameColumn":1,"targetRepsColumn":0,"videoColumn":2,
+             "weeks":[{"label":"Nädal 1","weightColumn":3,"repsColumn":5,"repsInReserveColumn":4,"commentColumn":6},
+                      {"label":"Nädal 2","weightColumn":8,"repsColumn":10,"repsInReserveColumn":9,"commentColumn":11}],
+             "workouts":[{"label":"Treening 1","firstRow":4,"lastRow":5},{"label":"Treening 2","firstRow":8,"lastRow":8}]}
             """;
-    private static final String WORKOUT_WITHOUT_REPS = """
-            {"drafts":[{"label":"Nädal 1 / Treening 1","notes":null,"exercises":[
-              {"name":"Kükk","targetReps":null,"weight":100,"repsInReserve":null,"reps":[],"comment":null,"videoUrl":null}
-            ]}]}
+    private static final String LAYOUT_ROWS_BACKWARDS = LAYOUT_ANSWER.replace("\"firstRow\":4,\"lastRow\":5", "\"firstRow\":5,\"lastRow\":4");
+    private static final String LAYOUT_NOT_A_GRID = """
+            {"nameColumn":0,"targetRepsColumn":null,"videoColumn":null,"weeks":[],"workouts":[]}
             """;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -132,73 +143,103 @@ class ImportMappingServiceTest {
     }
 
     @Test
-    void extractWorkouts_validAnswer_returnsDraftsInOneCall() {
+    void gridLayout_validAnswer_returnsTheLayoutInOneCall() {
         server.expect(requestTo(URL))
-                .andExpect(jsonPath("$.response_format.json_schema.name").value("workout_extraction"))
+                .andExpect(jsonPath("$.response_format.json_schema.name").value("grid_layout"))
                 .andExpect(jsonPath("$.response_format.json_schema.strict").value(true))
-                .andExpect(jsonPath("$.messages[1].content").value("the whole csv"))
-                .andRespond(withSuccess(completion(WORKOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+                .andExpect(jsonPath("$.messages[1].content").value(GridText.indexed(SHEET)))
+                .andRespond(withSuccess(completion(LAYOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
 
-        WorkoutExtraction extraction = service.extractWorkouts("the whole csv");
+        GridLayout layout = service.gridLayout(SHEET);
 
-        assertEquals(1, extraction.drafts().size());
-        assertEquals("Nädal 1 / Treening 1", extraction.drafts().getFirst().label());
-        assertEquals(List.of(8, 7, 6), extraction.drafts().getFirst().exercises().getFirst().reps());
-        assertEquals(100.0, extraction.drafts().getFirst().exercises().getFirst().weight());
+        assertEquals(new GridLayout(1, 0, 2,
+                List.of(new GridLayout.Week("Nädal 1", 3, 5, 4, 6), new GridLayout.Week("Nädal 2", 8, 10, 9, 11)),
+                List.of(new GridLayout.Workout("Treening 1", 4, 5), new GridLayout.Workout("Treening 2", 8, 8))
+        ), layout);
     }
 
     @Test
-    void extractWorkouts_invalidThenValid_succeedsInExactlyTwoCallsAndNamesTheViolation() {
-        answer(WORKOUT_WITHOUT_REPS);
+    void gridLayout_sheetWithoutThisLayout_isAnEmptyLayout() {
+        answer(LAYOUT_NOT_A_GRID);
+
+        GridLayout layout = service.gridLayout(SHEET);
+
+        assertTrue(layout.weeks().isEmpty());
+        assertTrue(layout.workouts().isEmpty());
+    }
+
+    @Test
+    void gridLayout_workoutRowsBackwards_isSentBackOnceThenAccepted() {
+        answer(LAYOUT_ROWS_BACKWARDS);
         server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.messages.length()").value(4))
                 .andExpect(jsonPath("$.messages[2].role").value("assistant"))
-                .andExpect(jsonPath("$.messages[3].content", containsString("drafts[0].exercises[0].reps")))
-                .andRespond(withSuccess(completion(WORKOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+                .andExpect(jsonPath("$.messages[3].content", containsString("firstRow")))
+                .andRespond(withSuccess(completion(LAYOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
 
-        assertEquals(1, service.extractWorkouts("csv").drafts().size());
+        assertEquals(2, service.gridLayout(SHEET).workouts().size());
     }
 
     @Test
-    void extractWorkouts_invalidTwice_failsAfterExactlyTwoCalls() {
+    void gridLayout_requiredFieldMissing_isSentBackInsteadOfCrashing() {
+        answer("{\"nameColumn\":null,\"targetRepsColumn\":null,\"videoColumn\":null,\"weeks\":[null],\"workouts\":null}");
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.messages[3].content", containsString("nameColumn")))
+                .andRespond(withSuccess(completion(LAYOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        assertEquals(2, service.gridLayout(SHEET).workouts().size());
+    }
+
+    @Test
+    void gridLayout_invalidTwice_failsAfterExactlyTwoCalls() {
         server.expect(ExpectedCount.times(2), requestTo(URL))
-                .andRespond(withSuccess(completion(WORKOUT_WITHOUT_REPS, "stop"), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(completion(LAYOUT_ROWS_BACKWARDS, "stop"), MediaType.APPLICATION_JSON));
 
-        assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        assertThrows(ImportMappingException.class, () -> service.gridLayout(SHEET));
     }
 
     @Test
-    void extractWorkouts_answerIsNotJsonTwice_fails() {
+    void gridLayout_answerIsNotJsonTwice_fails() {
         server.expect(ExpectedCount.times(2), requestTo(URL))
-                .andRespond(withSuccess(completion("Here are your workouts!", "stop"), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(completion("Here is your layout!", "stop"), MediaType.APPLICATION_JSON));
 
-        assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        assertThrows(ImportMappingException.class, () -> service.gridLayout(SHEET));
     }
 
     @Test
-    void extractWorkouts_answerCutOff_isReportedAsTooLargeWithoutRetry() {
+    void gridLayout_answerCutOff_isAModelFailureWithoutRetry() {
         server.expect(ExpectedCount.once(), requestTo(URL))
-                .andRespond(withSuccess(completion("{\"drafts\":[", "length"), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(completion("{\"nameColumn\":1,", "length"), MediaType.APPLICATION_JSON));
 
-        assertThrows(ImportTooLargeException.class, () -> service.extractWorkouts("csv"));
+        assertThrows(ImportMappingException.class, () -> service.gridLayout(SHEET));
     }
 
     @Test
-    void extractWorkouts_noChoices_fails() {
+    void gridLayout_noChoices_fails() {
         server.expect(ExpectedCount.once(), requestTo(URL))
                 .andRespond(withSuccess("{\"choices\":[]}", MediaType.APPLICATION_JSON));
 
-        assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        assertThrows(ImportMappingException.class, () -> service.gridLayout(SHEET));
     }
 
     @Test
-    void extractWorkouts_upstreamError_failsWithoutRetryAndKeepsTheUpstreamBodyOutOfTheMessage() {
+    void gridLayout_upstreamError_failsWithoutRetryAndKeepsTheUpstreamBodyOutOfTheMessage() {
         server.expect(ExpectedCount.once(), requestTo(URL))
                 .andRespond(withServerError().body("flagged input: Kükk kangiga 100 kg").contentType(MediaType.TEXT_PLAIN));
 
-        ImportMappingException failure = assertThrows(ImportMappingException.class, () -> service.extractWorkouts("csv"));
+        ImportMappingException failure = assertThrows(ImportMappingException.class, () -> service.gridLayout(SHEET));
 
         assertTrue(failure.getMessage().contains("500"), failure.getMessage());
         assertFalse(failure.getMessage().contains("Kükk"), failure.getMessage());
+    }
+
+    @Test
+    void gridLayout_allowsRoomForAModelThatThinksBeforeAnswering() {
+        server.expect(requestTo(URL))
+                .andExpect(jsonPath("$.max_tokens").value(8000))
+                .andRespond(withSuccess(completion(LAYOUT_ANSWER, "stop"), MediaType.APPLICATION_JSON));
+
+        service.gridLayout(SHEET);
     }
 
     @Test
@@ -212,18 +253,18 @@ class ImportMappingServiceTest {
 
     @Test
     void schemas_listExactlyTheRecordComponentsAsRequired() {
-        JsonNode workouts = service.workoutSchema();
-        JsonNode draft = workouts.at("/properties/drafts/items");
-        JsonNode exercise = draft.at("/properties/exercises/items");
+        JsonNode layout = service.gridLayoutSchema();
+        JsonNode week = layout.at("/properties/weeks/items");
+        JsonNode workout = layout.at("/properties/workouts/items");
         JsonNode analysis = service.analysisSchema();
         JsonNode table = analysis.at("/properties/table");
 
-        assertEquals(components(WorkoutExtraction.class), required(workouts));
-        assertEquals(components(WorkoutExtraction.Draft.class), required(draft));
-        assertEquals(components(WorkoutExtraction.DraftExercise.class), required(exercise));
+        assertEquals(components(GridLayout.class), required(layout));
+        assertEquals(components(GridLayout.Week.class), required(week));
+        assertEquals(components(GridLayout.Workout.class), required(workout));
         assertEquals(components(FileAnalysis.class), required(analysis));
         assertEquals(components(TableMapping.class), required(table));
-        for (JsonNode object : List.of(workouts, draft, exercise, analysis, table)) {
+        for (JsonNode object : List.of(layout, week, workout, analysis, table)) {
             assertEquals(false, object.get("additionalProperties").asBoolean(true));
         }
     }

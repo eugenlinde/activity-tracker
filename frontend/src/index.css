@@ -621,6 +621,11 @@ a {
   overflow-y: auto;
 }
 
+.import-skipped {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
 .import-date {
   display: inline-block;
   min-width: 96px;

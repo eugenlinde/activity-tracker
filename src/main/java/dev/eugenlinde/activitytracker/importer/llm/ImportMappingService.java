@@ -1,7 +1,8 @@
 package dev.eugenlinde.activitytracker.importer.llm;
 
 import dev.eugenlinde.activitytracker.common.exception.ImportMappingException;
-import dev.eugenlinde.activitytracker.common.exception.ImportTooLargeException;
+import dev.eugenlinde.activitytracker.importer.csv.GridLayoutChecks;
+import dev.eugenlinde.activitytracker.importer.csv.GridText;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest.Message;
 import dev.eugenlinde.activitytracker.openrouter.ChatCompletionRequest.Role;
@@ -32,7 +33,7 @@ public class ImportMappingService {
 
     private static final int MAX_ATTEMPTS = 2;
     private static final int ANALYSIS_MAX_TOKENS = 1000;
-    private static final int WORKOUTS_MAX_TOKENS = 20_000;
+    private static final int GRID_MAX_TOKENS = 8000;
     private static final String FINISH_CUT_OFF = "length";
 
     private final OpenRouterClient openRouterClient;
@@ -41,8 +42,8 @@ public class ImportMappingService {
     private final Validator validator;
     private final String analysisPrompt;
     private final JsonNode analysisSchema;
-    private final String workoutPrompt;
-    private final JsonNode workoutSchema;
+    private final String gridPrompt;
+    private final JsonNode gridSchema;
 
     public ImportMappingService(
             OpenRouterClient openRouterClient,
@@ -56,8 +57,8 @@ public class ImportMappingService {
         this.validator = validator;
         this.analysisPrompt = resource("llm/import-analysis-prompt.txt");
         this.analysisSchema = jsonMapper.readTree(resource("llm/import-analysis-schema.json"));
-        this.workoutPrompt = resource("llm/import-workouts-prompt.txt");
-        this.workoutSchema = jsonMapper.readTree(resource("llm/import-workouts-schema.json"));
+        this.gridPrompt = resource("llm/import-grid-prompt.txt");
+        this.gridSchema = jsonMapper.readTree(resource("llm/import-grid-schema.json"));
     }
 
     public FileAnalysis analyse(String fileHead) {
@@ -65,17 +66,17 @@ public class ImportMappingService {
                 FileAnalysis.class, ImportMappingService::tableProblems);
     }
 
-    public WorkoutExtraction extractWorkouts(String fileText) {
-        return ask(workoutPrompt, "workout_extraction", workoutSchema, fileText, WORKOUTS_MAX_TOKENS,
-                WorkoutExtraction.class, extraction -> List.of());
+    public GridLayout gridLayout(List<List<String>> rows) {
+        return ask(gridPrompt, "grid_layout", gridSchema, GridText.indexed(rows), GRID_MAX_TOKENS,
+                GridLayout.class, layout -> GridLayoutChecks.problems(rows, layout));
     }
 
     JsonNode analysisSchema() {
         return analysisSchema;
     }
 
-    JsonNode workoutSchema() {
-        return workoutSchema;
+    JsonNode gridLayoutSchema() {
+        return gridSchema;
     }
 
     private static List<String> tableProblems(FileAnalysis analysis) {
@@ -118,12 +119,14 @@ public class ImportMappingService {
                 for (ConstraintViolation<T> violation : validator.validate(parsed)) {
                     problems.add(violation.getPropertyPath() + ": " + violation.getMessage());
                 }
-                problems.addAll(extraChecks.apply(parsed));
+                if (problems.isEmpty()) {
+                    problems.addAll(extraChecks.apply(parsed));
+                }
                 if (problems.isEmpty()) {
                     return parsed;
                 }
             }
-            log.warn("Import mapping {} attempt {} rejected: {} problem(s)", schemaName, attempt, problems.size());
+            log.warn("Import mapping {} attempt {} rejected: {}", schemaName, attempt, problems);
             messages.add(new Message(Role.ASSISTANT, content));
             messages.add(new Message(Role.USER,
                     "That answer was rejected. Fix these problems and answer again with the complete JSON:\n"
@@ -162,8 +165,7 @@ public class ImportMappingService {
                 usage == null ? null : usage.promptTokens(),
                 usage == null ? null : usage.completionTokens());
         if (FINISH_CUT_OFF.equals(choice.finishReason())) {
-            throw new ImportTooLargeException(
-                    "The file has more in it than can be read in one go. Split it into smaller files, for example a few weeks each.");
+            throw new ImportMappingException("The model's answer was cut off before it was complete");
         }
         return choice.message().content();
     }

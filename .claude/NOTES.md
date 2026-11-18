@@ -481,3 +481,10 @@ maps onto this project. Nothing decided yet. Proposals given:
 - The habit tracker also holds, per day, which workout was done
   ("week/workout"). That could date imported workouts automatically one
   day; not built, the plan numbering restarts with every new plan.
+- Third review (days-across reader) found a critical year bug; the year
+  and week-order rules were rewritten (DECISIONS, same date). PR #19
+  taken out of draft; merging and the server's key are the developer's.
+- CI failed once on the last push with "Could not find
+  org.mockito:mockito-core:5.23.0" — a download failure, green on rerun.
+  `build.gradle` asks for `mockito-core:5.+`; pinning it would remove
+  one lookup that can fail. Backlog.

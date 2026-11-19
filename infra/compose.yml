@@ -41,6 +41,7 @@ services:
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?}
       STAGING_ADDRESS: ${STAGING_ADDRESS:-http://staging.invalid}
+      STAGING_UPSTREAM: ${STAGING_UPSTREAM:-tracker-staging-web-1:80}
     ports:
       - "80:80"
       - "443:443"

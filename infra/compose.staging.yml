@@ -9,4 +9,7 @@ services:
 
   web:
     mem_limit: 128m
+    environment:
+      STAGING_ADDRESS: http://staging.invalid
+      STAGING_UPSTREAM: 127.0.0.1:1
     ports: !reset []

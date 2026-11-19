@@ -63,9 +63,16 @@ piece in their own words before the phase is checked off.
           counts matched — on a database with no user data yet; repeat
           once real data exists)
     - [ ] Explain-back: path of a request, where data lives, how to restore
-- [ ] **F3 — Staging**
-    - [ ] One staging slot on the same VPS, own database and media dir
-    - [ ] PR → staging deploy, developer notified
+- [ ] **F3 — Staging** (spec: issue #22, approved 2026-11-19; plan:
+      `docs/superpowers/plans/2026-11-19-f3-staging.md`)
+    - [x] Scripts, compose override, proxy configuration, workflows —
+          written, 79 script tests, rehearsed on the laptop with both
+          copies side by side (2026-11-19)
+    - [ ] On the server: DNS record (developer), `provision-staging.sh`,
+          GitHub environment `staging` with its key, `STAGING_ENABLED`
+    - [ ] Drills from the spec on the real server: a PR appears on
+          staging, a second PR takes the slot, a PR that cannot start,
+          the restricted key refuses other commands, reset
     - [ ] Explain-back: how staging differs from prod and who can reach it
 - [ ] **F4 — Factory loop**
     - [ ] Agent runtime in Actions (plan A or B), switchable by config

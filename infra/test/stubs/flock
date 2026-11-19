@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+echo "flock $*" >> "$STUB_LOG"
+if [ "${STUB_LOCKED:-0}" = "1" ]; then exit 1; fi
+exit 0

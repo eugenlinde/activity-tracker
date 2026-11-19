@@ -1231,3 +1231,60 @@ Asked after the real habit tracker turned out to hold two decimals
 up (74.45 becomes 74.5), the same precision manual entry accepts; no
 schema change. The review page shows the rounded value before the user
 confirms.
+
+## 2026-11-19 — F3 staging: how it is built (builder's calls), spec in issue #22
+
+- One proxy for both addresses; the copies share one Docker network
+  between their `web` containers and nothing else. A second proxy cannot
+  get a certificate without the same two ports.
+- Staging runs production's compose file under another project name with
+  an override file. The project name and file list are set in the
+  environment by `staging.sh`, not left to the staging `.env`: with only
+  `compose.yml` in play the project would be `tracker`, production.
+  Checked on the laptop that the environment variable wins over the
+  `name:` in the file.
+- **Changed from the spec:** the spec said CI logs in to the server from
+  the pull request's run with a key that can only deploy to staging.
+  Built instead: the deploy runs in a separate workflow started by the
+  finished CI run. That workflow is always the copy on `main`, and the
+  key sits in an environment usable from `main` only, so a pull request
+  cannot read the key at all, rather than reading a key that can do
+  little. The key is still restricted on the server. Cost: the workflow
+  cannot be tried before it is merged.
+- Staging uses the compose files and `deploy.sh` that production runs
+  (copied at every staging deploy), never ones from the pull request. A
+  compose file from a pull request could mount the host. Cost: compose
+  changes are not tested on staging.
+- The pull request comment carries the result only. Logs stay on the
+  server: the repository is public.
+- The staging address is not written into repository files; the comment
+  takes it from the repository variable `STAGING_URL` when that is set.
+- A week of unused images is pruned as before, by either copy's deploy.
+
+## 2026-11-19 — F3 staging: what the review changed (builder's calls)
+
+A fresh reviewer read the first version. Nothing critical, three
+important findings. Changed:
+
+- In the staging directory the compose files are stored under other
+  names and the staging `.env` names the project and the files. Before,
+  a compose command typed by hand there would have acted on production,
+  up to deleting its data.
+- The Staging workflow queues per job, not per workflow: every finished
+  CI run used to enter the queue, and a green pull request waiting in it
+  could be thrown out by an unrelated run. On the server a lock turns a
+  second request away while one is running.
+- Provisioning refuses a staging address that is production's own, or
+  not a plain host name; it would have stopped production's proxy at its
+  next restart, far from the cause. It also refuses a key that is
+  already listed with other rights, and keeps the last line of
+  production's `.env` whole when that file has no final newline.
+- The staging proxy's own "staging" block points at a closed port, so a
+  stray request cannot loop inside it.
+- Over SSH `staging.sh` fixes its directories and `PATH` itself and does
+  not take them from the caller.
+- The comment tells apart: did not start and went back; images could not
+  be fetched; server busy; not running at all.
+- Not changed: images are still deployed by tag, not by content hash;
+  the host key is fetched anew on every run. Both as in production,
+  both listed as known gaps.

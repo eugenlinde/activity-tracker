@@ -25,7 +25,7 @@ begin() {
   echo "old-compose" > "$APP/compose.yml"
   printf 'RESTIC_REPOSITORY=/tmp/repo\nRESTIC_PASSWORD=%s\n' "$TRICKY_PASSWORD" > "$APP/backup.env"
   : > "$APP/stub.log"
-  unset STUB_UP_FAILS_TAG STUB_EDGE_MISSING SSH_ORIGINAL_COMMAND TRACKER_DIR STAGING_DIR APP_DIR APP_USER AUTHORIZED_KEYS COMPOSE_PROJECT_NAME COMPOSE_FILE STUB_DB_RUNNING STUB_DUMP_FAILS STUB_PULL_FAILS STUB_HEALTHY_TAGS STUB_RESTIC_FAILS STUB_WEEKDAY STUB_SNAPSHOT_HAS_DUMP
+  unset STUB_UP_FAILS_TAG STUB_EDGE_MISSING STUB_LOCKED SSH_CONNECTION SSH_ORIGINAL_COMMAND TRACKER_DIR STAGING_DIR APP_DIR APP_USER AUTHORIZED_KEYS COMPOSE_PROJECT_NAME COMPOSE_FILE STUB_DB_RUNNING STUB_DUMP_FAILS STUB_PULL_FAILS STUB_HEALTHY_TAGS STUB_RESTIC_FAILS STUB_WEEKDAY STUB_SNAPSHOT_HAS_DUMP
   export STUB_LOG="$APP/stub.log" STUB_APP_DIR="$APP" STUB_MEDIA_DIR="$APP/media"
   export HEALTH_ATTEMPTS=2 HEALTH_INTERVAL=0
 }
@@ -336,6 +336,18 @@ expect_content "$APP/compose.yml" "old-compose"
 expect_content "$APP/compose.staging.yml" "old-staging-override"
 end
 
+begin "first deploy that brings the staging override rolls back without a stale copy"
+incoming_compose
+echo "new-staging-override" > "$APP/incoming/compose.staging.yml"
+echo "stale-staging-override" > "$APP/compose.staging.yml.prev"
+export STUB_HEALTHY_TAGS="old"
+run "$APP/deploy.sh" broken
+expect_status 1
+expect_content "$APP/compose.yml" "old-compose"
+expect_no_file "$APP/compose.staging.yml.prev"
+if [ "$(cat "$APP/compose.staging.yml" 2>/dev/null)" = "stale-staging-override" ]; then fail "a stale override was brought back"; fi
+end
+
 echo "staging.sh"
 
 SHA_A=0123456789abcdef0123456789abcdef01234567
@@ -344,7 +356,7 @@ SHA_B=89abcdef0123456789abcdef0123456789abcdef
 staging() {
   STAGING="$APP/staging"
   mkdir -p "$STAGING"
-  printf 'SITE_ADDRESS=:80\nIMAGE_TAG=%s\nPOSTGRES_PASSWORD=stagingpg\nJWT_SECRET=stagingjwt\nHEALTH_URL=https://staging.test/actuator/health\nPREDEPLOY_DUMP=off\n' "$1" > "$STAGING/.env"
+  printf 'COMPOSE_PROJECT_NAME=tracker-staging\nCOMPOSE_FILE=base.compose.yml:staging.compose.yml\nSITE_ADDRESS=:80\nIMAGE_TAG=%s\nPOSTGRES_PASSWORD=stagingpg\nJWT_SECRET=stagingjwt\nHEALTH_URL=https://staging.test/actuator/health\nPREDEPLOY_DUMP=off\n' "$1" > "$STAGING/.env"
   chmod 600 "$STAGING/.env"
   echo "main-staging-override" > "$APP/compose.staging.yml"
   export TRACKER_DIR="$APP" STAGING_DIR="$STAGING" STUB_APP_DIR="$STAGING"
@@ -358,9 +370,11 @@ expect_status 0
 expect_output "result=deployed"
 expect_output "previous-pr=none"
 expect_content "$STAGING/current-pr" "12"
-expect_content "$STAGING/compose.yml" "old-compose"
-expect_content "$STAGING/compose.staging.yml" "main-staging-override"
-expect_log "up-project tracker-staging files compose.yml:compose.staging.yml"
+expect_content "$STAGING/base.compose.yml" "old-compose"
+expect_content "$STAGING/staging.compose.yml" "main-staging-override"
+expect_no_file "$STAGING/compose.yml"
+expect_log "up-project tracker-staging files base.compose.yml:staging.compose.yml in staging"
+expect_log "flock -n 9"
 expect_log "https://staging.test/actuator/health"
 expect_no_log "pg_dump"
 if [ "$(grep -E '^IMAGE_TAG=' "$STAGING/.env" | cut -d= -f2-)" != "pr-12-$SHA_A" ]; then fail "staging IMAGE_TAG was not set"; fi
@@ -407,7 +421,12 @@ expect_file "$STAGING/last-deploy.log"
 if ! grep -q "Deployed pr-12-$SHA_A" "$STAGING/last-deploy.log"; then fail "the deploy log was not kept"; fi
 end
 
+NEWLINE='
+'
+TAB=$(printf '\t')
 for REQUEST in "" "deploy" "deploy pr-12-$SHA_A" "deploy pr-12-$SHA_A 13" "deploy pr-12-$SHA_A 12 extra" \
+  "deploy pr-12-$SHA_A 12$NEWLINE" "reset${NEWLINE}deploy pr-12-$SHA_A 12" "deploy pr-12-$SHA_A 12${NEWLINE}reset" " reset" "reset " \
+  "deploy${TAB}pr-12-$SHA_A 12" "deploy pr-12345678-$SHA_A 12345678" "deploy pr-12-${SHA_A}0 12" "deploy pr-012-$SHA_A 012" "deploy pr-0-$SHA_A 0" \
   "deploy pr-12-$SHA_A 12; touch $WORK/owned" "deploy pr-12-$SHA_A 12 && id" "deploy \$(id) 12" "deploy main-$SHA_A 12" \
   "deploy $SHA_A 12" "deploy pr-12-0123456 12" "deploy pr-12-0123456789ABCDEF0123456789ABCDEF01234567 12" "deploy pr--$SHA_A 12" "deploy pr-12-$SHA_A -1" \
   "reset now" "reset; id" "RESET" "bash" "cat /opt/tracker/.env" "deploy  pr-12-$SHA_A 12"; do
@@ -419,31 +438,82 @@ for REQUEST in "" "deploy" "deploy pr-12-$SHA_A" "deploy pr-12-$SHA_A 13" "deplo
   expect_status 2
   expect_output "Refused"
   if [ -s "$APP/stub.log" ]; then fail "something was run for a refused command"; fi
-  expect_no_file "$STAGING/compose.yml"
+  expect_no_file "$STAGING/base.compose.yml"
   expect_no_file "$WORK/owned"
   expect_content "$STAGING/current-pr" "9"
   end
 done
 
-begin "reset empties staging and starts it again"
+begin "reset empties staging and starts it again, in the staging directory only"
 staging "pr-12-$SHA_A"
 echo 12 > "$STAGING/current-pr"
+echo "staging-base" > "$STAGING/base.compose.yml"
+echo "staging-override" > "$STAGING/staging.compose.yml"
 export SSH_ORIGINAL_COMMAND="reset"
 run "$APP/staging.sh"
 expect_status 0
 expect_output "result=reset"
-expect_log "down-project tracker-staging files compose.yml:compose.staging.yml"
-expect_log "plain-up-project tracker-staging"
+expect_log "down-project tracker-staging files base.compose.yml:staging.compose.yml in staging"
+expect_log "plain-up-project tracker-staging files base.compose.yml:staging.compose.yml in staging"
 expect_content "$STAGING/current-pr" "12"
 end
 
-begin "reset before any deploy only empties"
+begin "reset before any deploy has nothing to do and runs nothing"
 staging none
 export SSH_ORIGINAL_COMMAND="reset"
 run "$APP/staging.sh"
 expect_status 0
-expect_log "down-project tracker-staging"
-expect_no_log "plain-up-project"
+expect_output "result=reset"
+expect_no_log "docker"
+end
+
+begin "a pull that fails is told apart from a version that does not start"
+staging "pr-12-$SHA_A"
+echo 12 > "$STAGING/current-pr"
+export STUB_PULL_FAILS=1 SSH_ORIGINAL_COMMAND="deploy pr-15-$SHA_B 15"
+run "$APP/staging.sh"
+expect_status 1
+expect_output "result=pull-failed"
+expect_content "$STAGING/current-pr" "12"
+if [ "$(grep -E '^IMAGE_TAG=' "$STAGING/.env" | cut -d= -f2-)" != "pr-12-$SHA_A" ]; then fail "staging tag changed although nothing was pulled"; fi
+end
+
+begin "a second request while one is running is turned away"
+staging "pr-12-$SHA_A"
+export STUB_LOCKED=1 STUB_HEALTHY_TAGS="pr-15-$SHA_B" SSH_ORIGINAL_COMMAND="deploy pr-15-$SHA_B 15"
+run "$APP/staging.sh"
+expect_status 1
+expect_output "result=busy"
+expect_no_log "docker"
+expect_no_file "$STAGING/base.compose.yml"
+end
+
+begin "over SSH the directories cannot be chosen by the caller"
+staging "pr-12-$SHA_A"
+export SSH_CONNECTION="198.51.100.7 50000 203.0.113.9 22" STAGING_DIR="$APP" TRACKER_DIR="$APP" STUB_HEALTHY_TAGS="pr-15-$SHA_B" SSH_ORIGINAL_COMMAND="deploy pr-15-$SHA_B 15"
+run "$APP/staging.sh"
+expect_failure
+expect_no_log "docker"
+if [ "$(grep -E '^IMAGE_TAG=' "$APP/.env" | cut -d= -f2-)" != "old" ]; then fail "production's IMAGE_TAG was touched"; fi
+end
+
+begin "the staging directory may not be production's"
+staging "pr-12-$SHA_A"
+export STAGING_DIR="$APP" TRACKER_DIR="$APP" STUB_HEALTHY_TAGS="pr-15-$SHA_B" SSH_ORIGINAL_COMMAND="deploy pr-15-$SHA_B 15"
+run "$APP/staging.sh"
+expect_failure
+expect_no_log "docker"
+if [ "$(grep -E '^IMAGE_TAG=' "$APP/.env" | cut -d= -f2-)" != "old" ]; then fail "production's IMAGE_TAG was touched"; fi
+end
+
+begin "an outdated deploy script in the staging directory is replaced"
+staging none
+echo "exit 99" > "$STAGING/deploy.sh"
+chmod +x "$STAGING/deploy.sh"
+export STUB_HEALTHY_TAGS="pr-12-$SHA_A" SSH_ORIGINAL_COMMAND="deploy pr-12-$SHA_A 12"
+run "$APP/staging.sh"
+expect_status 0
+expect_output "result=deployed"
 end
 
 begin "a server without staging says so and runs nothing"
@@ -474,7 +544,7 @@ run "$INFRA/provision-staging.sh" staging.test me@example.test "$APP/staging-key
 expect_status 0
 expect_file "$STAGING/.env"
 if [ -n "$(find "$STAGING/.env" -perm -004)" ] || [ -n "$(find "$STAGING/.env" -perm -040)" ]; then fail "staging .env is readable by others"; fi
-for line in 'SITE_ADDRESS=:80' 'IMAGE_TAG=none' 'SIGNUP_ALLOWED_EMAILS=me@example.test' 'HEALTH_URL=https://staging.test/actuator/health' 'PREDEPLOY_DUMP=off'; do
+for line in 'COMPOSE_PROJECT_NAME=tracker-staging' 'COMPOSE_FILE=base.compose.yml:staging.compose.yml' 'SITE_ADDRESS=:80' 'IMAGE_TAG=none' 'SIGNUP_ALLOWED_EMAILS=me@example.test' 'HEALTH_URL=https://staging.test/actuator/health' 'PREDEPLOY_DUMP=off'; do
   if ! grep -qxF "$line" "$STAGING/.env"; then fail "staging .env lacks: $line"; fi
 done
 STAGING_PG=$(grep -E '^POSTGRES_PASSWORD=' "$STAGING/.env" | cut -d= -f2-)
@@ -544,11 +614,35 @@ expect_failure
 expect_no_file "$STAGING/.env"
 end
 
-begin "an address with shell characters is refused"
+for BAD_ADDRESS in 'staging.test;id' 'tracker.test' 'staging.test.' '.' 'staging' '-staging.test' 'staging-.test' 'Staging.Test' 'staging..test' 'https://staging.test'; do
+  begin "refused address: '$BAD_ADDRESS'"
+  provisioning
+  run "$INFRA/provision-staging.sh" "$BAD_ADDRESS" me@example.test "$APP/staging-key.pub"
+  expect_failure
+  expect_no_file "$STAGING/.env"
+  if grep -q 'STAGING_ADDRESS' "$APP/.env"; then fail "production .env was changed"; fi
+  if [ "$(grep -c '' "$APP/ssh/authorized_keys")" -ne 2 ]; then fail "authorized_keys was changed"; fi
+  end
+done
+
+begin "production .env without a final newline keeps its last line"
 provisioning
-run "$INFRA/provision-staging.sh" 'staging.test;id' me@example.test "$APP/staging-key.pub"
+printf 'SITE_ADDRESS=tracker.test\nIMAGE_TAG=old\nOPENROUTER_MODEL=some/model' > "$APP/.env"
+chmod 600 "$APP/.env"
+run "$INFRA/provision-staging.sh" staging.test me@example.test "$APP/staging-key.pub"
+expect_status 0
+if ! grep -qxF 'OPENROUTER_MODEL=some/model' "$APP/.env"; then fail "the last line of production .env was damaged"; fi
+if ! grep -qxF 'STAGING_ADDRESS=staging.test' "$APP/.env"; then fail "the staging address is not on its own line"; fi
+end
+
+begin "a key that already has full access is refused"
+provisioning
+echo "ssh-ed25519 AAAADeployKey" > "$APP/staging-key.pub"
+run "$INFRA/provision-staging.sh" staging.test me@example.test "$APP/staging-key.pub"
 expect_failure
+expect_output "already"
 expect_no_file "$STAGING/.env"
+if [ "$(grep -c '' "$APP/ssh/authorized_keys")" -ne 2 ]; then fail "authorized_keys was changed"; fi
 end
 
 begin "a server without production is refused"

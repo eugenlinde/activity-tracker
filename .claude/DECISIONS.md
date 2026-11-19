@@ -1231,3 +1231,17 @@ Asked after the real habit tracker turned out to hold two decimals
 up (74.45 becomes 74.5), the same precision manual entry accepts; no
 schema change. The review page shows the rounded value before the user
 confirms.
+
+## 2026-11-19 — Agents run on the Claude Code subscription: plan A (developer's decision)
+
+The developer checked and reported that the Claude Code subscription
+allows runs in GitHub Actions. F4 is built on plan A; plan B
+(OpenRouter) stays the fallback, switchable by configuration as the
+design says. Not verified by the builder: no unattended run has been
+made yet; the first F4 step is to prove one.
+
+## 2026-11-19 — Order of work: F3 before the restore drill (developer's decision)
+
+Offered: a restore drill with real data first, then F3. The developer
+chose to start F3. The drill stays on the backlog; until it is done,
+the backup of real data has been written but never read back.

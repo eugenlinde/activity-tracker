@@ -17,6 +17,7 @@ case "$*" in
   "compose up -d --remove-orphans")
     CURRENT=$(grep -E '^IMAGE_TAG=' "$STUB_APP_DIR/.env" | cut -d= -f2-)
     echo "up-tag $CURRENT" >> "$STUB_LOG"
+    echo "up-project ${COMPOSE_PROJECT_NAME:-unset} files ${COMPOSE_FILE:-unset}" >> "$STUB_LOG"
     echo "up-compose $(cat "$STUB_APP_DIR/compose.yml")" >> "$STUB_LOG"
     if [ "${STUB_UP_FAILS_TAG:-}" = "$CURRENT" ]; then exit 1; fi
     ;;
@@ -28,6 +29,15 @@ case "$*" in
     ;;
   "network inspect tracker-restore-check")
     exit 1
+    ;;
+  "network inspect tracker-edge")
+    if [ "${STUB_EDGE_MISSING:-0}" = "1" ]; then exit 1; fi
+    ;;
+  "compose down --volumes --remove-orphans")
+    echo "down-project ${COMPOSE_PROJECT_NAME:-unset} files ${COMPOSE_FILE:-unset}" >> "$STUB_LOG"
+    ;;
+  "compose up -d")
+    echo "plain-up-project ${COMPOSE_PROJECT_NAME:-unset}" >> "$STUB_LOG"
     ;;
   "exec tracker-restore-check pg_isready"*)
     exit 0

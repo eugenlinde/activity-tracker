@@ -9,9 +9,28 @@
 		reverse_proxy api:8080
 	}
 
+	@asset {
+		path /assets/*
+		file {
+			root /srv
+		}
+	}
+
+	handle @asset {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	handle {
 		root * /srv
+		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}
+}
+
+{$STAGING_ADDRESS:http://staging.invalid} {
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy {$STAGING_UPSTREAM:tracker-staging-web-1:80}
 }

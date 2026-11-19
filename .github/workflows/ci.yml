@@ -71,12 +71,18 @@ jobs:
 
   images:
     needs: [backend, frontend, infra]
-    if: ${{ vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag == '')) }}
+    if: >-
+      ${{
+        (vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag == '')))
+        || (vars.STAGING_ENABLED == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       packages: write
+    env:
+      IMAGE_TAG: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.number, github.event.pull_request.head.sha) || github.sha }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -102,9 +108,15 @@ jobs:
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Build and push both images
         run: |
+          case "$IMAGE_TAG" in
+            ''|*[!A-Za-z0-9._-]*)
+              echo "Invalid tag" >&2
+              exit 1
+              ;;
+          esac
           for image in api web; do
-            docker build -f "infra/$image.Dockerfile" -t "ghcr.io/eugenlinde/activity-tracker-$image:$GITHUB_SHA" .
-            docker push "ghcr.io/eugenlinde/activity-tracker-$image:$GITHUB_SHA"
+            docker build -f "infra/$image.Dockerfile" -t "ghcr.io/eugenlinde/activity-tracker-$image:$IMAGE_TAG" .
+            docker push "ghcr.io/eugenlinde/activity-tracker-$image:$IMAGE_TAG"
           done
 
   deploy:
@@ -135,9 +147,9 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           mkdir -p bundle/incoming
-          cp infra/compose.yml bundle/incoming/
-          cp infra/deploy.sh infra/backup.sh infra/restore.sh bundle/
-          tar -C bundle -cf - incoming deploy.sh backup.sh restore.sh \
+          cp infra/compose.yml infra/compose.staging.yml bundle/incoming/
+          cp infra/deploy.sh infra/backup.sh infra/restore.sh infra/staging.sh bundle/
+          tar -C bundle -cf - incoming deploy.sh backup.sh restore.sh staging.sh \
             | ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" 'tar -C /opt/tracker -xf -'
           ssh -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" \
             "/opt/tracker/deploy.sh $TAG > /opt/tracker/last-deploy.log 2>&1; status=\$?; cat /opt/tracker/last-deploy.log; exit \$status"

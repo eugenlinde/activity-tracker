@@ -1,0 +1,12 @@
+name: tracker-staging
+
+services:
+  postgres:
+    mem_limit: 256m
+
+  api:
+    mem_limit: 768m
+
+  web:
+    mem_limit: 128m
+    ports: !reset []

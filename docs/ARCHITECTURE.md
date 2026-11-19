@@ -294,8 +294,11 @@ older images.
   and the backup succeeded. **The 06:00 UTC backup check ran at 15:19
   UTC, nine hours late**, and passed. On 2026-11-18 it had not run by
   09:30 UTC. GitHub says scheduled runs can be delayed or dropped at
-  the start of an hour; the check now asks for 06:17 UTC. Whether that
-  shortens the delay is not known yet.
+  the start of an hour; the check now asks for 06:17 UTC. That did not
+  help: on 2026-11-18 (still the old time) it ran at 14:53 UTC, and on
+  2026-11-19, the first day with the new time, it had not run by 14:20
+  UTC. The delay is about nine hours whatever time is asked for. The
+  alarm for a missed backup should move to the server side (F5).
 - **What a late check means:** a missed backup is still noticed, only
   hours later than the table above says. If the check were ever more
   than 21 hours late and the next night's backup succeeded in between,
@@ -517,9 +520,13 @@ code, never the upstream message and never the file's content).
 - **Not checked:** a one-row-per-date weight or steps file from real life
   (only invented ones); a habit tracker that crosses New Year from real
   life (only in tests); any training plan with a different layout from
-  this one template; any model other than Haiku 5.5; production, which still
-  holds a placeholder key — until the developer sets a real one there,
-  every import ends with "could not read this file".
+  this one template; any model other than Haiku 5.5.
+- **In production since 2026-11-18.** The developer put a real key and
+  the model name into the server's `.env`, merged, and imported their
+  own files there. The next day the database held 15 imported workouts,
+  268 weight entries and 308 steps entries, the backend log showed no
+  error, and the nightly backup had run with that data in it. What the
+  developer saw on the review pages was not recorded.
 - The page's own logic (what gets ticked, what is sent) has no automated
   test — the frontend has no test runner. It was checked once with a
   throwaway script and by hand in the browser.
@@ -571,6 +578,11 @@ code, never the upstream message and never the file's content).
 - A workout with more than 12 exercises cannot be stored and makes the
   whole file be refused, with the workout named. An exercise with more
   than 12 sets is skipped and listed.
+- Until 2026-11-19 the server sent the page itself (`index.html`)
+  without a caching rule, so after a deploy a browser could go on
+  showing the previous version: on 2026-11-18 the new Import entry was
+  missing from the menu until a forced reload. Fixed together with
+  staging (see "Staging"); takes effect with the deploy of that change.
 - Pressing Import twice after a lost response writes the workouts twice
   (weight and steps are safe).
 - Worst case one preview is four model calls on up to 200 kB of text

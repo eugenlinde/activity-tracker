@@ -490,6 +490,22 @@ maps onto this project. Nothing decided yet. Proposals given:
   one lookup that can fail. Backlog.
 - Weight precision settled by the developer: one decimal stays.
 
+## 2026-11-19 — Import in production; F3 started
+
+- The developer merged PR #19 on 2026-11-18 after putting the real key
+  into the server's `.env` (from the clipboard, never shown). Deploy
+  green. The Import menu entry did not appear until a forced reload:
+  `index.html` is served without a caching rule. The developer declined
+  a separate fix; it goes into F3.
+- The builder's first "it is deployed" check was weak: `/import`
+  answering 200 proves nothing in a single-page app, every unknown path
+  returns the same page. Check the script for the feature instead.
+- On 2026-11-19 production held 15 imported workouts, 268 weight
+  entries, 308 steps entries; no errors in the backend log; the backup
+  ran at 03:30 UTC. The scheduled backup check had not run by 14:20 UTC.
+- The developer: the subscription allows runs in GitHub Actions (plan
+  A), and F3 is next.
+
 ## 2026-11-19 — F3 staging built, not yet on the server
 
 - Spec issue #22 approved by the developer. Branch `f3-staging`.

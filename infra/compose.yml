@@ -40,6 +40,8 @@ services:
     image: ghcr.io/eugenlinde/activity-tracker-web:${IMAGE_TAG:?}
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?}
+      STAGING_ADDRESS: ${STAGING_ADDRESS:-http://staging.invalid}
+      STAGING_UPSTREAM: ${STAGING_UPSTREAM:-tracker-staging-web-1:80}
     ports:
       - "80:80"
       - "443:443"
@@ -49,7 +51,15 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+    networks:
+      - default
+      - edge
     restart: unless-stopped
+
+networks:
+  edge:
+    name: tracker-edge
+    external: true
 
 volumes:
   pgdata:

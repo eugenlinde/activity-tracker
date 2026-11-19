@@ -294,8 +294,11 @@ older images.
   and the backup succeeded. **The 06:00 UTC backup check ran at 15:19
   UTC, nine hours late**, and passed. On 2026-11-18 it had not run by
   09:30 UTC. GitHub says scheduled runs can be delayed or dropped at
-  the start of an hour; the check now asks for 06:17 UTC. Whether that
-  shortens the delay is not known yet.
+  the start of an hour; the check now asks for 06:17 UTC. That did not
+  help: on 2026-11-18 (still the old time) it ran at 14:53 UTC, and on
+  2026-11-19, the first day with the new time, it had not run by 14:20
+  UTC. The delay is about nine hours whatever time is asked for. The
+  alarm for a missed backup should move to the server side (F5).
 - **What a late check means:** a missed backup is still noticed, only
   hours later than the table above says. If the check were ever more
   than 21 hours late and the next night's backup succeeded in between,
@@ -517,9 +520,13 @@ code, never the upstream message and never the file's content).
 - **Not checked:** a one-row-per-date weight or steps file from real life
   (only invented ones); a habit tracker that crosses New Year from real
   life (only in tests); any training plan with a different layout from
-  this one template; any model other than Haiku 5.5; production, which still
-  holds a placeholder key — until the developer sets a real one there,
-  every import ends with "could not read this file".
+  this one template; any model other than Haiku 5.5.
+- **In production since 2026-11-18.** The developer put a real key and
+  the model name into the server's `.env`, merged, and imported their
+  own files there. The next day the database held 15 imported workouts,
+  268 weight entries and 308 steps entries, the backend log showed no
+  error, and the nightly backup had run with that data in it. What the
+  developer saw on the review pages was not recorded.
 - The page's own logic (what gets ticked, what is sent) has no automated
   test — the frontend has no test runner. It was checked once with a
   throwaway script and by hand in the browser.
@@ -571,12 +578,192 @@ code, never the upstream message and never the file's content).
 - A workout with more than 12 exercises cannot be stored and makes the
   whole file be refused, with the workout named. An exercise with more
   than 12 sets is skipped and listed.
+- Until 2026-11-19 the server sent the page itself (`index.html`)
+  without a caching rule, so after a deploy a browser could go on
+  showing the previous version: on 2026-11-18 the new Import entry was
+  missing from the menu until a forced reload. Fixed together with
+  staging (see "Staging"); takes effect with the deploy of that change.
 - Pressing Import twice after a lost response writes the workouts twice
   (weight and steps are safe).
 - Worst case one preview is four model calls on up to 200 kB of text
   (about 0.03 USD with Haiku 5.5); at 20 a day per user that stays under
   1 USD a day. With an expensive model set in `OPENROUTER_MODEL` it would
   not. The spending limit on the key is the guard.
+
+## Staging (built 2026-11-19; not on the server yet)
+
+Spec: GitHub issue #22. Plan: `docs/superpowers/plans/2026-11-19-f3-staging.md`.
+
+**What it is.** A second copy of the app on the same server, at its own
+address, with its own database, files and passwords. A pull request is
+put there after its checks are green, so a change can be tried before it
+is merged. Every pull request from this repository goes there
+automatically; the newest green one holds the slot.
+
+**The pieces.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| Staging copy | `/opt/tracker-staging` on the server, compose project `tracker-staging` | Same three containers as production (`web`, `api`, `postgres`), started from production's `compose.yml` plus `compose.staging.yml` (no ports to the outside, memory limits: backend 768 MB, database 256 MB, proxy 128 MB). In the staging directory the two files are called `base.compose.yml` and `staging.compose.yml` on purpose — see "Typing commands in the staging directory" |
+| The front door | production's `web` container (Caddy) | Answers for both addresses. Requests for the staging address are passed to the staging `web` container and marked "do not index" |
+| The link | Docker network `tracker-edge` | The only thing the two copies share: both `web` containers are on it. The backends and databases are not |
+| `infra/staging.sh` | `/opt/tracker/staging.sh` | The only command the staging key can run. Accepts `deploy pr-<number>-<commit> <number>` or `reset`, nothing else. One request at a time: a second one while the first is running is turned away |
+| `.github/workflows/staging.yml` | GitHub | After a green CI run of a pull request: asks the server to put that pull request on staging and writes the result on the pull request. Also the manual "reset" |
+| `images` job in `ci.yml` | GitHub | For a pull request from this repository it builds the two images and tags them `pr-<number>-<commit>` |
+| `infra/provision-staging.sh` | run once by hand, as root | Creates the staging directory and its `.env`, the shared network, the staging address in production's `.env`, and the restricted key line |
+
+**How a pull request gets there.**
+
+1. A pull request is opened or pushed to. CI builds and tests it.
+2. Green, from this repository, `STAGING_ENABLED` is `true`: CI builds the
+   images from the pull request's code.
+3. The Staging workflow starts. It always runs the version of itself that
+   is on `main`, so a pull request cannot change what it does. It finds
+   the open pull request whose newest commit this is; if the pull request
+   has moved on or was closed, nothing happens.
+4. It logs in to the server with the staging key and says
+   `deploy <tag> <number>`.
+5. On the server `staging.sh` copies the compose files and `deploy.sh`
+   that production currently runs into the staging directory and runs
+   that `deploy.sh` there: pull the images, start, wait for the health
+   check, go back to the previous version if it does not come up.
+6. The workflow comments on the pull request: running; did not start
+   and went back; images could not be fetched (nothing changed); server
+   busy; or failed. If another pull request held the slot, it is told it
+   lost it.
+
+Only the images come from the pull request. The compose files and the
+scripts are the ones from `main`: a pull request that changes
+`compose.yml` is not tested on staging with that change.
+
+**What staging shares with production, and what it does not.**
+
+- Shared: the machine, the Docker daemon, the proxy, the image registry.
+- Not shared: database, uploaded files, database password, signing
+  secret (a login from staging is not valid on production), invited
+  addresses, the network the backend and database talk on.
+- Rehearsed on a laptop with both copies running: from the staging
+  backend the name of production's database does not resolve and its
+  port cannot be reached; a staging login token is refused by
+  production; wiping staging removed only staging's volumes and
+  production's containers were never restarted.
+
+**Who can reach it.** Anyone who knows the address, like production.
+Sign-up is closed and staging has its own list of invited addresses.
+There is no extra password in front: the browser's password prompt and
+the app's own login would use the same request header.
+
+**Where its secrets live.**
+
+- `/opt/tracker-staging/.env`, mode 600, owned by `deploy`: staging's own
+  database password and signing secret (made on the server, never
+  shown), invited addresses, the address the health check uses,
+  placeholder OpenRouter values until the developer sets a key, and the
+  two lines that tell Docker Compose this directory is the project
+  `tracker-staging`.
+- GitHub environment `staging`, usable from `main` only: `STAGING_HOST`
+  and `STAGING_SSH_KEY`. The Staging workflow runs on `main`, so it can
+  read them; a pull request's own workflow run cannot. The environment
+  must be limited to `main` before the key is put into it.
+- The staging key's line in `deploy`'s `authorized_keys` starts with
+  `restrict,command="/opt/tracker/staging.sh"`: whatever the caller
+  asks for, the server runs that script and nothing else.
+- The staging address itself is in production's `.env`
+  (`STAGING_ADDRESS`) and, for the link in the pull request comment, in
+  the repository variable `STAGING_URL` — not in the repository files.
+
+**What happens when it fails.**
+
+| Situation | What happens |
+|---|---|
+| The pull request's version does not start | Staging goes back to the version before; the comment says so; the backend log of the failed start stays on the server in `/opt/tracker-staging/last-failed-deploy.log`, the script's own output in `last-deploy.log` |
+| The images cannot be fetched | Nothing is changed; staging keeps running what it ran; the comment says so |
+| First ever deploy does not start, or going back does not work either | The comment says staging is not running; it stays down until the next push |
+| A deploy or reset arrives while another is running | It is turned away ("busy"); the comment says to push again |
+| Several pull requests turn green close together | They queue; GitHub keeps only the newest one waiting, so a pull request in the middle may be skipped without a comment. The newest one wins, which is the rule anyway |
+| Staging backend down | The staging page still loads (it is static), its API answers 502. Production is not affected |
+| Staging containers gone | The staging address answers 502. Production is not affected |
+| Staging uses too much memory | Docker stops the container at its limit; production keeps its memory |
+| Two pull requests changed the database differently | The later one may not start. Run the reset, push again |
+| The server cannot be reached | The Staging run is red; the comment says the server gave no answer |
+
+**The one shared risk.** The proxy's configuration now names staging. A
+mistake in `infra/Caddyfile` could take production down — as it always
+could. It changes only through a merge to `main`, with the health check
+and the automatic rollback.
+
+**How to wipe it.** GitHub → Actions → Staging → Run workflow → type
+`reset`. The staging database and files are deleted and the same version
+starts again, empty.
+
+**How to stop it.**
+
+- Stop deploys: repository variable `STAGING_ENABLED` to anything but
+  `true`. Pull requests are no longer built for staging or put there.
+- Cut GitHub off from staging: delete the line ending
+  `github-actions-staging` from `/home/deploy/.ssh/authorized_keys`.
+- Shut it down: on the server, `cd /opt/tracker-staging && docker
+  compose down`. The address then answers 502; production is not
+  touched.
+
+**Typing commands in the staging directory.** Production's compose file
+names its project `tracker`. If a copy of it sat in the staging
+directory under its usual name, a `docker compose down -v` typed there
+would have deleted production's data. So the copies have other names
+(`base.compose.yml`, `staging.compose.yml`) and the staging `.env` says
+which files and which project to use. Checked with real Compose: a
+command typed in that directory acts on `tracker-staging`; with those
+two `.env` lines removed it stops with "no configuration file", it does
+not fall back to production.
+
+**The page is no longer served stale.** With this change the page itself
+(`index.html`) is sent with "always ask the server" and the files with a
+content hash in their name with "keep for a year". Before, a browser
+could show the previous version after a deploy (seen on 2026-11-18).
+
+**What was checked, and what was not.**
+
+- Checked: 106 script tests. Among them: the staging command accepts
+  only its two forms — thirty other requests (with `;`, `&&`, `$( )`,
+  line breaks, leading zeros, a number that does not match the tag) are
+  refused and nothing is run; over SSH the caller cannot choose the
+  directories; a failed start leaves the previous pull request running;
+  the reset runs in the staging directory under the staging project
+  only; provisioning twice changes nothing; a new key replaces the old
+  one and leaves the owner's and the production key; a key that already
+  has full access is refused; a staging address equal to production's,
+  or one the proxy would choke on, is refused. A rehearsal on the laptop
+  with real containers, both copies side by side behind one proxy: the
+  results are listed above; cache headers as described; memory limits in
+  force (staging backend used 321 MB of 768).
+- An independent reviewer read the first version. Nothing critical;
+  three important findings, fixed with tests that failed first: a
+  compose command typed by hand in the staging directory would have
+  acted on production (see above); the queue of the Staging workflow
+  could silently drop a green pull request; provisioning accepted a
+  staging address that would have stopped production's proxy at its
+  next restart. Smaller ones fixed too: a request that looped inside
+  the staging proxy, messages naming the wrong log file, a lock on the
+  server.
+- **Not checked yet — only possible on the server and after the merge:**
+  the Staging workflow itself (GitHub runs it only once it is on
+  `main`); a certificate for the staging address; the restricted key
+  refusing other commands over real SSH; `staging.sh` with a real
+  registry pull; a production deploy with the new compose file.
+
+**Known gaps.**
+
+- Pull request code runs on the same machine as production. Containers
+  and memory limits separate ordinary mistakes; they are not a wall
+  against code written to break out.
+- A pull request can still overwrite an image tag in the registry from
+  its own CI run (that was already so before staging). Deploying images
+  by their content hash instead of a tag would close it.
+- The server is asked for its host key anew on every run, as for
+  production: a first-use check each time, not a pinned key.
+- Docs-only pull requests are put on staging too.
+- A pull request that loses the slot is told once; nothing on the staging
+  page itself says which pull request it is running.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

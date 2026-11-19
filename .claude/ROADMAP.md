@@ -31,8 +31,9 @@ piece in their own words before the phase is checked off.
     - [x] Pre-publication clean-up: author email, sample data, fixture
           image, licence, README, private notes kept out (2026-11-12)
     - [x] Repo made public with the developer's ok (2026-11-12)
-    - [ ] Developer: check whether the Claude Code subscription allows
-          unattended runs in GitHub Actions → plan A or plan B (OpenRouter)
+    - [x] Developer: the Claude Code subscription allows runs in GitHub
+          Actions → plan A (said by the developer 2026-11-19; not yet
+          tried with a real run)
     - [ ] Explain-back: what CI does on a PR and what a red check means
           — deferred
 - [ ] **F2 — First deploy** (planned 2026-11-13:
@@ -63,9 +64,16 @@ piece in their own words before the phase is checked off.
           counts matched — on a database with no user data yet; repeat
           once real data exists)
     - [ ] Explain-back: path of a request, where data lives, how to restore
-- [ ] **F3 — Staging**
-    - [ ] One staging slot on the same VPS, own database and media dir
-    - [ ] PR → staging deploy, developer notified
+- [ ] **F3 — Staging** (spec: issue #22, approved 2026-11-19; plan:
+      `docs/superpowers/plans/2026-11-19-f3-staging.md`)
+    - [x] Scripts, compose override, proxy configuration, workflows —
+          written, 79 script tests, rehearsed on the laptop with both
+          copies side by side (2026-11-19)
+    - [ ] On the server: DNS record (developer), `provision-staging.sh`,
+          GitHub environment `staging` with its key, `STAGING_ENABLED`
+    - [ ] Drills from the spec on the real server: a PR appears on
+          staging, a second PR takes the slot, a PR that cannot start,
+          the restricted key refuses other commands, reset
     - [ ] Explain-back: how staging differs from prod and who can reach it
 - [ ] **F4 — Factory loop**
     - [ ] Agent runtime in Actions (plan A or B), switchable by config
@@ -106,14 +114,21 @@ developer's call; this is the suggested one.
       `oxlint --deny-warnings`; pin the Testcontainers image to
       `postgres:17-alpine` to match dev/prod. Small, good first factory
       tickets.
-- [ ] CSV import: workouts, weight and steps — issue #18 (2026-11-17
-      built; 2026-11-18 measured on a real training plan with a real key
-      and reworked so the model only names the layout and code reads the
-      cells; PR open). Before it can be called done: a real weight/steps
-      file tried, the developer's merge, the real key and model name in
-      the server's `.env`.
+- [x] CSV import: workouts, weight and steps — issue #18 (2026-11-17
+      built; 2026-11-18 measured on the developer's real files and
+      reworked so the model only names the layout and code reads the
+      cells; merged and in production 2026-11-18, PR #19). Open: the
+      developer has not confirmed a spending limit on the OpenRouter key.
+- [ ] Small fixes found along the way: `index.html` served without a
+      caching rule (fixed in the F3 change, PR #23); `mockito-core:5.+` in `build.gradle`
+      should be a fixed version (one CI run failed on its download);
+      the scheduled backup check runs about nine hours late whatever
+      time it asks for (alarm to the server side in F5).
+- [ ] Restore drill with real data — the first one ran on an empty
+      database; production holds real entries since 2026-11-18.
 - [ ] Later for import: Excel files, aerobic and diet rows, workout
-      dates filled in automatically.
+      dates filled in automatically (the habit tracker has a row saying
+      which workout was done on which day).
 - [x] Restyle the existing screens to the prototype (dark, Manrope, sidebar
       nav, mobile burger) with Ant Design — issue #4 (2026-11-13, PR open)
 - [x] Body weight: manual entry + dashboard trend — issue #5 (2026-11-13,

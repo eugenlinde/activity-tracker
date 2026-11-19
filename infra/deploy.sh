@@ -24,22 +24,33 @@ write_tag() {
 }
 
 install_compose() {
+  local file
   if [ ! -f incoming/compose.yml ]; then
     return 0
   fi
-  if [ -f compose.yml ]; then
-    cp -p compose.yml compose.yml.prev
-  else
-    rm -f compose.yml.prev
-  fi
-  mv incoming/compose.yml compose.yml
+  for file in compose.yml compose.staging.yml; do
+    if [ -f "$file" ]; then
+      cp -p "$file" "$file.prev"
+    else
+      rm -f "$file.prev"
+    fi
+    if [ -f "incoming/$file" ]; then
+      mv "incoming/$file" "$file"
+    fi
+  done
   NEW_COMPOSE=1
 }
 
 restore_compose() {
-  if [ "$NEW_COMPOSE" -eq 1 ] && [ -f compose.yml.prev ]; then
-    mv compose.yml.prev compose.yml
+  local file
+  if [ "$NEW_COMPOSE" -ne 1 ]; then
+    return 0
   fi
+  for file in compose.yml compose.staging.yml; do
+    if [ -f "$file.prev" ]; then
+      mv "$file.prev" "$file"
+    fi
+  done
 }
 
 wait_healthy() {
@@ -55,7 +66,8 @@ wait_healthy() {
 
 PREVIOUS=$(read_env IMAGE_TAG)
 SITE_ADDRESS=$(read_env SITE_ADDRESS)
-HEALTH_URL="https://$SITE_ADDRESS/actuator/health"
+HEALTH_URL=$(read_env HEALTH_URL)
+HEALTH_URL=${HEALTH_URL:-https://$SITE_ADDRESS/actuator/health}
 
 if [ -z "$PREVIOUS" ] || [ -z "$SITE_ADDRESS" ]; then
   echo "IMAGE_TAG or SITE_ADDRESS is missing from .env" >&2
@@ -64,7 +76,14 @@ fi
 
 echo "Deploying $TAG (current: $PREVIOUS)"
 
-if docker compose ps --status running --services 2>/dev/null | grep -qx postgres; then
+if ! docker network inspect tracker-edge >/dev/null 2>&1; then
+  docker network create tracker-edge >/dev/null
+  echo "Shared network tracker-edge created"
+fi
+
+if [ "$(read_env PREDEPLOY_DUMP)" = "off" ]; then
+  echo "Pre-deploy dump is switched off for this copy"
+elif docker compose ps --status running --services 2>/dev/null | grep -qx postgres; then
   mkdir -p predeploy
   DUMP="predeploy/$(date -u +%Y%m%dT%H%M%SZ)-$PREVIOUS.sql.gz"
   docker compose exec -T postgres pg_dump -U tracker tracker | gzip > "$DUMP.tmp"

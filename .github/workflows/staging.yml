@@ -1,0 +1,142 @@
+name: Staging
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "reset" to delete the staging database and files. Staging starts empty again.
+        required: true
+
+permissions: {}
+
+jobs:
+  deploy:
+    if: >-
+      ${{
+        vars.STAGING_ENABLED == 'true'
+        && github.event_name == 'workflow_run'
+        && github.event.workflow_run.event == 'pull_request'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.head_repository.full_name == github.repository
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    concurrency:
+      group: staging-server
+      cancel-in-progress: false
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      NAMED_BY_RUN: ${{ github.event.workflow_run.pull_requests[0].number }}
+      STAGING_URL: ${{ vars.STAGING_URL }}
+    steps:
+      - name: Find the pull request this commit is the head of
+        id: pr
+        run: |
+          if ! printf '%s' "$HEAD_SHA" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "Unexpected commit id" >&2
+            exit 1
+          fi
+          number=$NAMED_BY_RUN
+          if ! printf '%s' "$number" | grep -Eqx '[1-9][0-9]{0,6}'; then
+            number=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+              --jq "[.[] | select(.state == \"open\" and .head.sha == \"$HEAD_SHA\" and .head.repo.full_name == \"$REPO\")][0].number // empty")
+          fi
+          if printf '%s' "$number" | grep -Eqx '[1-9][0-9]{0,6}'; then
+            still=$(gh api "repos/$REPO/pulls/$number" --jq '[.state, .head.sha, .head.repo.full_name] | join(" ")')
+            if [ "$still" != "open $HEAD_SHA $REPO" ]; then
+              echo "Pull request $number is closed, comes from elsewhere or has a newer commit; nothing goes to staging."
+              number=''
+            fi
+          else
+            echo "No open pull request of this repository has this commit as its newest; nothing goes to staging."
+            number=''
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - name: Put the pull request on staging
+        id: staging
+        if: ${{ steps.pr.outputs.number != '' }}
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/staging_key
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/staging_key
+          ssh-keyscan "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          status=0
+          answer=$(ssh -i ~/.ssh/staging_key "deploy@$STAGING_HOST" "deploy pr-$NUMBER-$HEAD_SHA $NUMBER") || status=$?
+          result=$(printf '%s\n' "$answer" | sed -n 's/^result=//p' | head -n 1)
+          previous=$(printf '%s\n' "$answer" | sed -n 's/^previous-pr=//p' | head -n 1)
+          case "$result" in
+            deployed|rolled-back|pull-failed|failed|busy) ;;
+            *) result=unknown ;;
+          esac
+          if ! printf '%s' "$previous" | grep -Eqx '[1-9][0-9]{0,6}'; then
+            previous=none
+          fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "Staging answered: $result"
+          exit "$status"
+      - name: Tell the pull request
+        if: ${{ always() && steps.pr.outputs.number != '' }}
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          RESULT: ${{ steps.staging.outputs.result }}
+          PREVIOUS: ${{ steps.staging.outputs.previous }}
+        run: |
+          short=$(printf '%s' "$HEAD_SHA" | cut -c1-7)
+          where=${STAGING_URL:-the staging address}
+          case "$RESULT" in
+            deployed)
+              body="**Staging:** commit \`$short\` is running on $where. Try it there before merging."
+              ;;
+            rolled-back)
+              body="**Staging:** commit \`$short\` did not start. Staging went back to the version it ran before; production was not touched. On the server, \`/opt/tracker-staging/last-failed-deploy.log\` holds the backend log of the failed start."
+              ;;
+            pull-failed)
+              body="**Staging:** the images for commit \`$short\` could not be fetched, so nothing was changed: staging still runs what it ran before. Production was not touched. Re-running the checks builds the images again."
+              ;;
+            busy)
+              body="**Staging:** commit \`$short\` was not put on staging because another deploy or a reset was running there. Push again or re-run the checks."
+              ;;
+            failed)
+              body="**Staging:** commit \`$short\` did not start and staging is not running now. Production was not touched. On the server, \`/opt/tracker-staging/last-deploy.log\` says what happened."
+              ;;
+            *)
+              body="**Staging:** commit \`$short\` was not put on staging: the server could not be reached or gave no answer. Production was not touched."
+              ;;
+          esac
+          gh pr comment "$NUMBER" --repo "$REPO" --body "$body"
+          if [ "$RESULT" = "deployed" ] && [ "${PREVIOUS:-none}" != "none" ] && [ "$PREVIOUS" != "$NUMBER" ]; then
+            gh pr comment "$PREVIOUS" --repo "$REPO" --body "**Staging:** pull request #$NUMBER has taken the staging slot. This pull request is no longer what runs there; push again to take it back." || true
+          fi
+
+  reset:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm == 'reset' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    concurrency:
+      group: staging-server
+      cancel-in-progress: false
+    steps:
+      - name: Delete the staging database and files
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/staging_key
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/staging_key
+          ssh-keyscan "$STAGING_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/staging_key "deploy@$STAGING_HOST" reset

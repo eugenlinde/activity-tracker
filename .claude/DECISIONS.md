@@ -1245,3 +1245,19 @@ made yet; the first F4 step is to prove one.
 Offered: a restore drill with real data first, then F3. The developer
 chose to start F3. The drill stays on the backlog; until it is done,
 the backup of real data has been written but never read back.
+
+## 2026-11-19 — F3 staging: data and trigger (developer's decisions), spec in issue #22
+
+- Data: staging has its own database, empty at first, kept between
+  deploys, wiped by a manual action. Production data never goes there.
+  (Builder's suggestion, accepted. The alternative offered — a fresh copy
+  of production at every deploy — tests migrations best but runs
+  unreviewed code on real data.)
+- Trigger: every PR from this repository goes to staging automatically
+  after green checks; the latest wins. **The builder suggested a
+  `staging` label instead**, so that it is always explicit which PR
+  holds the one slot and docs-only PRs do not deploy; the developer
+  chose automatic, one step less from the phone. What follows from it:
+  the PR that loses the slot is told in a comment, and two PRs that
+  change the database differently can break each other on staging
+  (answer: the manual reset).

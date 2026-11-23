@@ -47,7 +47,7 @@ export function LoginPage() {
           <span className="logo-dot" />
           tracker
         </div>
-        <h1>{mode === 'login' ? 'Log in' : 'Sign up'}</h1>
+        <h1>{mode === 'login' ? 'Log in (staging drill A)' : 'Sign up'}</h1>
         {mode === 'signup' && (
           <div className="form-grid">
             <Field label="First name">

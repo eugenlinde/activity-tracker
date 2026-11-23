@@ -64,16 +64,21 @@ piece in their own words before the phase is checked off.
           counts matched — on a database with no user data yet; repeat
           once real data exists)
     - [ ] Explain-back: path of a request, where data lives, how to restore
-- [ ] **F3 — Staging** (spec: issue #22, approved 2026-11-19; plan:
+- [ ] **F3 — Staging** (built and drilled 2026-11-23; explain-back
+      deferred like the others — spec: issue #22, approved 2026-11-19; plan:
       `docs/superpowers/plans/2026-11-19-f3-staging.md`)
     - [x] Scripts, compose override, proxy configuration, workflows —
           written, 79 script tests, rehearsed on the laptop with both
           copies side by side (2026-11-19)
-    - [ ] On the server: DNS record (developer), `provision-staging.sh`,
-          GitHub environment `staging` with its key, `STAGING_ENABLED`
-    - [ ] Drills from the spec on the real server: a PR appears on
-          staging, a second PR takes the slot, a PR that cannot start,
-          the restricted key refuses other commands, reset
+    - [x] On the server: DNS record (developer), `provision-staging.sh`,
+          GitHub environment `staging` limited to `main` with its key,
+          `STAGING_ENABLED` on (2026-11-23)
+    - [x] Drills on the real server (2026-11-23): a PR appears on
+          staging, a second PR takes the slot, a PR that cannot start
+          goes back without touching production, the restricted key
+          refuses everything else, reset. Results in
+          `docs/ARCHITECTURE.md`, "Staging".
+    - [ ] The developer's own look at staging (sign up there, try a PR)
     - [ ] Explain-back: how staging differs from prod and who can reach it
 - [ ] **F4 — Factory loop**
     - [ ] Agent runtime in Actions (plan A or B), switchable by config
@@ -101,6 +106,8 @@ usable (decided 2026-11-13). `docs/ARCHITECTURE.md` is still kept current
 with every change, so the explanations exist to read later. To be paid
 back before F6 (PoC acceptance) at the latest.
 
+- F3: how staging differs from production, what the two share, who can
+  reach it, how to wipe it and how to stop it.
 - F1: what happens when a PR is opened; what a red check means and where
   to look; why the test suite needs Docker on the CI machine; what
   protects `main` and what does not.

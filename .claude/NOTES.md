@@ -522,3 +522,24 @@ maps onto this project. Nothing decided yet. Proposals given:
   (a few seconds) → GitHub environment `staging` (main only) with
   `STAGING_HOST`, `STAGING_SSH_KEY`; variables `STAGING_URL`,
   `STAGING_ENABLED` → drills.
+
+## 2026-11-23 — F3 staging on the server, drilled
+
+- The developer merged PR #23 on 2026-11-19 and said go for the server
+  on 2026-11-23. Order kept: GitHub environment limited to `main` →
+  key and address into it only after that → provisioning as root →
+  `caddy validate` inside the running proxy with the new address →
+  `docker compose up -d web` → certificate → key tests → key's private
+  half uploaded and the local copy deleted.
+- When testing a restricted key, switch the agent off
+  (`-o IdentitiesOnly=yes -o IdentityAgent=none`): otherwise the
+  owner's unrestricted key logs in first and every test "passes".
+- Four drills with draft PRs #24, #25, #26 (closed, branches deleted).
+  All as designed; numbers in `docs/ARCHITECTURE.md`. The Staging
+  workflow worked on its first real run.
+- Left running on staging: the image of drill PR #25 (login page says
+  "staging drill B") until the next PR arrives. Staging database is
+  empty after the reset drill; nobody has an account there yet.
+- Open: the developer's own look at staging; the 2026-11-19 deploy
+  recreated the database container, cause not found; restore drill with
+  real data; the scheduled backup check runs hours late.

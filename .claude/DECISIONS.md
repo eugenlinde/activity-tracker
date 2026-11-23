@@ -1318,3 +1318,13 @@ important findings. Changed:
 - Not changed: images are still deployed by tag, not by content hash;
   the host key is fetched anew on every run. Both as in production,
   both listed as known gaps.
+
+## 2026-11-23 — F3 staging on the server: two small calls
+
+- The pull request comment does not carry the staging address. The
+  builder offered the choice; the developer went ahead without asking
+  for the link, so it stays out (the repository is public). One
+  repository variable, `STAGING_URL`, turns it on.
+- The staging list of invited addresses is a copy of production's at the
+  time of provisioning (the developer's own address). It is not kept in
+  step afterwards; it is a line in `/opt/tracker-staging/.env`.

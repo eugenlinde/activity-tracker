@@ -1164,14 +1164,14 @@ time, 30 minutes for the agent, a ceiling on the cost estimate.
 
 **Checked.**
 
-- 125 script tests with a stand-in for GitHub (who may start a build,
+- 126 script tests with a stand-in for GitHub (who may start a build,
   each refusal, a fork's pull request with the same branch name, the
   allowed places including moved files, `..` and steering files, the
   token's text also in a commit that a later one took out, a broken
   token, a branch left over, a pull request that cannot be opened or
   labelled, every report, a report whose first call fails, and what a
-  report must not print). Twenty rules were switched off one at a time
-  and a test failed each time.
+  report must not print). Twenty-five rules were switched off one at a
+  time and a test failed each time.
 - In this repository, with the hand-started probe workflow (removed
   again in the same change that added "Implement"), five runs on
   throw-away branches:
@@ -1198,6 +1198,9 @@ time, 30 minutes for the agent, a ceiling on the cost estimate.
   every build; the token was looked for only in the net change; steering
   files inside allowed places; the agent's job held a GitHub token with
   write rights (now read-only).
+- The review agent then read the pull request itself and found two
+  branches of the report script that no test would miss; both have
+  tests now.
 - **Not checked yet — only possible after the merge:** the workflow
   itself, started by a label; a real issue from label to pull request;
   the refusals in the real repository; the review agent on a factory

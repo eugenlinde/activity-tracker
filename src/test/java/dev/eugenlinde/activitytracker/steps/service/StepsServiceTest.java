@@ -110,6 +110,20 @@ class StepsServiceTest {
     }
 
     @Test
+    void findEntry_whenEntryExists_returnsIt() {
+        when(stepEntryRepository.findById(31L)).thenReturn(Optional.of(entry(TODAY, 9870)));
+
+        assertEquals(new StepsResponse(TODAY, 9870), stepsService.findEntry(31L));
+    }
+
+    @Test
+    void findEntry_whenNoSuchEntry_throwsNotFound() {
+        when(stepEntryRepository.findById(31L)).thenReturn(Optional.empty());
+
+        assertThrows(StepEntryNotFoundException.class, () -> stepsService.findEntry(31L));
+    }
+
+    @Test
     void delete_whenEntryExists_deletesIt() {
         StepEntry existing = entry(TODAY, 4000);
         when(stepEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.of(existing));

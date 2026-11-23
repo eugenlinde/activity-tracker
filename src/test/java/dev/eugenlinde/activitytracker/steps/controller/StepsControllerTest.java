@@ -116,6 +116,31 @@ class StepsControllerTest {
     }
 
     @Test
+    void getEntry_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/steps/entries/31")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getEntry_whenEntryExists_returnsIt() throws Exception {
+        when(stepsService.findEntry(31L)).thenReturn(new StepsResponse(DATE, 9870));
+
+        mockMvc.perform(get("/api/steps/entries/31").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value("2026-11-13"))
+                .andExpect(jsonPath("$.steps").value(9870));
+    }
+
+    @Test
+    void getEntry_whenNoSuchEntry_returns404() throws Exception {
+        when(stepsService.findEntry(31L)).thenThrow(new StepEntryNotFoundException());
+
+        mockMvc.perform(get("/api/steps/entries/31").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void putSteps_withValidBody_returnsTheSavedEntry() throws Exception {
         when(stepsService.upsert(userId, DATE, 9870)).thenReturn(new StepsResponse(DATE, 9870));
 

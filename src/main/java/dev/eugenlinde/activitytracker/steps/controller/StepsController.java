@@ -38,6 +38,11 @@ public class StepsController {
         return ResponseEntity.ok(stepsService.findAll(userId(jwt), from, to));
     }
 
+    @GetMapping("/entries/{id}")
+    public ResponseEntity<StepsResponse> getEntry(@PathVariable Long id) {
+        return ResponseEntity.ok(stepsService.findEntry(id));
+    }
+
     @PutMapping("/{date}")
     public ResponseEntity<StepsResponse> putSteps(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

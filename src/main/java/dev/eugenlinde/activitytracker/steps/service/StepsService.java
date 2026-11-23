@@ -35,11 +35,24 @@ public class StepsService {
     public List<StepsResponse> findAll(Long userId, LocalDate from, LocalDate to) {
         LocalDate rangeEnd = to != null ? to : entryDatePolicy.latestAllowedDate();
         LocalDate rangeStart = from != null ? from : entryDatePolicy.today().minusWeeks(DEFAULT_RANGE_WEEKS);
+        if (rangeStart.isAfter(rangeEnd)) {
+            LocalDate swapped = rangeStart;
+            rangeStart = rangeEnd;
+            rangeEnd = swapped;
+        }
         return stepEntryRepository
                 .findAllByUserIdAndEntryDateBetweenOrderByEntryDateAsc(userId, rangeStart, rangeEnd)
                 .stream()
                 .map(StepsResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StepsResponse findEntry(Long id) {
+        return stepEntryRepository
+                .findById(id)
+                .map(StepsResponse::from)
+                .orElseThrow(StepEntryNotFoundException::new);
     }
 
     public StepsResponse upsert(Long userId, LocalDate date, int steps) {

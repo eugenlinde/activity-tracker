@@ -566,3 +566,27 @@ maps onto this project. Nothing decided yet. Proposals given:
   drills (manual run, planted defects, clean PR, docs-only PR, a PR
   that tries to instruct the reviewer, token not readable from a PR
   branch).
+
+## 2026-11-23 (evening) — review agent switched on and drilled
+
+- The developer merged PR #29 and put the Claude token into the
+  `factory` environment from the clipboard. The builder switched
+  `FACTORY_ENABLED` on right after that step, as announced, without
+  asking for a separate yes; said so to the developer. The same switch
+  allows manual runs of the gate workflow; nothing starts it by itself.
+- First run failed: the token had a line break from the terminal's
+  line wrap. Found from the status words alone (`api_error`, no HTTP
+  status, 0 seconds) by trying made-up tokens on the laptop. Lesson: a
+  long secret copied from a terminal goes through
+  `tr -d '[:space:]'` on its way into GitHub.
+- PR #31: the reviewer is not started with such a token and an API
+  error is named in the run's detail line.
+- Drills, all passed: manual run and clean change (#30), planted
+  defects (#32), steering attempt (#33), token probe (#34), this
+  documentation-only PR. Six reviews: 8–15 turns, 12–60 s, estimated
+  0.18–0.57 USD each.
+- Three pull requests turning green together: the middle one (#32) got
+  no staging run, as ARCHITECTURE says it would.
+- Drill PRs #30, #32, #33, #34 are closed, not merged.
+- Open: slices 2–4 of F4; restore drill with real data; the scheduled
+  backup check runs hours late; mockito version pin.

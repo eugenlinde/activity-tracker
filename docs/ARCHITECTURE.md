@@ -590,7 +590,7 @@ code, never the upstream message and never the file's content).
   1 USD a day. With an expensive model set in `OPENROUTER_MODEL` it would
   not. The spending limit on the key is the guard.
 
-## Staging (built 2026-11-19; not on the server yet)
+## Staging (built 2026-11-19; on the server and switched on since 2026-11-23)
 
 Spec: GitHub issue #22. Plan: `docs/superpowers/plans/2026-11-19-f3-staging.md`.
 
@@ -745,11 +745,42 @@ could show the previous version after a deploy (seen on 2026-11-18).
   next restart. Smaller ones fixed too: a request that looped inside
   the staging proxy, messages naming the wrong log file, a lock on the
   server.
-- **Not checked yet — only possible on the server and after the merge:**
-  the Staging workflow itself (GitHub runs it only once it is on
-  `main`); a certificate for the staging address; the restricted key
-  refusing other commands over real SSH; `staging.sh` with a real
-  registry pull; a production deploy with the new compose file.
+- **On the real server, 2026-11-23.** Set up with `provision-staging.sh`;
+  production's proxy restarted to learn the staging address (one failed
+  health sample out of sixty taken twice a second; backend and database
+  kept running); a certificate was issued for the staging address.
+  - *The restricted key over real SSH* (with the owner's own key switched
+    off for the test): `id`, `docker ps`, reading production's `.env`, a
+    shell without a command, `deploy …; id`, a tag whose number does not
+    match, and `scp` of production's `.env` were all refused; choosing
+    the directories through the environment had no effect; `reset` and a
+    deploy of an image that does not exist were accepted and changed
+    nothing. Production's containers and version were the same before
+    and after.
+  - *Drill 1, a pull request arrives:* a draft PR with one changed word
+    went through CI, its images were built, the Staging workflow put it
+    on staging and commented on the PR. The word was on the staging
+    address and not on production. About four minutes from push to
+    comment.
+  - *Drill 2, a second pull request:* it took the slot; the first PR got
+    the one-line note.
+  - *Drill 3, a backend that cannot start:* staging answered 502 for
+    about two minutes (the wait for the health check), went back to the
+    second PR's version by itself and the PR was told. Production
+    answered 200 on every one of 110 samples taken during it. The
+    backend log of the failed start stayed on the server, readable by
+    `deploy` only; the public workflow log held only "rolled-back".
+  - *Drill 4, reset:* a marker put into the staging database was gone
+    afterwards and the staging volume had a new creation time;
+    production's volume and row counts were unchanged. Starting the
+    workflow with any word other than `reset` did nothing.
+  - With both copies running the server had 1.9 GB of its 3.8 GB
+    available; the staging backend used about 300 MB of its 768.
+- **Not checked:** that the key cannot be used for port forwarding (it
+  rests on OpenSSH's `restrict`; not demonstrated); a pull request from a
+  fork (none exists; by GitHub's rules and the workflow's own check it
+  gets neither images nor a deploy); two pull requests whose database
+  changes collide; the developer's own look at the staging page.
 
 **Known gaps.**
 
@@ -764,6 +795,19 @@ could show the previous version after a deploy (seen on 2026-11-18).
 - Docs-only pull requests are put on staging too.
 - A pull request that loses the slot is told once; nothing on the staging
   page itself says which pull request it is running.
+- When a pull request is closed or merged, staging goes on running it
+  until the next pull request arrives.
+- The comment on the pull request does not carry the staging address
+  (the repository is public). Setting the repository variable
+  `STAGING_URL` puts a link there.
+- The first production deploy with the new compose file (2026-11-19)
+  also recreated the database container, which earlier deploys had not
+  touched. The data lives in a volume and was intact; the deploy took 43
+  seconds instead of about 27. The cause was not established: the
+  database's part of the file had not changed, Docker had not been
+  updated, and the same change on a laptop (Compose 5.6.0; the server
+  has 5.7.1) did not recreate it. Expect it again when the compose file
+  changes.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

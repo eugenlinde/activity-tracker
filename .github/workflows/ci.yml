@@ -66,9 +66,10 @@ jobs:
       - uses: actions/checkout@v7
       - run: shellcheck infra/*.sh infra/test/run.sh infra/test/stubs/*
       - run: bash infra/test/run.sh
-      - run: shellcheck factory/*.sh factory/review/*.sh factory/test/run.sh factory/test/review.sh factory/test/stubs/*
+      - run: shellcheck factory/*.sh factory/review/*.sh factory/implement/*.sh factory/test/run.sh factory/test/review.sh factory/test/implement.sh factory/test/stubs/*
       - run: bash factory/test/run.sh
       - run: bash factory/test/review.sh
+      - run: bash factory/test/implement.sh
 
   images:
     needs: [backend, frontend, infra]

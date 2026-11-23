@@ -609,3 +609,27 @@ maps onto this project. Nothing decided yet. Proposals given:
   requests"; after the probe's PR is merged the builder runs the five
   probes.
 
+## 2026-11-24 (later) — probe run, implementation agent built
+
+- The developer installed Claude's GitHub App on the repository,
+  switched on "Allow GitHub Actions to create and approve pull requests"
+  and merged PR #37 (the probe).
+- Six probe runs. Results in ARCHITECTURE, "Factory: implementation
+  agent", and on issue #36. The one that mattered most: GitHub refuses a
+  workflow-file commit from Claude's app.
+- Found while probing: with a bare `Read` allow rule the agent read
+  `/etc/hostname`. With edit and write rules limited to paths and no
+  bare allow rule, "don't ask" mode refuses everything outside the
+  checkout. The real workflow allows writing only in the allowed places.
+- Checked the reviewer too, on the laptop: `--restricted` already
+  confines its reads. The "known gap" written on 2026-11-23 was a guess
+  and was wrong; corrected in ARCHITECTURE. Lesson: a gap is written
+  down after it is tried, not before.
+- The job summary of a workflow run cannot be read through `gh`; the
+  probe's summary was unreadable for the builder. The real workflow
+  prints the run's numbers and tool names into the log as well.
+- The developer wants the Claude desktop browser used, not Chrome.
+- Next, after the merge and with the developer's go-ahead: create the
+  labels (`factory/labels.sh`), set `FACTORY_AUTHORS` to
+  `app/github-actions`, pick a small real issue together, drills.
+

@@ -4,6 +4,45 @@ if [ -n "${STUB_GH_FAIL_ON:-}" ] && { [ "$1 $2" = "$STUB_GH_FAIL_ON" ] || [ "$1"
   echo "stub: $STUB_GH_FAIL_ON failed" >&2
   exit 1
 fi
+if [ -n "${STUB_GH_DIR:-}" ]; then
+  key="$1-$2"
+  if [ "$1" = api ]; then
+    method=GET
+    path=""
+    accept=""
+    previous=""
+    for argument in "$@"; do
+      case $previous in
+        -X) method=$argument ;;
+        -H) accept=$argument ;;
+      esac
+      case $argument in
+        repos/*) path=$argument ;;
+      esac
+      previous=$argument
+    done
+    case "$method $path" in
+      "GET "*/git/ref/heads/main) key=api-ref-main ;;
+      "GET "*/git/ref/heads/*) key=api-ref-branch ;;
+      "DELETE "*/git/refs/heads/*) key=api-delete-ref ;;
+      "GET "*/git/commits/*) key=api-commit ;;
+      "POST "*/git/commits) key=api-create-commit ;;
+      "POST "*/git/refs) key=api-create-ref ;;
+      "GET "*/compare/*)
+        key=api-compare
+        case $accept in *diff*) key=api-compare-diff ;; esac
+        ;;
+      *) key=api-other ;;
+    esac
+  fi
+  if [ -f "$STUB_GH_DIR/$key" ]; then
+    cat "$STUB_GH_DIR/$key"
+  fi
+  if [ -f "$STUB_GH_DIR/$key.exit" ]; then
+    exit "$(cat "$STUB_GH_DIR/$key.exit")"
+  fi
+  exit 0
+fi
 case "$1 $2" in
   "pr view") printf '%s\n' "${STUB_PR_JSON:-}" ;;
   "issue view") printf '%s\n' "${STUB_ISSUE_JSON:-}" ;;

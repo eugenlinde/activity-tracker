@@ -1456,3 +1456,25 @@ reaches the log that way.
   source before anything is built on them. If the app can change
   workflow files, the builder stops and asks.
 
+## 2026-11-24 — Implementation agent: limits at the tool, check after the commit (builder's calls)
+
+- The agent's edit and write rules name the allowed places only
+  (`src/`, `frontend/src/`, `http/`, `docs/`, `build.gradle`); nothing
+  has a bare allow rule; `.git/` is denied outright. In "don't ask"
+  mode that refuses everything else, on the machine and in the
+  checkout. Probed in the real repository before building.
+- The script that checks the branch afterwards stays, and reads the
+  branch back from GitHub instead of trusting the checkout the agent
+  worked in. The scripts are copied out of the checkout before the
+  agent runs and are run from there, so that nothing the agent wrote is
+  executed by a later step.
+- The frontend's package files are not among the allowed places: the
+  agent cannot run the command that keeps the lock file in step, and CI
+  would fail on the mismatch. A change that needs a new frontend
+  dependency is not for the factory yet.
+- The spec is the issue's title and text; comments are not read, and
+  only issues written by the owner are built. `FACTORY_AUTHORS` (who is
+  reviewed) deliberately does not widen who is built.
+- No separate plan document for this slice: the spec issue and the
+  script tests carry it.
+

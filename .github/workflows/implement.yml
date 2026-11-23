@@ -1,0 +1,221 @@
+name: Implement
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Number of the issue to build
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  implement:
+    if: >-
+      ${{
+        vars.FACTORY_ENABLED == 'true'
+        && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'approved')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: factory
+    concurrency:
+      group: factory-issue-${{ github.event_name == 'workflow_dispatch' && inputs.issue || github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      REPO: ${{ github.repository }}
+      MODEL: ${{ vars.FACTORY_MODEL_IMPLEMENT || 'claude-sonnet-5-5' }}
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Put the scripts where the agent cannot write
+        run: cp -R factory "$RUNNER_TEMP/factory"
+
+      - name: Which issue, and may it be built
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ASKED_FOR: ${{ inputs.issue }}
+          LABELLED: ${{ github.event.issue.number }}
+          LABELLED_BY: ${{ github.event.sender.login }}
+          STARTED_BY: ${{ github.actor }}
+        run: |
+          if [[ ! $MODEL =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
+            echo "The model's name is not a plain name" >&2
+            exit 1
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            number=$ASKED_FOR
+            sender=$STARTED_BY
+          else
+            number=$LABELLED
+            sender=$LABELLED_BY
+          fi
+          if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "Not an issue number" >&2
+            exit 1
+          fi
+          cd "$RUNNER_TEMP"
+          answer=$(factory/implement/check-issue.sh --repo "$REPO" --issue "$number" --sender "$sender" --out "$RUNNER_TEMP/implement")
+          build=$(printf '%s\n' "$answer" | sed -n 's/^build=//p' | head -n 1)
+          reason=$(printf '%s\n' "$answer" | sed -n 's/^reason=//p' | head -n 1)
+          open=$(printf '%s\n' "$answer" | sed -n 's/^pr=//p' | head -n 1)
+          case "$reason" in
+            ''|not-owner-label|not-owner-issue|closed|no-label|empty-spec|pr-open|failed) ;;
+            *) reason=failed ;;
+          esac
+          if [ "$build" != "yes" ]; then
+            build=no
+            echo "Not built: ${reason:-failed}"
+            if [ "$reason" = "pr-open" ] && [[ $open =~ ^[1-9][0-9]{0,6}$ ]]; then
+              factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason pr-open --pr "$open"
+            else
+              factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason "${reason:-failed}"
+            fi
+          fi
+          {
+            echo "number=$number"
+            echo "build=$build"
+            echo "branch=factory/issue-$number"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$build" != "yes" ] && [ "${reason:-failed}" = "failed" ]; then
+            exit 1
+          fi
+
+      - name: Open the pull request, with an empty first commit
+        id: open
+        if: ${{ steps.issue.outputs.build == 'yes' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          cd "$RUNNER_TEMP"
+          if ! answer=$(factory/implement/open-pr.sh --repo "$REPO" --issue "$NUMBER" --title-file "$RUNNER_TEMP/implement/title.txt"); then
+            factory/implement/report.sh refuse --repo "$REPO" --issue "$NUMBER" --reason failed
+            exit 1
+          fi
+          pr=$(printf '%s\n' "$answer" | sed -n 's/^pr=//p' | head -n 1)
+          if [[ ! $pr =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "No pull request number" >&2
+            exit 1
+          fi
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          delimiter="prompt-$(openssl rand -hex 16)"
+          {
+            echo "prompt<<$delimiter"
+            cat "$RUNNER_TEMP/implement/prompt.md"
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: The branch, for the agent to work in
+        if: ${{ steps.issue.outputs.build == 'yes' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.issue.outputs.branch }}
+          persist-credentials: false
+
+      - name: The agent (claude-code-action v1 at b5e3765)
+        id: agent
+        if: ${{ steps.issue.outputs.build == 'yes' }}
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: anthropics/claude-code-action@b5e37652b7d48df841bfddfd6520610e19bf3136
+        env:
+          CLAUDE_BRANCH: ${{ steps.issue.outputs.branch }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.open.outputs.prompt }}
+          use_commit_signing: true
+          claude_args: >-
+            --model ${{ env.MODEL }}
+            --tools "Read,Grep,Glob,Edit,Write"
+            --allowedTools "Edit(./src/**),Write(./src/**),Edit(./frontend/src/**),Write(./frontend/src/**),Edit(./http/**),Write(./http/**),Edit(./docs/**),Write(./docs/**),Edit(./build.gradle),Write(./build.gradle),mcp__github_file_ops__commit_files,mcp__github_file_ops__delete_files"
+            --disallowedTools "Read(./.git/**),Edit(./.git/**),Write(./.git/**)"
+            --permission-mode dontAsk
+            --max-budget-usd 10
+
+      - name: Check what landed on the branch, and report
+        if: ${{ !cancelled() && steps.issue.outputs.build == 'yes' && steps.open.outputs.pr != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          NUMBER: ${{ steps.issue.outputs.number }}
+          BRANCH: ${{ steps.issue.outputs.branch }}
+          PR: ${{ steps.open.outputs.pr }}
+          AGENT_OUTCOME: ${{ steps.agent.outcome }}
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
+        run: |
+          cd "$RUNNER_TEMP"
+          report=factory/implement/report.sh
+          agent=failure
+          if [ "$AGENT_OUTCOME" = "success" ]; then
+            agent=success
+          fi
+          numbers=$(factory/implement/run-numbers.sh "${EXECUTION_FILE:-none}")
+          printf '%s\n' "$numbers"
+          turns=$(printf '%s\n' "$numbers" | sed -n 's/^turns=//p')
+          seconds=$(printf '%s\n' "$numbers" | sed -n 's/^seconds=//p')
+          cost=$(printf '%s\n' "$numbers" | sed -n 's/^cost=//p')
+          denials=$(printf '%s\n' "$numbers" | sed -n 's/^denials=//p')
+          tools=$(printf '%s\n' "$numbers" | sed -n 's/^tools=//p')
+          answer=$(factory/implement/check-branch.sh --repo "$REPO" --branch "$BRANCH" --out "$RUNNER_TEMP/implement")
+          result=$(printf '%s\n' "$answer" | sed -n 's/^result=//p' | head -n 1)
+          files=$(printf '%s\n' "$answer" | sed -n 's/^files=//p' | head -n 1)
+          echo "agent=$agent result=${result:-failed} files=${files:-0}"
+          {
+            echo "### Issue $NUMBER → pull request $PR"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Agent's run | $agent |"
+            echo "| What landed | ${result:-failed}, ${files:-0} files |"
+            echo "| Model | $MODEL |"
+            echo "| Turns | $turns |"
+            echo "| Seconds | $seconds |"
+            echo "| Estimated cost (not billed on a subscription) | $cost |"
+            echo "| Tool calls refused | $denials |"
+            echo "| Tools called | $tools |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$result" in
+            ok)
+              "$report" finished --repo "$REPO" --issue "$NUMBER" --pr "$PR" --model "$MODEL" --agent "$agent" \
+                --turns "$turns" --cost "$cost" --seconds "$seconds" --denials "$denials"
+              if [ "$agent" != "success" ]; then
+                exit 1
+              fi
+              ;;
+            empty)
+              "$report" empty --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" --agent "$agent"
+              exit 1
+              ;;
+            outside)
+              "$report" outside --repo "$REPO" --issue "$NUMBER" --pr "$PR" --files "$RUNNER_TEMP/implement/outside.txt"
+              exit 1
+              ;;
+            too-many)
+              "$report" too-many --repo "$REPO" --issue "$NUMBER" --pr "$PR"
+              exit 1
+              ;;
+            token)
+              "$report" token --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH"
+              exit 1
+              ;;
+            *)
+              "$report" unchecked --repo "$REPO" --issue "$NUMBER" --pr "$PR"
+              exit 1
+              ;;
+          esac

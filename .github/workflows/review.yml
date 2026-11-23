@@ -1,0 +1,183 @@
+name: Review
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Number of the pull request to review
+        required: true
+
+permissions: {}
+
+jobs:
+  review:
+    if: >-
+      ${{
+        vars.FACTORY_ENABLED == 'true'
+        && (
+          github.event_name == 'workflow_dispatch'
+          || (
+            github.event.workflow_run.event == 'pull_request'
+            && github.event.workflow_run.conclusion == 'success'
+            && github.event.workflow_run.head_repository.full_name == github.repository
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: factory
+    concurrency:
+      group: review-${{ github.event_name == 'workflow_dispatch' && inputs.pr || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+    env:
+      REPO: ${{ github.repository }}
+      MODEL: ${{ vars.FACTORY_MODEL_REVIEW || 'claude-fable-5-2' }}
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: main
+          persist-credentials: false
+
+      - name: Which pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ASKED_FOR: ${{ inputs.pr }}
+          NAMED_BY_RUN: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            number=$ASKED_FOR
+          else
+            if ! printf '%s' "$RUN_HEAD" | grep -Eqx '[0-9a-f]{40}'; then
+              echo "Unexpected commit id" >&2
+              exit 1
+            fi
+            number=$NAMED_BY_RUN
+            if ! printf '%s' "$number" | grep -Eqx '[1-9][0-9]{0,6}'; then
+              number=$(gh api "repos/$REPO/commits/$RUN_HEAD/pulls" \
+                --jq "[.[] | select(.state == \"open\" and .head.sha == \"$RUN_HEAD\" and .head.repo.full_name == \"$REPO\")][0].number // empty")
+            fi
+          fi
+          if ! printf '%s' "$number" | grep -Eqx '[1-9][0-9]{0,6}'; then
+            echo "No pull request to review."
+            number=''
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Collect what the reviewer may see
+        id: collect
+        if: ${{ steps.pr.outputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+          EVENT: ${{ github.event_name }}
+          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+          FACTORY_AUTHORS: ${{ vars.FACTORY_AUTHORS }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/review/inputs"
+          answer=$(main/factory/review/collect.sh --repo "$REPO" --pr "$NUMBER" --out "$RUNNER_TEMP/review/inputs")
+          review=$(printf '%s\n' "$answer" | sed -n 's/^review=//p' | head -n 1)
+          reason=$(printf '%s\n' "$answer" | sed -n 's/^reason=//p' | head -n 1)
+          head=$(printf '%s\n' "$answer" | sed -n 's/^head=//p' | head -n 1)
+          if ! printf '%s' "$head" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "No commit to review" >&2
+            exit 1
+          fi
+          if [ "$review" = "yes" ] && [ "$EVENT" = "workflow_run" ] && [ "$head" != "$RUN_HEAD" ]; then
+            review=no
+            reason=moved-on
+          fi
+          case "$reason" in
+            ''|closed|fork|not-owner|docs-only|too-large|moved-on) ;;
+            *) reason=unknown ;;
+          esac
+          if [ "$review" != "yes" ]; then
+            review=no
+            echo "Not reviewed: ${reason:-unknown}"
+          fi
+          cp main/factory/review/rubric.md "$RUNNER_TEMP/review/inputs/rubric.md"
+          cp main/CLAUDE.md "$RUNNER_TEMP/review/inputs/project-rules.md"
+          {
+            echo "review=$review"
+            echo "reason=$reason"
+            echo "head=$head"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: The pull request's code, to read only
+        if: ${{ steps.collect.outputs.review == 'yes' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.collect.outputs.head }}
+          path: code
+          persist-credentials: false
+
+      - name: Install the reviewer
+        if: ${{ steps.collect.outputs.review == 'yes' }}
+        run: npm install --global --no-fund --no-audit @anthropic-ai/claude-code@2.1.325
+
+      - name: Review
+        id: review
+        if: ${{ steps.collect.outputs.review == 'yes' }}
+        timeout-minutes: 15
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "The factory environment has no Claude token" >&2
+            exit 1
+          fi
+          answer=$(main/factory/review/run-review.sh --work "$RUNNER_TEMP/review" --code "$GITHUB_WORKSPACE/code" --model "$MODEL")
+          printf '%s\n' "$answer" | grep -E '^(outcome|turns|cost|seconds|denials)=[A-Za-z0-9.-]*$' >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$answer" | grep -E '^(outcome|turns|cost|seconds|denials)=[A-Za-z0-9.-]*$'
+
+      - name: Write the result on the pull request
+        if: ${{ always() && steps.collect.outputs.head != '' && (steps.collect.outputs.review == 'yes' || steps.collect.outputs.reason == 'too-large') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD: ${{ steps.collect.outputs.head }}
+          REASON: ${{ steps.collect.outputs.reason }}
+          OUTCOME: ${{ steps.review.outputs.outcome }}
+          TURNS: ${{ steps.review.outputs.turns }}
+          COST: ${{ steps.review.outputs.cost }}
+          SECONDS_USED: ${{ steps.review.outputs.seconds }}
+          DENIALS: ${{ steps.review.outputs.denials }}
+        run: |
+          comment=main/factory/review/comment.sh
+          if [ "$REASON" = "too-large" ]; then
+            "$comment" --head "$HEAD" --model "$MODEL" --not-run too-large > "$RUNNER_TEMP/comment.md"
+          elif [ "$OUTCOME" = "findings" ] && [ -f "$RUNNER_TEMP/review/findings.json" ]; then
+            "$comment" --head "$HEAD" --model "$MODEL" --findings "$RUNNER_TEMP/review/findings.json" \
+              --turns "$TURNS" --cost "$COST" --seconds "$SECONDS_USED" > "$RUNNER_TEMP/comment.md"
+          elif [ "$OUTCOME" = "unreadable" ]; then
+            "$comment" --head "$HEAD" --model "$MODEL" --unreadable > "$RUNNER_TEMP/comment.md"
+          else
+            "$comment" --head "$HEAD" --model "$MODEL" --not-run failed > "$RUNNER_TEMP/comment.md"
+          fi
+          gh pr comment "$NUMBER" --repo "$REPO" --body-file "$RUNNER_TEMP/comment.md"
+          {
+            echo "### Review of pull request $NUMBER"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Outcome | ${OUTCOME:-did not run} |"
+            echo "| Model | $MODEL |"
+            echo "| Turns | ${TURNS:-–} |"
+            echo "| Seconds | ${SECONDS_USED:-–} |"
+            echo "| Estimated cost (not billed on a subscription) | ${COST:-–} |"
+            echo "| Tool calls refused | ${DENIALS:-–} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$REASON" != "too-large" ] && [ "$OUTCOME" != "findings" ]; then
+            exit 1
+          fi

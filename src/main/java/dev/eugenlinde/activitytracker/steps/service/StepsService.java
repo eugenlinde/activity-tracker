@@ -35,6 +35,11 @@ public class StepsService {
     public List<StepsResponse> findAll(Long userId, LocalDate from, LocalDate to) {
         LocalDate rangeEnd = to != null ? to : entryDatePolicy.latestAllowedDate();
         LocalDate rangeStart = from != null ? from : entryDatePolicy.today().minusWeeks(DEFAULT_RANGE_WEEKS);
+        if (rangeStart.isAfter(rangeEnd)) {
+            LocalDate swapped = rangeStart;
+            rangeStart = rangeEnd;
+            rangeEnd = swapped;
+        }
         return stepEntryRepository
                 .findAllByUserIdAndEntryDateBetweenOrderByEntryDateAsc(userId, rangeStart, rangeEnd)
                 .stream()

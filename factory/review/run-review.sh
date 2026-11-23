@@ -49,7 +49,14 @@ for name in ${REVIEW_KEEP_ENV:-}; do
   [[ $name =~ ^[A-Z_][A-Z0-9_]*$ ]] && keep+=("$name=${!name:-}")
 done
 
-for attempt in 1 2; do
+attempts="1 2"
+if [[ ${CLAUDE_CODE_OAUTH_TOKEN:-} =~ [[:space:][:cntrl:]] ]]; then
+  attempts=""
+  outcome=failed
+  detail="token-has-a-line-break-or-a-space"
+fi
+
+for attempt in $attempts; do
   result="$out/result-$attempt.json"
   status=0
   (
@@ -76,6 +83,11 @@ for attempt in 1 2; do
     outcome=failed
     detail=$(jq -r '"error-" + ((.subtype // "none") | tostring) + "-" + ((.terminal_reason // "none") | tostring) + "-" + ((.api_error_status // "none") | tostring)' "$result" \
       | tr -cd 'A-Za-z0-9_.-' | cut -c1-80)
+    if [ "$(jq -r '.terminal_reason // ""' "$result")" = "api_error" ] \
+      && ! { [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && grep -qF -- "$CLAUDE_CODE_OAUTH_TOKEN" "$result"; }; then
+      said=$(jq -r '.result // "" | tostring' "$result" | tr -s '[:space:]' '-' | tr -cd 'A-Za-z0-9_.-' | tr -s '-' | cut -c1-100 | sed 's/^-//; s/-$//')
+      [ -n "$said" ] && detail="$detail-$said"
+    fi
     break
   fi
 

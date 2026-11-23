@@ -508,8 +508,50 @@ jq -cn '{type: "result", subtype: "success", is_error: true, terminal_reason: "a
 export STUB_CLAUDE_OUTPUTS="$ERR" STUB_CLAUDE_EXIT=1
 review
 expect_output "outcome=failed"
-expect_output "detail=error-success-api_error-none"
+expect_output "detail=error-success-api_error-none-Not-logged-in"
 end
+
+begin "an error from the API is failed with what the API said"
+ERR="$CASE_DIR/err-api.json"
+jq -cn '{type: "result", subtype: "success", is_error: true, terminal_reason: "api_error", api_error_status: 401, result: "Failed to authenticate. API Error: 401 OAuth access token is invalid; $(id) <b>", num_turns: 1, duration_ms: 100, total_cost_usd: 0, permission_denials: []}' > "$ERR"
+export STUB_CLAUDE_OUTPUTS="$ERR"
+review
+expect_output "outcome=failed"
+expect_output "detail=error-success-api_error-401-Failed-to-authenticate.-API-Error-401-OAuth-access-token-is-invalid-id-b"
+end
+
+begin "a long error from the API is cut short"
+ERR="$CASE_DIR/err-long.json"
+jq -cn '{type: "result", subtype: "success", is_error: true, terminal_reason: "api_error", result: ("word " * 200), num_turns: 1, duration_ms: 100, total_cost_usd: 0, permission_denials: []}' > "$ERR"
+export STUB_CLAUDE_OUTPUTS="$ERR"
+review
+expect_output "outcome=failed"
+if [ "$(printf '%s\n' "$OUTPUT" | sed -n 's/^detail=//p' | wc -c)" -gt 200 ]; then fail "the detail is longer than 200 characters"; fi
+end
+
+begin "an error from the API that repeats the token is not repeated"
+ERR="$CASE_DIR/err-token.json"
+jq -cn '{type: "result", subtype: "success", is_error: true, terminal_reason: "api_error", result: "bad token claude-secret-value", num_turns: 1, duration_ms: 100, total_cost_usd: 0, permission_denials: []}' > "$ERR"
+export STUB_CLAUDE_OUTPUTS="$ERR" CLAUDE_CODE_OAUTH_TOKEN="claude-secret-value"
+review
+expect_output "outcome=failed"
+expect_output "detail=error-success-api_error-none"
+expect_not_in_output "claude-secret-value"
+end
+
+for BROKEN in $'claude-secret\n-value' "claude-secret -value" $'claude-secret-value\r' $'claude-secret\t-value'; do
+  begin "a token with a line break or a space in it starts nothing ($(printf '%s' "$BROKEN" | tr -d 'a-z-' | od -An -c | tr -d ' '))"
+  STUB_CLAUDE_OUTPUTS="$(result "$GOOD")"
+  export STUB_CLAUDE_OUTPUTS CLAUDE_CODE_OAUTH_TOKEN="$BROKEN"
+  review
+  expect_status 0
+  expect_output "outcome=failed"
+  expect_output "detail=token-has-a-line-break-or-a-space"
+  expect_output "turns=0"
+  expect_not_in_output "claude-secret"
+  if [ "$(calls)" != "0" ]; then fail "the reviewer was started"; fi
+  end
+done
 
 begin "an unreadable answer followed by a failed call is failed"
 STUB_CLAUDE_OUTPUTS="$(result 'null'):$CASE_DIR/missing.json"

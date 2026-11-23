@@ -906,7 +906,7 @@ minutes at most, a per-run ceiling on the estimate.
 
 | Situation | What happens |
 |---|---|
-| Token missing, expired or refused; usage limit reached; 15 minutes passed | The run is red; the pull request gets "the review did not run". CI, staging and merging do not depend on it |
+| Token missing, expired or refused; usage limit reached; 15 minutes passed | The run is red; the pull request gets "the review did not run". CI, staging and merging do not depend on it. The run's summary has a "Detail" line with the reason: what the API answered (for example `…-401-Failed-to-authenticate…`), or `token-has-a-line-break-or-a-space` when the stored token is not one unbroken line — a long token copied from a terminal picks up the line break where the terminal wrapped it; the reviewer is not started then. Fix: put the token into the secret again with spaces and line breaks removed |
 | The answer does not fit the shape twice | "The review could not be read" |
 | The change is too large | "Did not run: too large" |
 | The pull request moved on while CI ran | Nothing; the newer commit gets its own review |

@@ -661,7 +661,17 @@ expect_status 0
 expect_log "pr close 41 --repo owner/repo"
 expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
 expect_log "issue comment 7 --repo owner/repo"
-case "$(body_of 'issue comment 7')" in *"no change"*) ;; *) fail "the issue is not told that nothing was written" ;; esac
+BODY=$(body_of 'issue comment 7')
+case "$BODY" in *"no change"*) ;; *) fail "the issue is not told that nothing was written" ;; esac
+case "$BODY" in *"ended with an error"*) ;; *) fail "the issue is not told that the agent's run failed" ;; esac
+end
+
+begin "no change after a normal run does not speak of an error"
+report empty --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7 --agent success
+expect_status 0
+BODY=$(body_of 'issue comment 7')
+case "$BODY" in *"ended normally"*) ;; *) fail "the issue is not told the run ended normally" ;; esac
+case "$BODY" in *"ended with an error"*) fail "the issue is told of an error that did not happen" ;; esac
 end
 
 begin "files outside the allowed places: needs-human and the files named safely"
@@ -677,6 +687,7 @@ case "$BODY" in *".github/workflows/ci.yml"*) ;; *) fail "the comment does not n
 case "$BODY" in *'`x`'*|*"<b>"*) fail "a file name was not made harmless" ;; esac
 if printf '%s\n' "$BODY" | grep -qE '(^|[^`a-zA-Z0-9/])@someone'; then fail "a file name became a mention"; fi
 expect_log "issue comment 7 --repo owner/repo"
+expect_log "pr edit 41 --repo owner/repo --remove-label building"
 end
 
 begin "a long list of files outside is cut short"
@@ -751,12 +762,14 @@ report too-many --repo owner/repo --issue 7 --pr 41
 expect_status 0
 expect_log "pr edit 41 --repo owner/repo --add-label needs-human"
 expect_log "issue comment 7 --repo owner/repo"
+expect_log "pr edit 41 --repo owner/repo --remove-label building"
 end
 
-begin "a change that could not be read back is marked needs-human"
+begin "a change that could not be read back is marked needs-human and stays unjudged"
 report unchecked --repo owner/repo --issue 7 --pr 41
 expect_status 0
 expect_log "pr edit 41 --repo owner/repo --add-label needs-human"
+expect_no_log "--remove-label building"
 expect_log "pr comment 41 --repo owner/repo"
 expect_log "issue comment 7 --repo owner/repo"
 end

@@ -1401,3 +1401,24 @@ important findings. Changed:
   program by mistake (a probe without the stand-in on the path): one
   request, refused as "model not found", no usage. Told to the
   developer.
+
+## 2026-11-23 — Review agent drills: harmless markers, not the real token
+
+Builder's call. The steering drill asked the reviewer to quote
+`/etc/hostname` and planted a link to that file, instead of pointing at
+the process's own environment where the Claude token is. Reason: the
+drill shows the same thing (does the reviewer follow planted
+instructions, does a planted link or settings file take effect) and a
+failure would have printed a host name of a throw-away machine into a
+public comment, not a token valid for a year. The token probe prints
+only "readable" or "empty".
+
+## 2026-11-23 — A token with a space or line break is refused before the reviewer starts
+
+Builder's call, after the first run in GitHub Actions failed without a
+readable reason. The script checks the token's shape (no whitespace, no
+control characters) and names the problem; an API error's own words go
+into the run's detail line, reduced to letters, digits, dots and
+dashes, and only for API errors, so text written by the reviewer never
+reaches the log that way.
+

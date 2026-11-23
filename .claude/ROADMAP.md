@@ -82,11 +82,17 @@ piece in their own words before the phase is checked off.
           since 2026-11-23)
     - [ ] Explain-back: how staging differs from prod and who can reach it
 - [ ] **F4 — Factory loop** (four slices, each with its own issue)
-    - [ ] Slice 1, issue #28: runtime proof + review agent, report only
+    - [x] Slice 1, issue #28: runtime proof + review agent, report only
+          (plan A proven 2026-11-23: the review runs in GitHub Actions on
+          the Claude subscription)
         - [x] Scripts, rubric, prompt, workflow; 54 script tests; one
               rehearsal with the real model on planted defects (2026-11-23)
-        - [ ] Environment `factory`, the developer's token,
-              `FACTORY_ENABLED`; the drills from the spec
+        - [x] Environment `factory`, the developer's token,
+              `FACTORY_ENABLED` on; the drills from the spec, all passed
+              (2026-11-23; results in `docs/ARCHITECTURE.md`, "Factory:
+              review agent")
+        - [ ] Explain-back: what the reviewer sees, what it cannot do,
+              how to stop it
     - [ ] Slice 2: implementation agent with fix and analysis agents,
           the gate deciding (uses Claude's GitHub App — the developer's
           choice of 2026-11-23)

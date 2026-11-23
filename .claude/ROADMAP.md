@@ -78,11 +78,21 @@ piece in their own words before the phase is checked off.
           goes back without touching production, the restricted key
           refuses everything else, reset. Results in
           `docs/ARCHITECTURE.md`, "Staging".
-    - [ ] The developer's own look at staging (sign up there, try a PR)
+    - [x] The developer's own look at staging (an account exists there
+          since 2026-11-23)
     - [ ] Explain-back: how staging differs from prod and who can reach it
-- [ ] **F4 — Factory loop**
-    - [ ] Agent runtime in Actions (plan A or B), switchable by config
-    - [ ] Triage agent, spec agent, implementation agent, review agent
+- [ ] **F4 — Factory loop** (four slices, each with its own issue)
+    - [ ] Slice 1, issue #28: runtime proof + review agent, report only
+        - [x] Scripts, rubric, prompt, workflow; 54 script tests; one
+              rehearsal with the real model on planted defects (2026-11-23)
+        - [ ] Environment `factory`, the developer's token,
+              `FACTORY_ENABLED`; the drills from the spec
+    - [ ] Slice 2: implementation agent with fix and analysis agents,
+          the gate deciding (uses Claude's GitHub App — the developer's
+          choice of 2026-11-23)
+    - [ ] Slice 3: triage agent and spec agent
+    - [ ] Slice 4: acceptance — one issue from label to a tested pull
+          request on staging without an interactive session
     - [ ] Review loop: 3 rounds, scrap and rebuild (design approved
           2026-11-16: `docs/superpowers/specs/2026-11-16-review-loop-design.md`)
         - [x] Part 1: gate script, labels, workflow, tests (2026-11-16,

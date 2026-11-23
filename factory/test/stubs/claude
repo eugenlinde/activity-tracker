@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+for argument in "$@"; do
+  printf 'claude-arg: %s\n' "$(printf '%s' "$argument" | head -n 1)" >> "$STUB_LOG"
+done
+echo "claude-env: $(env | cut -d= -f1 | sort | tr '\n' ' ')" >> "$STUB_LOG"
+echo "claude-cwd: $(basename "$PWD")" >> "$STUB_LOG"
+if [ -n "${STUB_CODE_DIR:-}" ]; then
+  echo "claude-symlinks: $(find "$STUB_CODE_DIR" -type l | wc -l | tr -d ' ')" >> "$STUB_LOG"
+fi
+count=$(cat "$STUB_CLAUDE_COUNT" 2>/dev/null || echo 0)
+count=$((count + 1))
+echo "$count" > "$STUB_CLAUDE_COUNT"
+file=$(printf '%s' "${STUB_CLAUDE_OUTPUTS:-}" | cut -d: -f"$count")
+if [ -n "$file" ] && [ -f "$file" ]; then
+  cat "$file"
+fi
+exit "${STUB_CLAUDE_EXIT:-0}"

@@ -809,6 +809,172 @@ could show the previous version after a deploy (seen on 2026-11-18).
   has 5.7.1) did not recreate it. Expect it again when the compose file
   changes.
 
+## Factory: review agent (built 2026-11-23; report only; not switched on yet)
+
+Spec: GitHub issue #28. Plan: `docs/superpowers/plans/2026-11-23-f4-review-agent.md`.
+
+**What it is.** After a pull request's checks are green, an AI reviewer
+that has not seen how the code was written reads the change and its
+findings are posted on the pull request. Only what the rubric calls
+critical or major. It changes nothing and blocks nothing. It is the
+first agent of the factory, and the first thing that runs on the
+developer's Claude subscription without a person at the keyboard.
+
+**The rule it is built on:** agents only produce content; scripts act.
+The reviewer returns a list. Deciding whether to review, checking the
+list and posting the comment are plain shell scripts with tests.
+
+**How a review happens.**
+
+1. CI finishes green on a pull request. The workflow "Review" starts. It
+   is always the copy on `main`, so a pull request cannot change how it
+   is reviewed. It can also be started by hand for one pull request.
+2. `collect.sh` asks GitHub about the pull request and decides. Not
+   reviewed: closed; from a fork; not opened by the repository owner;
+   documentation only; larger than 400 kB of diff. "Documentation" is a
+   short list on purpose — `.md` files under `docs/`, `README.md` files,
+   and the four logs `.claude/NOTES.md`, `DECISIONS.md`, `ROADMAP.md`,
+   `SPEC.md`. `CLAUDE.md`, the reviewer's own prompt and rubric,
+   settings files and scripts are reviewed like code, and a file moved
+   into `docs/` is judged by where it came from. If it is reviewed, the script writes the diff and the spec
+   (the pull request's own text and the issue it names — only when the
+   owner opened that issue) into a folder.
+3. The pull request's code is checked out next to it, to be read.
+4. `run-review.sh` starts Claude Code once, without a terminal, in
+   restricted mode. It gets the rubric, the spec, the diff, the
+   project's rules (`CLAUDE.md` from `main`) and the code.
+5. Its answer must fit a fixed shape: whether it could read the
+   material at all, a summary, and a list of findings, each with
+   severity, the id of the rubric rule, file, line, what, why.
+   `check-findings.sh` refuses anything else, and also an answer where
+   the severity does not belong to the rule. An answer given without
+   reading anything, or one that says "I could not read the change", is
+   not accepted as a clean review. A refused answer is asked for once
+   more; twice refused is "could not be read".
+6. `comment.sh` turns the list into the comment and the workflow posts
+   it: counts, each finding with rule, file and line, and at the bottom
+   the model, the number of turns, the time and the cost estimate.
+
+**What the reviewer can and cannot do.**
+
+- It can read and search files in two folders: the inputs and the pull
+  request's code.
+- It has no shell, cannot edit or write files, cannot fetch from the
+  web, and loads no settings, hooks or extra tools from the pull
+  request. The code under review is never run.
+- It has no GitHub token. The step that runs it holds exactly one
+  secret, the Claude token; the GitHub token is in other steps. The
+  program itself is started with an emptied environment: only the
+  search path, the home folder and the Claude token.
+- Links in the pull request's code that point elsewhere (a file that is
+  really `/proc/self/environ`, say) are deleted before it starts, so a
+  read cannot be led outside the code. And an answer that contains the
+  Claude token is thrown away and counted as a failed review.
+- So the worst a pull request that tries to instruct its reviewer can
+  achieve is a wrong comment.
+
+**The rubric** (`factory/review/rubric.md`) is the one the developer
+approved on 2026-11-16, with an id per rule:
+
+| Severity | Rule ids |
+|---|---|
+| critical | `data-loss`, `security`, `cannot-start`, `opposite-of-spec` |
+| major | `wrong-main-path`, `criterion-not-met`, `no-test`, `unhandled-error`, `project-rule` |
+
+**Where its secrets and settings live.**
+
+- GitHub environment `factory`, usable from `main` only: the secret
+  `CLAUDE_CODE_OAUTH_TOKEN`. It is made on the developer's laptop with
+  `claude setup-token`, is tied to the developer's Claude account and is
+  valid for a year. A workflow run on a pull request's own branch cannot
+  read it.
+- Repository variables: `FACTORY_ENABLED` (the switch, shared with the
+  gate), `FACTORY_MODEL_REVIEW` (the model; `claude-fable-5-2` when not
+  set), `FACTORY_AUTHORS` (extra logins whose pull requests are
+  reviewed; empty today).
+
+**What it costs.** No money: runs count against the same session and
+weekly allowance of the Claude subscription that the developer's own
+use does. The rehearsal review of a three-file change took 24 seconds,
+12 turns and an estimated 0.50 USD worth of usage. Limits: one review at
+a time per pull request, a newer push cancels the older review, 15
+minutes at most, a per-run ceiling on the estimate.
+
+**What happens when it fails.**
+
+| Situation | What happens |
+|---|---|
+| Token missing, expired or refused; usage limit reached; 15 minutes passed | The run is red; the pull request gets "the review did not run". CI, staging and merging do not depend on it |
+| The answer does not fit the shape twice | "The review could not be read" |
+| The change is too large | "Did not run: too large" |
+| The pull request moved on while CI ran | Nothing; the newer commit gets its own review |
+| The pull request cannot be read at all | The run is red, no comment |
+| Its file list or diff cannot be fetched | "The review did not run" |
+| The issue it names does not exist or cannot be read | Reviewed against the pull request's own description |
+| More findings than fit in one comment | The most serious ones are shown and the comment says how many are not |
+| A newer push arrives during the review | The older review is cancelled without a comment |
+
+A review that did not happen never shows up as "no findings".
+
+**How to stop it.** Set `FACTORY_ENABLED` to anything but `true`. To take
+the token away: delete the secret from the `factory` environment (the
+documentation does not say how to revoke the token itself before its
+year is over).
+
+**What was checked, and what was not.**
+
+- Checked: 105 script tests with stand-ins for GitHub and for the Claude
+  program (who is reviewed and who is not; twenty-eight malformed
+  answers refused; a failed, unreadable or blind review never reported
+  as clean; the reviewer started with the restricted flags, in the work
+  folder, with an environment that holds nothing but the Claude token;
+  links removed from the code; an answer holding the token discarded;
+  reviewer text cannot become a mention, a link, HTML or a heading; the
+  longest accepted answer still fits one comment). Two rehearsals on
+  the laptop with the real model on a copy of the code with three
+  planted defects — another user's data readable, a missing 404, no
+  test: all three found both times, each with the right rule, file and
+  line; about 23 seconds and 11–12 turns each.
+- An independent reviewer read the first version. Nothing critical;
+  seven important findings, fixed with tests that failed first: a
+  reviewer that could read nothing would have posted "no findings"; a
+  link in the pull request's code could have led a read to the Claude
+  token; a mistyped issue number or an unreachable diff ended in a red
+  run with no word on the pull request; "documentation only" skipped
+  the project's rule book, the reviewer's own instructions and scripts
+  under `docs/`; a long list of findings would have exceeded GitHub's
+  comment size and posted nothing; a failed run left no reason in the
+  log; the rubric's security rule read as a closed list.
+- **Not checked yet — only possible after the merge:** the workflow
+  itself; the run on the subscription token inside GitHub Actions (plan
+  A's proof); a clean pull request; a documentation-only pull request;
+  a pull request that tries to instruct the reviewer through its files
+  (a planted instruction in `CLAUDE.md` and a planted link); that the
+  token cannot be read from a pull request's branch. How the program
+  treats instruction files and links inside the added folder is not
+  documented; the removal of links and the token check do not rely on
+  it, the drill will show the rest.
+
+**Known gaps.**
+
+- The reviewer can be wrong in both directions. Its comment is advice.
+- Nothing is done with the findings yet: no fix round, no labels, no
+  gate. That is the next slice.
+- The spec the reviewer sees is the text of the issue. A spec written
+  later as a comment on the issue is not picked up yet; that comes with
+  the spec agent.
+- Every reviewed push adds a new comment; older ones are not edited or
+  hidden.
+- The workflow's own glue (which outcome leads to which comment, red or
+  green) is shell inside the workflow file and has no tests; the scripts
+  it calls do.
+- Every reviewed push uses some of the developer's allowance; there is
+  no separate budget for the factory and no view of its share other
+  than the estimate in each comment.
+- Whether unattended runs are within the subscription's terms is the
+  developer's reading: the documentation describes this setup but the
+  legal page only speaks of "ordinary, individual usage".
+
 ## Factory: review gate (part 1 built, no agents yet)
 
 Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.

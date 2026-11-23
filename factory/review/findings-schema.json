@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reviewed",
+    "summary",
+    "findings"
+  ],
+  "properties": {
+    "reviewed": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "rule",
+          "file",
+          "line",
+          "what",
+          "why"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "major"
+            ]
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "data-loss",
+              "security",
+              "cannot-start",
+              "opposite-of-spec",
+              "wrong-main-path",
+              "criterion-not-met",
+              "no-test",
+              "unhandled-error",
+              "project-rule"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "what": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

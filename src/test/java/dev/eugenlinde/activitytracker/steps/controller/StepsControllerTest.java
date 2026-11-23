@@ -116,6 +116,39 @@ class StepsControllerTest {
     }
 
     @Test
+    void getStepsOfDay_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/steps/2026-11-13")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getStepsOfDay_whenEntryExists_returnsTheCallersEntry() throws Exception {
+        when(stepsService.find(userId, DATE)).thenReturn(new StepsResponse(DATE, 9870));
+
+        mockMvc.perform(get("/api/steps/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value("2026-11-13"))
+                .andExpect(jsonPath("$.steps").value(9870));
+    }
+
+    @Test
+    void getStepsOfDay_whenNoEntry_returns404() throws Exception {
+        when(stepsService.find(userId, DATE)).thenThrow(new StepEntryNotFoundException());
+
+        mockMvc.perform(get("/api/steps/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getStepsOfDay_withMalformedDate_returns400() throws Exception {
+        mockMvc.perform(get("/api/steps/yesterday").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
     void putSteps_withValidBody_returnsTheSavedEntry() throws Exception {
         when(stepsService.upsert(userId, DATE, 9870)).thenReturn(new StepsResponse(DATE, 9870));
 

@@ -42,6 +42,14 @@ public class StepsService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public StepsResponse find(Long userId, LocalDate date) {
+        return stepEntryRepository
+                .findByUserIdAndEntryDate(userId, date)
+                .map(StepsResponse::from)
+                .orElseThrow(StepEntryNotFoundException::new);
+    }
+
     public StepsResponse upsert(Long userId, LocalDate date, int steps) {
         entryDatePolicy.requireNotInFuture(date);
         StepEntry entry = stepEntryRepository

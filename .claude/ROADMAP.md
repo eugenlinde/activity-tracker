@@ -94,8 +94,15 @@ piece in their own words before the phase is checked off.
         - [ ] Explain-back: what the reviewer sees, what it cannot do,
               how to stop it
     - [ ] Slice 2: implementation agent with fix and analysis agents,
-          the gate deciding (uses Claude's GitHub App — the developer's
-          choice of 2026-11-23)
+          the gate deciding. Identity: Claude's official GitHub App; the
+          agent runs no commands (the developer's decisions of
+          2026-11-23 and 2026-11-24). Three steps:
+        - [ ] 2a, issue #36: approved issue → pull request
+            - [ ] Probe in the real repository (five questions, see
+                  `docs/ARCHITECTURE.md`)
+            - [ ] "Implement" workflow, scripts, drills
+        - [ ] 2b: the gate reads CI and findings; fix agent, three rounds
+        - [ ] 2c: analysis agent and one automatic rebuild
     - [ ] Slice 3: triage agent and spec agent
     - [ ] Slice 4: acceptance — one issue from label to a tested pull
           request on staging without an interactive session

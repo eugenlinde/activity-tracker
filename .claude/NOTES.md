@@ -590,3 +590,22 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Drill PRs #30, #32, #33, #34 are closed, not merged.
 - Open: slices 2–4 of F4; restore drill with real data; the scheduled
   backup check runs hours late; mockito version pin.
+
+## 2026-11-24 — F4 slice 2a: spec approved, probe written
+
+- PRs #31 and #35 merged; issue #28 closed; F4 slice 1 done.
+- Spec for slice 2a is issue #36, approved by the developer in chat.
+  Approval of a factory spec stays in chat: the label `approved` is for
+  application issues once the agent exists.
+- Facts about the official app and the action were looked up at the
+  source by a research agent and then read in the action's source by the
+  builder: the app token is cancelled at the end of the action; with
+  `use_commit_signing` the action commits through GitHub's API with two
+  tools; the branch is taken from the environment variable
+  `CLAUDE_BRANCH`; `workflow_run` and `workflow_dispatch` are supported
+  events; an actor that is a bot must be listed in `allowed_bots`.
+- Next: the developer installs Claude's GitHub App on this repository
+  and switches on "Allow GitHub Actions to create and approve pull
+  requests"; after the probe's PR is merged the builder runs the five
+  probes.
+

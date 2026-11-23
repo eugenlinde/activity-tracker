@@ -1019,6 +1019,67 @@ year is over).
   developer's reading: the documentation describes this setup but the
   legal page only speaks of "ordinary, individual usage".
 
+## Factory: implementation agent (issue 36; only the probe exists)
+
+**What it will be.** The developer puts the label `approved` on an issue
+they wrote; an agent writes the change and its tests into a pull
+request; CI, staging and the review agent take it from there as for any
+pull request. Decided by the developer on 2026-11-24: the agent acts on
+GitHub as Claude's official GitHub App, and it runs no commands — it
+reads and edits files only. Spec: issue 36.
+
+**Why a probe first.** The official app's token exists only inside the
+ready-made action `anthropics/claude-code-action`: the action asks
+Anthropic for it and cancels it when it ends. So this agent, unlike the
+reviewer, runs inside that action, and several things the design rests
+on are read from the action's source code, not from its documentation.
+The probe settles them in this repository before anything is built on
+them:
+
+1. the action runs on the subscription token with file tools only, and
+   a call for a shell is refused;
+2. its commit lands on the branch the workflow names;
+3. GitHub accepts a pull request whose only commit is empty, and the
+   app's commit on it starts CI;
+4. whether the app can change a workflow file (Anthropic's
+   documentation says it holds that right, the action's FAQ says it
+   does not);
+5. what the public run log shows of the agent's work.
+
+**The probe** is the workflow "Factory probe"
+(`.github/workflows/factory-probe.yml`). It has no trigger but a manual
+start, and it runs only when the repository owner starts it from `main`
+with `FACTORY_ENABLED` on. Given a branch name `probe/<name>` and a
+prompt, it
+
+1. creates that branch from `main` with one empty commit and, unless
+   told not to, opens a pull request for it — with the workflow's own
+   token;
+2. runs the action, pinned to an exact commit, with the prompt. The
+   agent's tools are reading, searching, editing and creating files in
+   the checkout, plus the action's two commit operations ("commit these
+   files", "delete these files"), which write to the named branch
+   through GitHub's API as Claude's app;
+3. writes a summary of the run: the commits on the branch and who made
+   them, the files changed, turns, duration, cost estimate, which tools
+   were called and which calls were refused. Tool names only, never
+   their content.
+
+**What it needs.** Claude's GitHub App installed on this repository;
+the repository setting "Allow GitHub Actions to create and approve pull
+requests"; the Claude token in the `factory` environment (the same one
+the reviewer uses). No new secret: the app's token is made per run.
+
+**What can go wrong.** The probe writes only to branches named
+`probe/…` and to pull requests it opened; none of it is merged. A probe
+pull request goes to staging like any pull request. If the app turns
+out to be able to change workflow files, the probe proves that on a
+throw-away branch with a workflow that has no trigger of its own.
+
+**How to stop it.** Set `FACTORY_ENABLED` to anything but `true`, or
+do not start it: nothing else starts it. The probe workflow is removed
+in the same change that adds the real "Implement" workflow.
+
 ## Factory: review gate (part 1 built, no agents yet)
 
 Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.

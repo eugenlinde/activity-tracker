@@ -100,7 +100,7 @@ piece in their own words before the phase is checked off.
         - [ ] 2a, issue #36: approved issue → pull request
             - [x] Probe in the real repository (2026-11-24): all five
                   answers in favour; the app cannot change workflow files
-            - [x] "Implement" workflow and scripts, 126 script tests,
+            - [x] "Implement" workflow and scripts, 127 script tests,
                   independent review (four important findings fixed)
             - [ ] Drills after the merge: label → pull request on a real
                   issue, the refusals, review of a factory pull request

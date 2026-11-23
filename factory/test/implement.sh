@@ -529,6 +529,16 @@ expect_output "result=token"
 expect_not_in_output "claude-secret-value"
 end
 
+begin "the token in a commit message alone is found"
+compare "src/main/java/A.java"
+jq -c '.commits[1].commit = {message: "fix: use claude-secret-value"}' "$STUB_GH_DIR/api-compare" > "$CASE_DIR/with-message.json"
+cp "$CASE_DIR/with-message.json" "$STUB_GH_DIR/api-compare"
+export CLAUDE_CODE_OAUTH_TOKEN="claude-secret-value"
+check_branch
+expect_output "result=token"
+expect_not_in_output "claude-secret-value"
+end
+
 begin "the token is looked for before the places"
 compare ".github/workflows/ci.yml"
 printf '+claude-secret-value\n' > "$STUB_GH_DIR/api-compare-diff"

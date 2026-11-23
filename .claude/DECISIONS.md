@@ -1422,3 +1422,37 @@ into the run's detail line, reduced to letters, digits, dots and
 dashes, and only for API errors, so text written by the reviewer never
 reaches the log that way.
 
+## 2026-11-24 — F4 slice 2: identity confirmed, no commands for the agent (developer's decisions)
+
+- Identity: Claude's official GitHub App, confirmed a second time. The
+  builder asked again because of new facts: the app's token can only be
+  had inside the ready-made action and is cancelled when the action
+  ends, so scripts cannot act as the app; and Anthropic's documentation
+  and the action's FAQ contradict each other on whether the app can
+  change workflow files. The builder suggested a small own app with
+  rights to code, issues and pull requests only, where GitHub itself
+  refuses workflow changes and scripts do the pushing. The developer
+  kept the official app.
+- The implementation agent runs no commands: it reads and edits files,
+  the tests run in the pull request's CI. The builder recommended this;
+  the alternative was a shell inside Claude Code's sandbox, whose
+  working on GitHub's machines is not documented.
+
+## 2026-11-24 — F4 slice 2a: shape of the implementation agent (builder's calls)
+
+- Slice 2 is built in three steps (2a issue → pull request, 2b fix
+  rounds with the gate, 2c analysis and rebuild) instead of one. Each is
+  small enough to drill and to explain, and 2a measures how good a
+  first attempt written without compiling is before the loop is built.
+- The agent runs inside `anthropics/claude-code-action`, pinned to a
+  commit, and hands its work over through the action's API commit tool
+  to a branch the workflow names. "Agents produce content, scripts act"
+  bends in that one place: a script cannot make the commit because the
+  app's token is gone when the action ends.
+- A script opens the pull request first, with an empty commit, so that
+  the app's commit arrives as a push to an open pull request and starts
+  CI. A pull request opened by the workflow's own token starts nothing.
+- A probe workflow settles the assumptions read from the action's
+  source before anything is built on them. If the app can change
+  workflow files, the builder stops and asks.
+

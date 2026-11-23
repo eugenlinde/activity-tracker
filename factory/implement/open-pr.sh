@@ -56,14 +56,19 @@ Written by the factory's implementation agent from the text of issue #$issue.
 The first commit is empty on purpose: the pull request has to exist before the agent's commit arrives, so that the commit starts CI. The agent cannot run commands, so nothing here has been compiled or tested by it. CI is the first test of this code.
 TEXT
 
-if ! url=$(gh pr create --repo "$repo" --base main --head "$branch" --title "$title" --body-file "$body" --label factory); then
+if ! created=$(gh api -X POST "repos/$repo/pulls" -f title="$title" -f head="$branch" -f base=main -F "body=@$body"); then
   remove_branch
   stop "Could not open the pull request"
 fi
-number=$(printf '%s\n' "$url" | grep -oE '/pull/[1-9][0-9]{0,6}$' | grep -oE '[0-9]+$' || true)
-if [ -z "$number" ]; then
+number=$(jq -r '.number // "" | tostring' <<< "$created" 2>/dev/null || true)
+if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
   remove_branch
   stop "The pull request's number could not be read"
+fi
+
+if ! gh api -X POST "repos/$repo/issues/$number/labels" -f "labels[]=factory" -f "labels[]=building" > /dev/null; then
+  remove_branch
+  stop "Could not label the pull request"
 fi
 
 echo "pr=$number"

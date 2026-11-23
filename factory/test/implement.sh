@@ -168,12 +168,27 @@ end
 
 begin "an open factory pull request for the issue stops a second build"
 issue
-echo '[{"number": 41}]' > "$STUB_GH_DIR/pr-list"
+echo '[{"number": 41, "isCrossRepository": false}]' > "$STUB_GH_DIR/pr-list"
 check_issue
 expect_output "build=no"
 expect_output "reason=pr-open"
 expect_output "pr=41"
 expect_log "pr list --repo owner/repo --head factory/issue-7 --state open"
+end
+
+begin "a pull request from a fork with the same branch name does not stop a build"
+issue
+echo '[{"number": 55, "isCrossRepository": true}]' > "$STUB_GH_DIR/pr-list"
+check_issue
+expect_output "build=yes"
+end
+
+begin "of a fork's and an own pull request the own one is named"
+issue
+echo '[{"number": 55, "isCrossRepository": true}, {"number": 41, "isCrossRepository": false}]' > "$STUB_GH_DIR/pr-list"
+check_issue
+expect_output "reason=pr-open"
+expect_output "pr=41"
 end
 
 begin "an issue that cannot be read is failed, not built"
@@ -263,7 +278,8 @@ github_ready() {
   jq -cn --arg sha "$MAIN_SHA" --arg tree "$TREE_SHA" '{sha: $sha, tree: {sha: $tree}}' > "$STUB_GH_DIR/api-commit"
   jq -cn --arg sha "$NEW_SHA" '{sha: $sha}' > "$STUB_GH_DIR/api-create-commit"
   echo '{}' > "$STUB_GH_DIR/api-create-ref"
-  echo 'https://github.com/owner/repo/pull/41' > "$STUB_GH_DIR/pr-create"
+  echo '{"number": 41, "html_url": "https://github.com/owner/repo/pull/41"}' > "$STUB_GH_DIR/api-create-pull"
+  echo '[]' > "$STUB_GH_DIR/api-add-labels"
   printf 'Steps for one day\n' > "$CASE_DIR/out/title.txt"
 }
 
@@ -282,11 +298,45 @@ expect_log "tree=$TREE_SHA"
 expect_log "parents[]=$MAIN_SHA"
 expect_log "ref=refs/heads/factory/issue-7"
 expect_log "sha=$NEW_SHA"
-expect_log "pr create --repo owner/repo --base main --head factory/issue-7"
-expect_log "--label factory"
-expect_order "git/refs" "pr create"
+expect_log "api -X POST repos/owner/repo/pulls"
+expect_log "head=factory/issue-7"
+expect_log "base=main"
+expect_log "title=Steps for one day"
+expect_log "api -X POST repos/owner/repo/issues/41/labels"
+expect_log "labels[]=factory"
+expect_log "labels[]=building"
+expect_order "git/refs" "repos/owner/repo/pulls"
+expect_order "repos/owner/repo/pulls" "issues/41/labels"
 expect_no_log "-X DELETE"
-expect_file_has "$(grep -oE -- '--body-file [^ ]+' "$STUB_LOG" | head -n 1 | cut -d' ' -f2)" "Closes #7"
+expect_file_has "$(grep -oE 'body=@[^ ]+' "$STUB_LOG" | head -n 1 | cut -d@ -f2)" "Closes #7"
+end
+
+begin "a leftover branch that cannot be removed stops everything"
+github_ready
+jq -cn '{ref: "refs/heads/factory/issue-7", object: {sha: "4444444444444444444444444444444444444444"}}' > "$STUB_GH_DIR/api-ref-branch"
+rm "$STUB_GH_DIR/api-ref-branch.exit"
+echo 1 > "$STUB_GH_DIR/api-delete-ref.exit"
+open_pr
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+expect_no_log "git/commits -f"
+expect_no_log "repos/owner/repo/pulls"
+end
+
+begin "when the branch cannot be created no pull request is opened"
+github_ready
+echo 1 > "$STUB_GH_DIR/api-create-ref.exit"
+open_pr
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+expect_no_log "repos/owner/repo/pulls"
+end
+
+begin "when the labels cannot be set the branch is removed, which closes the pull request"
+github_ready
+echo 1 > "$STUB_GH_DIR/api-add-labels.exit"
+open_pr
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
+expect_not_in_output "pr="
 end
 
 begin "a branch left over from a closed pull request is replaced"
@@ -305,13 +355,13 @@ github_ready
 echo 1 > "$STUB_GH_DIR/api-create-commit.exit"
 open_pr
 if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
-expect_no_log "pr create"
+expect_no_log "repos/owner/repo/pulls"
 expect_no_log "git/refs -f"
 end
 
 begin "when the pull request cannot be opened the new branch is removed"
 github_ready
-echo 1 > "$STUB_GH_DIR/pr-create.exit"
+echo 1 > "$STUB_GH_DIR/api-create-pull.exit"
 open_pr
 if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
 expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
@@ -320,7 +370,7 @@ end
 
 begin "an answer without a pull request number is an error"
 github_ready
-echo 'created' > "$STUB_GH_DIR/pr-create"
+echo '{"number": "41; id"}' > "$STUB_GH_DIR/api-create-pull"
 open_pr
 if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
 expect_not_in_output "pr="
@@ -352,23 +402,25 @@ compare() {
       '{filename: $name, status: "modified"} + (if $previous != "" then {previous_filename: $previous, status: "renamed"} else {} end)')")
   done
   if [ ${#files[@]} -eq 0 ]; then
-    echo '{"commits": [{}], "files": []}' > "$STUB_GH_DIR/api-compare"
+    echo '{"commits": [{"sha": "1111111111111111111111111111111111111111"}], "files": []}' > "$STUB_GH_DIR/api-compare"
   else
-    printf '%s\n' "${files[@]}" | jq -cs '{commits: [{}, {}], files: .}' > "$STUB_GH_DIR/api-compare"
+    printf '%s\n' "${files[@]}" | jq -cs '{commits: [{sha: "1111111111111111111111111111111111111111"}, {sha: "2222222222222222222222222222222222222222"}], files: .}' > "$STUB_GH_DIR/api-compare"
   fi
   printf 'diff --git a/x b/x\n+ordinary line\n' > "$STUB_GH_DIR/api-compare-diff"
+  printf 'diff --git a/x b/x\n+ordinary line\n' > "$STUB_GH_DIR/api-commit-diff"
+  echo '{"number": 41, "state": "open"}' > "$STUB_GH_DIR/api-pull"
 }
 
 check_branch() {
-  run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch "${1-factory/issue-7}" --out "$CASE_DIR/out"
+  run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch "${1-factory/issue-7}" --pr "${2-41}" --out "$CASE_DIR/out"
 }
 
 begin "a change inside the allowed places is ok"
-compare "src/main/java/A.java" "src/test/java/ATest.java" "frontend/src/App.tsx" "build.gradle" "http/steps.http" "docs/a/b.md"
+compare "src/main/java/A.java" "src/test/java/ATest.java" "frontend/src/App.tsx" "http/steps.http" "docs/a/b.md"
 check_branch
 expect_status 0
 expect_output "result=ok"
-expect_output "files=6"
+expect_output "files=5"
 expect_log "api repos/owner/repo/compare/main...factory/issue-7"
 end
 
@@ -381,7 +433,8 @@ end
 
 for OUTSIDE in ".github/workflows/ci.yml" "infra/deploy.sh" "factory/gate.sh" "CLAUDE.md" ".claude/settings.json" ".claude/NOTES.md" \
   "frontend/package.json" "frontend/package-lock.json" "frontend/vite.config.ts" "gradlew" "gradle/wrapper/gradle-wrapper.properties" \
-  "settings.gradle" "docker-compose.yml" "README.md" "src/../infra/deploy.sh" "srcx/A.java" "docs" "src" "frontend/srcs/a.ts" "/src/a" "build.gradle.kts"; do
+  "settings.gradle" "docker-compose.yml" "README.md" "src/../infra/deploy.sh" "srcx/A.java" "docs" "src" "frontend/srcs/a.ts" "/src/a" "build.gradle.kts" \
+  "build.gradle" "src/CLAUDE.md" "docs/CLAUDE.md" "docs/sub/claude.md" "src/.claude/skills/x/SKILL.md" "src/main/resources/.mcp.json" "docs/.github/workflows/x.yml" "src/.git/config" "src/AGENTS.md"; do
   begin "outside the allowed places: $OUTSIDE"
   compare "src/main/java/A.java" "$OUTSIDE"
   check_branch
@@ -396,6 +449,75 @@ compare "src/deploy.sh<-infra/deploy.sh"
 check_branch
 expect_output "result=outside"
 expect_file_has "$CASE_DIR/out/outside.txt" "infra/deploy.sh"
+end
+
+begin "a file name with a line break in it cannot pass as two allowed names"
+jq -cn '{commits: [{sha: "a"}, {sha: "b"}], files: [{filename: "infra/x\nsrc/evil.sh", status: "added"}]}' > "$CASE_DIR/gh/api-compare"
+printf '+x\n' > "$CASE_DIR/gh/api-compare-diff"
+printf '+x\n' > "$CASE_DIR/gh/api-commit-diff"
+echo '{"number": 41, "state": "open"}' > "$CASE_DIR/gh/api-pull"
+check_branch
+expect_output "result=outside"
+if [ "$(wc -l < "$CASE_DIR/out/outside.txt" | tr -d ' ')" -ne 1 ]; then fail "the name was split over lines"; fi
+end
+
+begin "a file name with a line break in it is outside even under an allowed place"
+jq -cn '{commits: [{sha: "a"}, {sha: "b"}], files: [{filename: "src/a\nb.java", status: "added"}]}' > "$CASE_DIR/gh/api-compare"
+printf '+x\n' > "$CASE_DIR/gh/api-compare-diff"
+printf '+x\n' > "$CASE_DIR/gh/api-commit-diff"
+echo '{"number": 41, "state": "open"}' > "$CASE_DIR/gh/api-pull"
+check_branch
+expect_output "result=outside"
+end
+
+begin "a pull request closed while the agent worked is reported as closed"
+compare "src/main/java/A.java"
+echo '{"number": 41, "state": "closed"}' > "$STUB_GH_DIR/api-pull"
+check_branch
+expect_output "result=closed"
+end
+
+begin "a pull request whose state cannot be read is failed"
+compare "src/main/java/A.java"
+echo 1 > "$STUB_GH_DIR/api-pull.exit"
+check_branch
+expect_output "result=failed"
+end
+
+begin "the token in a commit that a later commit took out again is still found"
+compare "src/main/java/A.java"
+printf '+String key = "claude-secret-value";\n' > "$STUB_GH_DIR/api-commit-diff"
+export CLAUDE_CODE_OAUTH_TOKEN="claude-secret-value"
+check_branch
+expect_output "result=token"
+expect_log "api repos/owner/repo/commits/"
+end
+
+begin "a commit that cannot be read is failed, not ok"
+compare "src/main/java/A.java"
+echo 1 > "$STUB_GH_DIR/api-commit-diff.exit"
+export CLAUDE_CODE_OAUTH_TOKEN="claude-secret-value"
+check_branch
+expect_output "result=failed"
+end
+
+for BROKEN in $'claude-secret\n-value' $'claude-secret-value\n\n' "claude secret"; do
+  begin "a token with a space or line break in it is failed, never a false alarm ($(printf '%s' "$BROKEN" | tr -d 'a-z-' | od -An -c | tr -d ' '))"
+  compare
+  export CLAUDE_CODE_OAUTH_TOKEN="$BROKEN"
+  check_branch
+  expect_output "result=failed"
+  end
+done
+
+begin "more commits than can be read one by one is not ok"
+jq -cn '{commits: [range(0; 60) | {sha: ("c" + (. | tostring))}], files: [{filename: "src/A.java", status: "added"}]}' > "$CASE_DIR/gh/api-compare"
+printf '+x\n' > "$CASE_DIR/gh/api-compare-diff"
+printf '+x\n' > "$CASE_DIR/gh/api-commit-diff"
+echo '{"number": 41, "state": "open"}' > "$CASE_DIR/gh/api-pull"
+export CLAUDE_CODE_OAUTH_TOKEN="claude-secret-value"
+check_branch
+expect_output "result=too-many"
 end
 
 begin "the Claude token's text in the change is found, and not repeated"
@@ -438,8 +560,10 @@ expect_output "result=failed"
 end
 
 begin "three hundred files is more than GitHub lists and is not ok"
-jq -cn '{commits: [{}, {}], files: [range(0; 300) | {filename: ("src/F" + (. | tostring) + ".java"), status: "added"}]}' > "$CASE_DIR/gh/api-compare"
+jq -cn '{commits: [{sha: "a"}, {sha: "b"}], files: [range(0; 300) | {filename: ("src/F" + (. | tostring) + ".java"), status: "added"}]}' > "$CASE_DIR/gh/api-compare"
 printf '+x\n' > "$CASE_DIR/gh/api-compare-diff"
+printf '+x\n' > "$CASE_DIR/gh/api-commit-diff"
+echo '{"number": 41, "state": "open"}' > "$CASE_DIR/gh/api-pull"
 check_branch
 expect_output "result=too-many"
 end
@@ -448,6 +572,15 @@ for BRANCH in "main" "factory/issue-7; id" "factory/issue-" "factory/issue-07" "
   begin "refused branch name: '$BRANCH'"
   compare "src/main/java/A.java"
   check_branch "$BRANCH"
+  expect_status 2
+  expect_no_calls
+  end
+done
+
+for NUMBER in "0" "41; id" ""; do
+  begin "refused pull request number: '$NUMBER'"
+  compare "src/main/java/A.java"
+  check_branch factory/issue-7 "$NUMBER"
   expect_status 2
   expect_no_calls
   end
@@ -570,6 +703,40 @@ for PART in "#41" "claude-sonnet-5-5" "14 turns" "93 s" "0.42" "2 refused"; do
   case "$BODY" in *"$PART"*) ;; *) fail "the comment lacks: $PART" ;; esac
 done
 expect_no_log "needs-human"
+expect_log "pr edit 41 --repo owner/repo --remove-label building"
+end
+
+begin "a pull request closed while the agent worked: branch deleted, the issue told"
+report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
+expect_status 0
+expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
+expect_log "issue comment 7 --repo owner/repo"
+case "$(body_of 'issue comment 7')" in *"closed"*) ;; *) fail "the issue is not told" ;; esac
+end
+
+begin "the token: when the branch cannot be deleted the issue is still told, and the report fails"
+echo 1 > "$STUB_GH_DIR/api-delete-ref.exit"
+report token --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+expect_log "issue comment 7 --repo owner/repo"
+case "$(body_of 'issue comment 7')" in *"could not be deleted"*) ;; *) fail "the issue is not told the branch is still there" ;; esac
+end
+
+begin "files outside: when the label cannot be set the files are still named, and the report fails"
+printf '%s\n' 'infra/deploy.sh' > "$CASE_DIR/outside.txt"
+echo 1 > "$STUB_GH_DIR/pr-edit.exit"
+report outside --repo owner/repo --issue 7 --pr 41 --files "$CASE_DIR/outside.txt"
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+case "$(body_of 'pr comment 41')" in *"infra/deploy.sh"*) ;; *) fail "the files are not named" ;; esac
+expect_log "issue comment 7 --repo owner/repo"
+end
+
+begin "no change: when the pull request cannot be closed the branch is still deleted and the issue told"
+echo 1 > "$STUB_GH_DIR/pr-close.exit"
+report empty --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7 --agent success
+if [ "$STATUS" -eq 0 ]; then fail "exit status 0"; fi
+expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
+expect_log "issue comment 7 --repo owner/repo"
 end
 
 begin "a run that ended in an error after a commit is marked needs-human"

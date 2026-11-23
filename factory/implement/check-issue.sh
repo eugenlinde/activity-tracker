@@ -51,9 +51,9 @@ jq -e 'any(.labels[]?; .name == "approved")' <<< "$json" > /dev/null || no no-la
 title=$(jq -r '.title // ""' <<< "$json" | tr '\n\r\t' '   ' | sed 's/^ *//; s/ *$//' | cut -c1-200)
 [ -n "$title" ] || no empty-spec
 
-open=$(gh pr list --repo "$repo" --head "$branch" --state open --json number) || no failed
+open=$(gh pr list --repo "$repo" --head "$branch" --state open --json number,isCrossRepository) || no failed
 jq -e 'type == "array"' <<< "$open" > /dev/null 2>&1 || no failed
-number=$(jq -r '.[0].number // ""' <<< "$open")
+number=$(jq -r '[.[] | select(.isCrossRepository == false)][0].number // ""' <<< "$open")
 if [ -n "$number" ]; then
   [[ $number =~ ^[1-9][0-9]{0,6}$ ]] || no failed
   no pr-open "$number"

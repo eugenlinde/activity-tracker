@@ -28,6 +28,10 @@ if [ -n "${STUB_GH_DIR:-}" ]; then
       "GET "*/git/commits/*) key=api-commit ;;
       "POST "*/git/commits) key=api-create-commit ;;
       "POST "*/git/refs) key=api-create-ref ;;
+      "POST "*/pulls) key=api-create-pull ;;
+      "POST "*/issues/*/labels) key=api-add-labels ;;
+      "GET "*/pulls/*) key=api-pull ;;
+      "GET "*/commits/*) key=api-commit-diff ;;
       "GET "*/compare/*)
         key=api-compare
         case $accept in *diff*) key=api-compare-diff ;; esac

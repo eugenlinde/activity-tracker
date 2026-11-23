@@ -1478,3 +1478,20 @@ reaches the log that way.
 - No separate plan document for this slice: the spec issue and the
   script tests carry it.
 
+## 2026-11-24 — Implementation agent: narrower than the spec after the review (builder's calls)
+
+- `build.gradle` is not an allowed place, although the spec (issue 36)
+  listed it. The independent review showed that CI's `images` job runs
+  the build file on a machine that then holds the right to publish
+  images. Narrowing is the safe direction; widening again needs the
+  jar built in a job without that right. Told to the developer.
+- The agent has no delete operation. One tool fewer to limit; a change
+  that must remove a file is not for the factory yet.
+- Three jobs instead of one: the agent's job holds a read-only GitHub
+  token, and the check runs on a fresh machine whatever happened to
+  the agent's job.
+- A label `building` marks a pull request the check has not judged.
+- The pull request is opened and labelled through GitHub's API rather
+  than `gh pr create`, whose behaviour outside a checkout was not
+  verified and whose output had to be parsed.
+

@@ -1031,51 +1031,70 @@ developer sees the pull request as the agent left it.
 Claude's official GitHub App, and it runs no commands: it reads and
 edits files. The tests run in the pull request's CI.
 
-**How a build runs** (workflow "Implement",
-`.github/workflows/implement.yml`, always the copy on `main`):
+**How a build runs.** The workflow "Implement"
+(`.github/workflows/implement.yml`) has three jobs, each on a fresh
+machine. A label always starts the copy on `main`; a manual start from
+any other branch is refused.
 
-1. The label `approved` is added to an issue (or the workflow is
-   started by hand with an issue number).
-2. `factory/implement/check-issue.sh` decides whether to build: the
+*Job 1, prepare* — holds the workflow's own GitHub token with write
+rights; no Claude token, no agent.
+
+1. `factory/implement/check-issue.sh` decides whether to build: the
    label was added by the repository owner, the issue was written by
    the repository owner, it is open, it carries the label, it has a
-   title, and no factory pull request for it is open. Otherwise the
-   issue gets a comment saying which of these failed, and nothing else
-   happens. The issue's title and text become the spec; comments are
-   not read.
-3. `factory/implement/open-pr.sh` creates the branch
+   title, and no factory pull request of this repository is open for
+   it. Otherwise the issue gets a comment saying which of these failed,
+   and nothing else happens. The issue's title and text become the
+   spec; comments are not read.
+2. `factory/implement/open-pr.sh` creates the branch
    `factory/issue-<number>` from `main` with one empty commit and opens
-   a pull request for it ("Closes #<number>", label `factory`), with
-   the workflow's own token. A branch left over from an earlier, closed
-   attempt is replaced.
-4. The agent runs inside `anthropics/claude-code-action`, pinned to an
-   exact commit, on a checkout of that branch. It gets
-   `factory/implement/prompt.md` followed by the spec.
-5. The agent hands its work over with the action's commit tool, which
-   writes to `factory/issue-<number>` through GitHub's API as
-   `claude[bot]`. That commit is a push by an app, so it starts CI on
-   the pull request. (A push with the workflow's own token starts
-   nothing; that is the whole reason the app is needed. It is also why
-   the pull request is opened before the agent runs.)
-6. `factory/implement/check-branch.sh` reads back from GitHub what
-   landed on the branch, and `factory/implement/report.sh` acts on it:
+   a pull request for it ("Closes #<number>"), labelled `factory` and
+   `building`. A branch left over from an earlier, closed attempt is
+   replaced.
 
-| What landed | What happens |
+*Job 2, agent* — holds the Claude token; its GitHub token can only
+read.
+
+3. The agent runs inside `anthropics/claude-code-action`, pinned to an
+   exact commit, on a checkout of the branch. It gets
+   `factory/implement/prompt.md` followed by the spec.
+4. It hands its work over with the action's commit tool, which writes
+   to `factory/issue-<number>` through GitHub's API as `claude[bot]`.
+   That commit is a push by an app, so it starts CI on the pull
+   request. (A push with the workflow's own token starts nothing; that
+   is the whole reason the app is needed, and why the pull request is
+   opened before the agent runs.)
+
+*Job 3, check* — runs whatever happened to job 2, also when it failed,
+timed out or was cancelled.
+
+5. `factory/implement/check-branch.sh` reads back from GitHub what is
+   on the branch, and `factory/implement/report.sh` acts on it:
+
+| What it finds | What happens |
 |---|---|
-| A change inside the allowed places | The issue gets a comment: the pull request, the model, turns, duration, cost estimate, refused calls |
+| A change inside the allowed places | `building` is removed; the issue gets a comment: the pull request, the model, turns, duration, cost estimate, refused calls |
 | The same, but the agent's run ended with an error after its commit | As above, plus `needs-human`: the work may be incomplete |
 | Nothing | Pull request closed, branch deleted, the issue told |
 | A file outside the allowed places | `needs-human` and a comment naming the files |
-| 300 files or more | `needs-human`: more than GitHub lists, so not checked |
-| The Claude token's text | Branch deleted at once; the issue says to replace the token |
-| The change cannot be read back | `needs-human` |
+| More files or commits than can be read back | `needs-human` |
+| The Claude token's text, in the change or in any single commit | Branch deleted at once; the issue says to replace the token |
+| The pull request was closed meanwhile | Branch deleted, the issue told; the run stays green |
+| The branch cannot be read back | `needs-human`, `building` stays |
 
-All of these but the first make the run red.
+All of these but the first and the closed one make the run red. If one
+GitHub call of a report fails, the others are still made and the run is
+red.
+
+**The label `building`** means "the check in job 3 has not passed
+judgement on this pull request". It is set when the pull request is
+opened and removed by job 3. A pull request that still carries it after
+its run has ended was never checked: read it as untrusted, or close it.
 
 **What the agent can do.** Five tools on files — read, search by
-content, search by name, edit, create — plus the action's two commit
-operations ("commit these files", "delete these files"), which can only
-write to the one branch the workflow names.
+content, search by name, edit, create — plus the action's operation
+"commit these files", which can only write to the one branch the
+workflow names.
 
 **What it cannot do.**
 
@@ -1083,34 +1102,56 @@ write to the one branch the workflow names.
   it to list its tools and to try.
 - Read or write outside the checkout. Tried: `/etc/hostname`, `/proc`,
   `/tmp`, the home folder — all refused.
-- Read or write `.git/`, where the action keeps the app's token while
-  it runs.
-- Write outside the allowed places even inside the checkout. Allowed:
-  `src/`, `frontend/src/`, `http/`, `docs/`, `build.gradle`. Tried and
-  refused: `infra/`, `factory/`, `.github/`, `.claude/`, `CLAUDE.md`,
-  `frontend/package.json`. (It can read those; they are public.)
+- Read or edit `.git/`, where the action keeps the app's token while it
+  runs. The commit tool reads files by itself, outside those rules, but
+  GitHub refuses a commit with a `.git` path in it (tried through the
+  API: "malformed path component").
+- Create or edit files outside the allowed places even inside the
+  checkout. Allowed: `src/`, `frontend/src/`, `http/`, `docs/`. Tried
+  and refused: `infra/`, `factory/`, `.github/`, `.claude/`,
+  `CLAUDE.md`, `frontend/package.json`. (It can read those; they are
+  public.)
+- Delete or rename a file: the delete operation is not among its tools.
 - Change a workflow file even if the limits above failed: GitHub
   refuses such a commit from Claude's app (`403 Resource not accessible
   by integration`).
 - Open, close, label or merge anything. Scripts do that with the
-  workflow's token; nobody but the developer merges.
+  workflow's token, in jobs the agent is not part of; nobody but the
+  developer merges.
 
-The limits on tools are settings of the Claude program
-(`--tools`, allow and deny rules, "don't ask" mode, which refuses
-whatever no rule allows). The script check in step 6 does not rely on
-them: it reads the branch back from GitHub.
+**Why `build.gradle` is not an allowed place** (the spec allowed it;
+the independent review of the build found the reason not to). The build
+file is a program. CI's `images` job runs it, for every pull request of
+this repository, on a machine that then logs in to the image registry
+with the right to publish. An agent-written build file could publish an
+image under the name of a commit that production might later be rolled
+back to. So a change that needs a new backend dependency is not for the
+factory yet. The same reasoning is why the frontend's package files are
+out. What would lift it: building the jar in a job that has no right to
+publish.
+
+**The check after the commit** does not rely on the tool limits. It
+reads the branch back from GitHub and counts as outside: anything not
+under the four allowed places; any path with `..` or a line break in
+it; a file moved out of or deleted from elsewhere; and, even inside the
+allowed places, files that steer agents (`CLAUDE.md`, `AGENTS.md`,
+`.claude/`, `.mcp.json`, `.github/`).
 
 **Where its secrets and settings live.**
 
 - The Claude token: the same secret in the `factory` environment the
-  reviewer uses.
+  reviewer uses. Jobs 2 and 3 name that environment (job 3 needs the
+  token only to look for its text).
 - The app's token: made by the action for each run (it asks Anthropic
   for it, proving through GitHub who is asking) and cancelled by the
   action when the run ends. It is never stored.
 - Claude's GitHub App is installed on this repository only. It can be
   removed under the account's Settings → Applications.
 - Repository setting "Allow GitHub Actions to create and approve pull
-  requests": on, so that the script in step 3 may open the pull request.
+  requests": on, so that the script may open the pull request.
+- Labels `approved`, `factory`, `building`, `needs-human`: they must
+  exist before the first build. `factory/labels.sh --repo <owner>/<name>`
+  creates them.
 - Repository variables: `FACTORY_ENABLED` (the switch),
   `FACTORY_MODEL_IMPLEMENT` (`claude-sonnet-5-5` when not set),
   `FACTORY_AUTHORS`, which must contain `app/github-actions` for the
@@ -1118,16 +1159,19 @@ them: it reads the branch back from GitHub.
   workflow, their commits are the app's).
 
 **What it costs.** No money. A run counts against the subscription's
-windows like the developer's own use. Limits: one run per issue at a
+windows like the developer's own use. Limits: one build per issue at a
 time, 30 minutes for the agent, a ceiling on the cost estimate.
 
 **Checked.**
 
-- 94 script tests with a stand-in for GitHub (who may start a build,
-  each refusal, the allowed places including moved files and `..`, the
-  token's text, a branch left over, a pull request that cannot be
-  opened, every report and what it must not print). Eleven rules were
-  switched off one at a time and a test failed each time.
+- 125 script tests with a stand-in for GitHub (who may start a build,
+  each refusal, a fork's pull request with the same branch name, the
+  allowed places including moved files, `..` and steering files, the
+  token's text also in a commit that a later one took out, a broken
+  token, a branch left over, a pull request that cannot be opened or
+  labelled, every report, a report whose first call fails, and what a
+  report must not print). Twenty rules were switched off one at a time
+  and a test failed each time.
 - In this repository, with the hand-started probe workflow (removed
   again in the same change that added "Implement"), five runs on
   throw-away branches:
@@ -1140,13 +1184,25 @@ time, 30 minutes for the agent, a ceiling on the cost estimate.
 | Can the app change a workflow file | No: `403 Resource not accessible by integration` |
 | What the public log shows | The prompt in full, the settings, turns, duration, cost estimate, the number of refused calls. Not what the agent read or wrote |
 | Reads and writes outside the checkout | Refused once the tools were limited to it (with unlimited tools a read of `/etc/hostname` succeeded) |
-| The exact limits the workflow uses | Writing to the allowed places worked; six attempts elsewhere were refused |
+| Limits by place | Writing to allowed places worked; six attempts elsewhere were refused |
 
+- An independent reviewer read the first version. Nothing critical;
+  four important findings, fixed with tests that failed first where a
+  script was concerned: the build file as a way into the publishing
+  job (above); a stranger's fork pull request with the same branch name
+  would have blocked a build; a run that died after the agent's commit
+  left an unchecked pull request looking normal (now: job 3 always
+  runs, and `building`); closing the pull request did not stop the
+  agent. Smaller ones: a report lost its message when its first call
+  failed; a token with a line break would have raised a false alarm on
+  every build; the token was looked for only in the net change; steering
+  files inside allowed places; the agent's job held a GitHub token with
+  write rights (now read-only).
 - **Not checked yet — only possible after the merge:** the workflow
   itself, started by a label; a real issue from label to pull request;
   the refusals in the real repository; the review agent on a factory
   pull request; how often a first attempt written without compiling
-  passes CI.
+  passes CI. The workflow's own glue between the scripts has no tests.
 
 **Known gaps.**
 
@@ -1159,14 +1215,18 @@ time, 30 minutes for the agent, a ceiling on the cost estimate.
 - The check on places runs after the commit. With the tool limits it
   should never find anything; if it does, CI may already have started
   on that commit.
-- The agent's code runs in CI and on staging before anyone has read it.
-- The limits are the Claude program's own; a fault in them is not
+- The agent's code under `src/` runs in CI's test job and on staging
+  before anyone has read it. The test job's GitHub token can only read.
+- The tool limits are the Claude program's own; a fault in them is not
   caught before the commit, only by the check after it and by GitHub's
-  refusal for workflow files.
+  refusals.
+- The agent cannot add a dependency, delete or rename a file.
 
 **How to stop it.** Set `FACTORY_ENABLED` to anything but `true`: a
-label then starts nothing. To stop one build, cancel its run or close
-its pull request. To take the app away, uninstall it.
+label then starts nothing. To stop one build: cancel its run in the
+Actions tab. Closing the pull request alone does not stop the agent,
+but when it finishes, job 3 sees the closed pull request, deletes the
+branch and does nothing more. To take the app away, uninstall it.
 
 ## Factory: review gate (part 1 built, no agents yet)
 

@@ -8,6 +8,7 @@ usage() {
   echo "       report.sh too-many --repo R --issue N --pr N" >&2
   echo "       report.sh unchecked --repo R --issue N --pr N" >&2
   echo "       report.sh token --repo R --issue N --pr N --branch factory/issue-N" >&2
+  echo "       report.sh closed --repo R --issue N --pr N --branch factory/issue-N" >&2
   echo "       report.sh finished --repo R --issue N --pr N --model M --agent success|failure --turns N --cost C --seconds N --denials N" >&2
   exit 2
 }
@@ -74,6 +75,16 @@ on_pr() {
   gh pr comment "$pr" --repo "$repo" --body-file "$file"
 }
 
+failed=0
+
+try() {
+  "$@" || failed=1
+}
+
+remove_branch() {
+  gh api -X DELETE "repos/$repo/git/refs/heads/$branch" > /dev/null
+}
+
 again="To try again, remove the label \`approved\` and add it again."
 
 case $what in
@@ -91,7 +102,7 @@ case $what in
       failed) text="The issue could not be read from GitHub, or its pull request could not be opened. Nothing was built; the run's log has the reason. $again" ;;
       *) usage ;;
     esac
-    on_issue "**Implementation agent:** $text"
+    try on_issue "**Implementation agent:** $text"
     ;;
 
   empty)
@@ -100,9 +111,9 @@ case $what in
     if [ "$agent" = failure ]; then
       how="The agent's run ended with an error (token, usage limit, time limit or the agent itself); the run's log has the reason."
     fi
-    gh pr close "$pr" --repo "$repo" --comment "The implementation agent committed no change. Closed; the branch is deleted."
-    gh api -X DELETE "repos/$repo/git/refs/heads/$branch" > /dev/null
-    on_issue "**Implementation agent:** no change was written. $how Pull request #$pr is closed and its branch deleted. $again"
+    try gh pr close "$pr" --repo "$repo" --comment "The implementation agent committed no change. Closed; the branch is deleted."
+    try remove_branch
+    try on_issue "**Implementation agent:** no change was written. $how Pull request #$pr is closed and its branch deleted. $again"
     ;;
 
   outside)
@@ -113,41 +124,56 @@ case $what in
     if [ "$total" -gt 30 ]; then
       more=$'\n'"- and $((total - 30)) more"
     fi
-    gh pr edit "$pr" --repo "$repo" --add-label needs-human
-    on_pr "**Implementation agent:** this change touches files outside the places the factory may write (\`src/\`, \`frontend/src/\`, \`http/\`, \`docs/\`, \`build.gradle\`):"$'\n\n'"$list$more"$'\n\n'"The pull request is left as it is for the developer to look at. Do not merge it without reading those files."
-    on_issue "**Implementation agent:** pull request #$pr was written, but it touches files outside the places the factory may write. It is marked \`needs-human\`."
+    try on_pr "**Implementation agent:** this change touches files outside the places the factory may write (\`src/\`, \`frontend/src/\`, \`http/\`, \`docs/\`):"$'\n\n'"$list$more"$'\n\n'"The pull request is left as it is for the developer to look at. Do not merge it without reading those files."
+    try on_issue "**Implementation agent:** pull request #$pr was written, but it touches files outside the places the factory may write. It is marked \`needs-human\`."
+    try gh pr edit "$pr" --repo "$repo" --add-label needs-human
+    gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;
 
   too-many)
     [ -n "$pr" ] || usage
-    gh pr edit "$pr" --repo "$repo" --add-label needs-human
-    on_pr "**Implementation agent:** this change has 300 files or more, more than GitHub lists, so it could not be checked. It is left as it is for the developer to look at."
-    on_issue "**Implementation agent:** pull request #$pr was written, but it is too large to check. It is marked \`needs-human\`."
+    try on_pr "**Implementation agent:** this change has more files or commits than can be read back, so it could not be checked. It is left as it is for the developer to look at."
+    try on_issue "**Implementation agent:** pull request #$pr was written, but it is too large to check. It is marked \`needs-human\`."
+    try gh pr edit "$pr" --repo "$repo" --add-label needs-human
+    gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;
 
   unchecked)
     [ -n "$pr" ] || usage
-    gh pr edit "$pr" --repo "$repo" --add-label needs-human
-    on_pr "**Implementation agent:** what the agent committed could not be read back from GitHub, so it was not checked against the places the factory may write. It is left as it is for the developer to look at."
-    on_issue "**Implementation agent:** pull request #$pr could not be checked after the agent's run. It is marked \`needs-human\`; the run's log has the reason."
+    try on_pr "**Implementation agent:** what the agent committed could not be read back from GitHub, so it was not checked against the places the factory may write. It is left as it is for the developer to look at."
+    try on_issue "**Implementation agent:** pull request #$pr could not be checked after the agent's run. It is marked \`needs-human\`; the run's log has the reason."
+    try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     ;;
 
   token)
     [ -n "$pr" ] && [ -n "$branch" ] || usage
-    gh api -X DELETE "repos/$repo/git/refs/heads/$branch" > /dev/null
-    on_issue "**Implementation agent:** the change the agent committed contained the text of the Claude token. The branch was deleted at once, which closed pull request #$pr. **Treat the token as public:** GitHub keeps a closed pull request's commits readable. Make a new token with \`claude setup-token\` and store it in the \`factory\` environment, and switch \`FACTORY_ENABLED\` off until the cause is known."
+    gone="The branch was deleted at once, which closed pull request #$pr."
+    if ! remove_branch; then
+      failed=1
+      gone="**The branch could not be deleted: delete \`$branch\` by hand now.** Pull request #$pr is still open."
+    fi
+    try on_issue "**Implementation agent:** the change the agent committed contained the text of the Claude token. $gone **Treat the token as public:** GitHub keeps a pull request's commits readable after the branch is gone. Make a new token with \`claude setup-token\`, store it in the \`factory\` environment, and switch \`FACTORY_ENABLED\` off until the cause is known."
+    ;;
+
+  closed)
+    [ -n "$pr" ] && [ -n "$branch" ] || usage
+    try remove_branch
+    try on_issue "**Implementation agent:** pull request #$pr was closed while the agent worked. Its branch is deleted and nothing more was done. $again"
     ;;
 
   finished)
     [ -n "$pr" ] && [ -n "$model" ] && [ -n "$agent" ] && [ -n "$turns" ] && [ -n "$cost" ] && [ -n "$seconds" ] && [ -n "$denials" ] || usage
     numbers="model \`$model\`, $turns turns, $seconds s, estimated \$$cost (the subscription is not billed per run), $denials refused tool calls"
     if [ "$agent" = failure ]; then
-      gh pr edit "$pr" --repo "$repo" --add-label needs-human
-      on_issue "**Implementation agent:** pull request #$pr has a commit, but the agent's run ended with an error after it, so the work may be incomplete. It is marked \`needs-human\`."$'\n\n'"<sub>$numbers.</sub>"
+      try on_issue "**Implementation agent:** pull request #$pr has a commit, but the agent's run ended with an error after it, so the work may be incomplete. It is marked \`needs-human\`."$'\n\n'"<sub>$numbers.</sub>"
+      try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     else
-      on_issue "**Implementation agent:** pull request #$pr holds the change. CI, staging and the review agent take it from here; nothing was compiled or tested by the agent."$'\n\n'"<sub>$numbers.</sub>"
+      try on_issue "**Implementation agent:** pull request #$pr holds the change. CI, staging and the review agent take it from here; nothing was compiled or tested by the agent."$'\n\n'"<sub>$numbers.</sub>"
     fi
+    gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;
 
   *) usage ;;
 esac
+
+[ "$failed" -eq 0 ]

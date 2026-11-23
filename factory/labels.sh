@@ -13,6 +13,7 @@ label() {
 
 label approved 0e8a16 "Spec approved by the owner: the implementation agent builds it"
 label factory 5319e7 "Factory PR: written by the implementation agent"
+label building fef2c0 "Factory PR: the check after the agent has not judged it yet"
 label review-round-1 c5def5 "Review loop: round 1 of 3"
 label review-round-2 fbca04 "Review loop: round 2 of 3"
 label review-round-3 d93f0b "Review loop: round 3 of 3, last"

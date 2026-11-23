@@ -1,0 +1,36 @@
+name: Drill token probe
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  with-environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: factory
+    steps:
+      - name: Is the Claude token readable here
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "token: readable"
+            exit 1
+          fi
+          echo "token: empty"
+
+  without-environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Is the Claude token readable here
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "token: readable"
+            exit 1
+          fi
+          echo "token: empty"

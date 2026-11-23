@@ -28,8 +28,17 @@ allowed_author() {
   [ "$login" = "$owner" ] && return 0
   while IFS= read -r extra; do
     [ -n "$extra" ] && [ "$login" = "$extra" ] && return 0
-  done <<< "$(printf '%s' "${FACTORY_AUTHORS:-}" | tr ',' '\n')"
+  done <<< "$(printf '%s' "${FACTORY_AUTHORS:-}" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
   return 1
+}
+
+documentation() {
+  case $1 in
+    *..*) return 1 ;;
+    docs/*.md|README.md|*/README.md) return 0 ;;
+    .claude/NOTES.md|.claude/DECISIONS.md|.claude/ROADMAP.md|.claude/SPEC.md) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 no() {
@@ -49,28 +58,28 @@ echo "head=$head"
 [ "$(jq -r '.isCrossRepository' <<< "$pull")" = "false" ] || no fork
 allowed_author "$(jq -r '.author.login // ""' <<< "$pull")" || no not-owner
 
-files=$(gh pr diff "$pr" --repo "$repo" --name-only)
+files=$(gh api "repos/$repo/pulls/$pr/files" --paginate --jq '.[] | [.filename, (.previous_filename // "")] | @tsv') || no failed
 code=0
-while IFS= read -r path; do
+while IFS=$'\t' read -r path previous; do
   [ -n "$path" ] || continue
-  case $path in
-    *..*) code=1 ;;
-    docs/*|.claude/*|*.md) ;;
-    *) code=1 ;;
-  esac
+  documentation "$path" || code=1
+  if [ -n "$previous" ]; then
+    documentation "$previous" || code=1
+  fi
 done <<< "$files"
 [ "$code" -eq 1 ] || no docs-only
 
-gh pr diff "$pr" --repo "$repo" > "$out/diff.patch"
+gh pr diff "$pr" --repo "$repo" > "$out/diff.patch" || no failed
 [ "$(wc -c < "$out/diff.patch")" -le "$max_bytes" ] || no too-large
 
 issue=none
-reference=$(jq -r '.body // ""' <<< "$pull" \
-  | grep -ioE '(close[sd]?|fix(e[sd])?|resolve[sd]?|part of|implements?)[[:space:]]+#[0-9]{1,7}' | head -n 1 | grep -oE '[0-9]+$' || true)
 issue_text=""
+reference=$(jq -r '.body // ""' <<< "$pull" \
+  | grep -ioE '(^|[^[:alnum:]_/#])(close[sd]?|fix(e[sd])?|resolve[sd]?|part of|implements?)[[:space:]]+#[0-9]{1,7}($|[^[:alnum:]_])' \
+  | head -n 1 | grep -oE '#[0-9]+' | tr -d '#' || true)
 if [ -n "$reference" ]; then
-  issue_json=$(gh issue view "$reference" --repo "$repo" --json number,title,body,author)
-  if [ -n "$issue_json" ] && allowed_author "$(jq -r '.author.login // ""' <<< "$issue_json")"; then
+  issue_json=$(gh issue view "$reference" --repo "$repo" --json number,title,body,author 2>/dev/null) || issue_json=""
+  if [ -n "$issue_json" ] && allowed_author "$(jq -r '.author.login // ""' <<< "$issue_json" 2>/dev/null)"; then
     issue=$reference
     issue_text=$(jq -r '"# Issue " + (.number | tostring) + ": " + (.title // "") + "\n\n" + (.body // "")' <<< "$issue_json")
   fi

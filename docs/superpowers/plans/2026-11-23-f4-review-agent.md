@@ -12,7 +12,7 @@
 
 - Agents only produce content; scripts act.
 - The reviewer's step has exactly one secret in its environment, the Claude token, and no GitHub token.
-- The reviewer runs with `--restricted --tools "Read,Grep,Glob" --strict-mcp-config --permission-mode dontAsk --no-session-persistence`.
+- The reviewer runs with `--restricted --tools "Read,Grep,Glob" --strict-mcp-config --permission-mode dontAsk --no-session-persistence`, in an emptied environment (search path, home, the Claude token), after symbolic links have been deleted from the code it reads.
 - The Claude token is a secret of the GitHub environment `factory`, usable from `main` only.
 - Workflow logs are public: no token, no full tool output.
 - Fork pull requests are never reviewed. Only pull requests opened by the repository owner (or a login listed in `FACTORY_AUTHORS`) are.
@@ -35,10 +35,10 @@
 
 ## Interfaces
 
-- `collect.sh --repo OWNER/NAME --pr N --out DIR` prints `review=yes|no`, `reason=closed|fork|not-owner|docs-only|too-large` (when no), `head=<sha>`, `issue=<n|none>`. Exit 1 only when GitHub cannot be read.
-- `check-findings.sh FILE` exits 0 when FILE is `{summary, findings[]}` with every finding `{severity: critical|major, rule: <id from the rubric>, file, line: integer ≥ 1 or null, what, why}`; otherwise 1.
-- `run-review.sh --work DIR --code DIR --model M` prints `outcome=findings|unreadable|failed`, `turns=`, `cost=`, `seconds=`, `denials=`; writes `DIR/findings.json` on `findings`.
-- `comment.sh --head SHA --model M (--findings FILE | --unreadable | --not-run REASON) [--turns N --cost C --seconds S]` prints the comment.
+- `collect.sh --repo OWNER/NAME --pr N --out DIR` prints `head=<sha>` first, then `review=yes|no`, `reason=closed|fork|not-owner|docs-only|too-large|failed` (when no) and `issue=<n|none>` (when yes). Exit 1 only when the pull request itself cannot be read. The workflow adds the reason `moved-on`.
+- `check-findings.sh FILE` exits 0 when FILE is one JSON value `{reviewed: true, summary, findings[]}` with every finding `{severity: the one that belongs to the rule, rule: <id from the rubric>, file, line: integer ≥ 1 or null, what, why}`; otherwise 1.
+- `run-review.sh --work DIR --out DIR --code DIR --model M` prints `outcome=findings|unreadable|failed`, `turns=`, `cost=`, `seconds=`, `denials=` and, when failed, `detail=`; writes `findings.json` into the out folder on `findings`. Nothing is written into the work folder.
+- `comment.sh --head SHA --model M (--findings FILE | --unreadable | --not-run REASON) [--turns N --cost C --seconds S --denials N]` prints the comment, never longer than GitHub accepts.
 
 ## Rules pinned by tests
 

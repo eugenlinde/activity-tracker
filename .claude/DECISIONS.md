@@ -1328,3 +1328,76 @@ important findings. Changed:
 - The staging list of invited addresses is a copy of production's at the
   time of provisioning (the developer's own address). It is not kept in
   step afterwards; it is a line in `/opt/tracker-staging/.env`.
+
+## 2026-11-23 — F4: runtime, identity, order, models (developer's decisions)
+
+- Agents run on the developer's Claude subscription in GitHub Actions
+  (plan A). The developer reported on 2026-11-19 that the subscription
+  allows it. What the builder found in the documentation on 2026-11-23:
+  the setup is described there (`claude setup-token`, "uses your Claude
+  subscription instead of API billing"); the legal page speaks of
+  "ordinary, individual usage" and says nothing specific about
+  unattended runs. Told to the developer before approval of issue #28;
+  the developer approved.
+- Identity for agents that act on GitHub: Claude's official GitHub App.
+  **The builder suggested a small own app** with only code, issue and
+  pull request rights, because the official app may also change
+  workflow files, so an agent's pull request could alter CI or the
+  deploy. The developer chose the official app. What the builder does
+  about it: agents that only produce content get no GitHub token at all
+  (the review agent is the first); the app is used only where an agent
+  must push, from slice 2 on, and that slice's spec has to say what
+  keeps workflow files safe.
+- Order: the review agent before the implementation agent.
+- Models: the most capable model for review, spec and analysis; Sonnet
+  for implementation and fixes. One repository variable per agent.
+
+## 2026-11-23 — F4 slice 1, review agent: how it is built (builder's calls), spec in issue #28
+
+- Headless Claude Code (`claude -p`) in a workflow step, not the
+  ready-made action: one command with a schema for the answer is easier
+  to follow than an action with some forty settings, and its extras
+  (mention bot, own branches, own posting) are not wanted.
+- Restricted mode with read and search tools only; settings, hooks and
+  tool servers from the pull request are not loaded; the working folder
+  is a neutral one and the pull request's code is an added folder.
+- The Claude program's version is pinned in the workflow (2.1.325, the
+  one rehearsed). Upgrading is a pull request.
+- Rule ids added to the approved rubric so the answer can be checked by
+  a script; the wording of the rules is unchanged.
+- Not reviewed, to save allowance: documentation-only pull requests.
+  Not reviewed, for safety: forks and pull requests not opened by the
+  owner; an issue not opened by the owner is not used as the spec.
+- The comment shows the tool's own cost estimate so that the developer
+  can see how heavy a run was.
+
+## 2026-11-23 — F4 slice 1, review agent: what its own review changed (builder's calls)
+
+A fresh reviewer read the first version. Nothing critical; seven
+important findings. Changed:
+
+- The answer carries `reviewed`; false, or an answer after a single
+  turn (nothing was read), is never a clean review.
+- Symbolic links are deleted from the code before the reviewer starts;
+  the reviewer's program gets an emptied environment; an answer that
+  contains the Claude token is discarded as a failed review. None of
+  this relies on how the program treats links, which is not documented.
+- A missing issue is "no spec", not a failure. A file list or diff that
+  cannot be fetched is a comment "did not run", not a silent red run.
+- "Documentation only" is a short named list. Everything else — the
+  rule book `CLAUDE.md`, the reviewer's prompt and rubric, settings,
+  scripts under `docs/` — is reviewed. Renames are judged by both names.
+- The comment has a size cap; what does not fit is counted in words.
+- A failed run prints a short reason made only of the program's own
+  status words.
+- The security rule of the rubric reads as examples again and names
+  unchecked outside input; severity must match the rule.
+- Reviewer text in the comment: links, `www.`, issue references, `$`
+  and text-direction characters are neutralised too.
+- Not changed: a new comment per reviewed push; the workflow's glue is
+  untested shell; the issue body, not a later spec comment, is the spec.
+  All three listed as known gaps.
+- During that review the reviewing agent once started the real Claude
+  program by mistake (a probe without the stand-in on the path): one
+  request, refused as "model not found", no usage. Told to the
+  developer.

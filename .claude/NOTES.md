@@ -543,3 +543,26 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Open: the developer's own look at staging; the 2026-11-19 deploy
   recreated the database container, cause not found; restore drill with
   real data; the scheduled backup check runs hours late.
+
+## 2026-11-23 — F4 started: review agent built, not switched on
+
+- The developer merged PR #27 (F3 docs) and said go for F4. Three
+  questions answered (identity: Claude's official app, against the
+  builder's suggestion; review agent first; mixed models). Spec issue
+  #28 approved.
+- Facts about Claude Code in GitHub Actions were looked up in the
+  official documentation by a research agent, not taken from memory;
+  the gaps it reported (token revocation, terms for unattended runs,
+  concurrency limits) are named in the spec and in ARCHITECTURE.
+- Claude Code 2.1.325 has `--restricted` and `--tools`; it has no
+  `--max-turns` in its help. The run is bounded by time and by
+  `--max-budget-usd` instead.
+- Headless calls from a script need `< /dev/null`, otherwise the
+  program waits three seconds for stdin and warns.
+- Rehearsal with the real model on three planted defects: all found.
+- After the merge, each with the developer's go-ahead: environment
+  `factory` limited to `main` → the developer runs `claude setup-token`
+  and puts the token into it from the clipboard → `FACTORY_ENABLED` →
+  drills (manual run, planted defects, clean PR, docs-only PR, a PR
+  that tries to instruct the reviewer, token not readable from a PR
+  branch).

@@ -97,13 +97,20 @@ piece in their own words before the phase is checked off.
           the gate deciding. Identity: Claude's official GitHub App; the
           agent runs no commands (the developer's decisions of
           2026-11-23 and 2026-11-24). Three steps:
-        - [ ] 2a, issue #36: approved issue → pull request
+        - [x] 2a, issue #36: approved issue → pull request (2026-11-24)
             - [x] Probe in the real repository (2026-11-24): all five
                   answers in favour; the app cannot change workflow files
             - [x] "Implement" workflow and scripts, 127 script tests,
                   independent review (four important findings fixed)
-            - [ ] Drills after the merge: label → pull request on a real
-                  issue, the refusals, review of a factory pull request
+            - [x] Drills after the merge (2026-11-24): issue 41 → pull
+                  request 42 in 80 seconds, CI green on the first
+                  attempt (one of one), review clean; a second build and
+                  the switch refused; an issue asking for forbidden
+                  things ended empty. Not drilled: a stranger's label or
+                  issue (needs a second account); the tool limits in the
+                  real workflow (the agent declined before trying)
+            - [ ] Explain-back: what starts a build, what the agent can
+                  and cannot do, what the check does, how to stop it
         - [ ] 2b: the gate reads CI and findings; fix agent, three rounds
         - [ ] 2c: analysis agent and one automatic rebuild
         - [ ] Later: build the jar in a CI job that cannot publish, so
@@ -139,6 +146,10 @@ back before F6 (PoC acceptance) at the latest.
 - F1: what happens when a PR is opened; what a red check means and where
   to look; why the test suite needs Docker on the CI machine; what
   protects `main` and what does not.
+- F4 slice 1: what the review agent sees, what it cannot do, how to
+  stop it.
+- F4 slice 2a: what starts a build, what the implementation agent can
+  and cannot do, what the check after it does, how to stop it.
 
 ## Product backlog
 

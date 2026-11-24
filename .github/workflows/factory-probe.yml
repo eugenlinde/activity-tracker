@@ -80,9 +80,9 @@ jobs:
             Do nothing else.
           use_commit_signing: true
           claude_args: >-
-            --model claude-haiku-5-5
+            --model claude-sonnet-5-5
             --tools "Read,Grep,Glob,Edit,Write"
-            --allowedTools "Write(./docs/probe-2b/**),mcp__github_file_ops__commit_files"
+            --allowedTools "Edit(./docs/probe-2b/**),Write(./docs/probe-2b/**),mcp__github_file_ops__commit_files"
             --permission-mode dontAsk
             --max-budget-usd 1
 
@@ -91,7 +91,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.agent.outcome }}
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
         run: |
           echo "agent step: $OUTCOME"
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+            jq -r '[.[] | select(.type == "result")] | last | "refused: " + ([.permission_denials[]? | .tool_name + " " + ((.tool_input.file_path // .tool_input.path // "") | tostring)] | join(", "))' "$EXECUTION_FILE" || true
+            jq -r '[.[] | select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .name] | "tools: " + join(", ")' "$EXECUTION_FILE" || true
+          fi
           gh api "repos/$GITHUB_REPOSITORY/compare/main...$BRANCH" \
             --jq '.commits[] | .sha[0:7] + " by " + (.author.login // .commit.author.name // "?") + ", signed: " + (.commit.verification.verified | tostring) + ", " + .commit.message'

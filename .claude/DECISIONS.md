@@ -1456,3 +1456,42 @@ reaches the log that way.
   source before anything is built on them. If the app can change
   workflow files, the builder stops and asks.
 
+## 2026-11-24 — Implementation agent: limits at the tool, check after the commit (builder's calls)
+
+- The agent's edit and write rules name the allowed places only
+  (`src/`, `frontend/src/`, `http/`, `docs/`, `build.gradle`); nothing
+  has a bare allow rule; `.git/` is denied outright. In "don't ask"
+  mode that refuses everything else, on the machine and in the
+  checkout. Probed in the real repository before building.
+- The script that checks the branch afterwards stays, and reads the
+  branch back from GitHub instead of trusting the checkout the agent
+  worked in. The scripts are copied out of the checkout before the
+  agent runs and are run from there, so that nothing the agent wrote is
+  executed by a later step.
+- The frontend's package files are not among the allowed places: the
+  agent cannot run the command that keeps the lock file in step, and CI
+  would fail on the mismatch. A change that needs a new frontend
+  dependency is not for the factory yet.
+- The spec is the issue's title and text; comments are not read, and
+  only issues written by the owner are built. `FACTORY_AUTHORS` (who is
+  reviewed) deliberately does not widen who is built.
+- No separate plan document for this slice: the spec issue and the
+  script tests carry it.
+
+## 2026-11-24 — Implementation agent: narrower than the spec after the review (builder's calls)
+
+- `build.gradle` is not an allowed place, although the spec (issue 36)
+  listed it. The independent review showed that CI's `images` job runs
+  the build file on a machine that then holds the right to publish
+  images. Narrowing is the safe direction; widening again needs the
+  jar built in a job without that right. Told to the developer.
+- The agent has no delete operation. One tool fewer to limit; a change
+  that must remove a file is not for the factory yet.
+- Three jobs instead of one: the agent's job holds a read-only GitHub
+  token, and the check runs on a fresh machine whatever happened to
+  the agent's job.
+- A label `building` marks a pull request the check has not judged.
+- The pull request is opened and labelled through GitHub's API rather
+  than `gh pr create`, whose behaviour outside a checkout was not
+  verified and whose output had to be parsed.
+

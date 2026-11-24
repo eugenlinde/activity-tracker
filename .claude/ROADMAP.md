@@ -98,11 +98,16 @@ piece in their own words before the phase is checked off.
           agent runs no commands (the developer's decisions of
           2026-11-23 and 2026-11-24). Three steps:
         - [ ] 2a, issue #36: approved issue → pull request
-            - [ ] Probe in the real repository (five questions, see
-                  `docs/ARCHITECTURE.md`)
-            - [ ] "Implement" workflow, scripts, drills
+            - [x] Probe in the real repository (2026-11-24): all five
+                  answers in favour; the app cannot change workflow files
+            - [x] "Implement" workflow and scripts, 127 script tests,
+                  independent review (four important findings fixed)
+            - [ ] Drills after the merge: label → pull request on a real
+                  issue, the refusals, review of a factory pull request
         - [ ] 2b: the gate reads CI and findings; fix agent, three rounds
         - [ ] 2c: analysis agent and one automatic rebuild
+        - [ ] Later: build the jar in a CI job that cannot publish, so
+              that the agent may change `build.gradle`
     - [ ] Slice 3: triage agent and spec agent
     - [ ] Slice 4: acceptance — one issue from label to a tested pull
           request on staging without an interactive session

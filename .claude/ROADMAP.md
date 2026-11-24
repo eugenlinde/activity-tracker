@@ -111,7 +111,13 @@ piece in their own words before the phase is checked off.
                   real workflow (the agent declined before trying)
             - [ ] Explain-back: what starts a build, what the agent can
                   and cannot do, what the check does, how to stop it
-        - [ ] 2b: the gate reads CI and findings; fix agent, three rounds
+        - [ ] 2b, issue #47: the gate reads CI and findings; fix agent,
+              three rounds (spec approved 2026-11-24)
+            - [ ] Probe: the action in a run that CI started after the
+                  app's own commit
+            - [ ] Gate wired in after every review, fix agent, check
+            - [ ] Drills: pass, a real fix round, scrap, a push by the
+                  developer, the switch
         - [ ] 2c: analysis agent and one automatic rebuild
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`

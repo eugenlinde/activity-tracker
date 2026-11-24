@@ -1262,6 +1262,25 @@ branch and does nothing more. To take the app away, uninstall it.
 ## Factory: review gate (part 1 built, no agents yet)
 
 Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.
+Next step: issue 47 (slice 2b, approved 2026-11-24) wires the gate in
+after every review, with a fix agent; until then only its probe exists.
+
+**The probe for slice 2b** is the workflow "Factory probe"
+(`.github/workflows/factory-probe.yml`), temporary like the probe of
+slice 2a. In the loop the fix agent will run in a job that CI's end
+started, after a commit made by Claude's app itself. Whether the
+action runs there, and gets the app's token, is read from its source
+but not yet seen. The probe answers that. It starts after every green
+CI run of a pull request from this repository whose branch is named
+`probe/2b-…`. Branches with that name can only be pushed by the owner
+and by the factory's app. While the branch has fewer than three commits
+it runs the action, pinned to the same commit as "Implement". The
+agent is asked to write one file under `docs/probe-2b/` and commit it
+through the app; it may write nowhere else. That commit starts CI
+again, so the second probe run is one whose CI the app started. The
+log names who started each run and who wrote the newest commit. The
+switch is `FACTORY_ENABLED`. Removed again in the change that builds
+the loop.
 
 **What it is.** The rule book of the review loop, as a script. A review
 agent (not built yet) will read a factory PR and list its major and

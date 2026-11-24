@@ -1234,7 +1234,9 @@ time, 30 minutes for the agent, a ceiling on the cost estimate.
   nothing was written, not why.
 - The pull request's first, empty commit leaves one CI run waiting for
   an approval that never comes. Harmless; the app's commit gets its own
-  run.
+  run. When the pull request is closed as empty, GitHub turns that
+  waiting run into a red CI run with no jobs in it (seen twice in the
+  drill on issue 43). Nothing ran; it is noise in the Actions tab.
 - The check on places runs after the commit. With the tool limits it
   should never find anything; if it does, CI may already have started
   on that commit.

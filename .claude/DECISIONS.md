@@ -1495,3 +1495,21 @@ reaches the log that way.
   than `gh pr create`, whose behaviour outside a checkout was not
   verified and whose output had to be parsed.
 
+## 2026-11-24 — Review loop, slice 2b (issue 47; spec approved by the developer)
+
+- The developer approved the spec in chat ("Spec okei").
+- Builder's call: no workflow starts another one. The gate, the fix agent
+  and the check run as jobs in the run of "Review" that follows CI. The
+  reason: starting a workflow needs a token with `actions: write`, and
+  such a token can also start CI's manual run, which redeploys an older
+  version to production with only the rule "from `main`" in the way.
+  Labels still show the state; they cannot be the trigger, because a
+  label set by a workflow starts nothing.
+- Builder's call, changing one of my own calls in the review-loop design:
+  the reviewer does not get the previous round's findings. Each review is
+  fresh; the three-round limit stops a reviewer that never converges.
+- Builder's call: the review's own retry replaces the gate's "run the
+  review again"; an unusable answer goes to `needs-human`.
+- Builder's call: a probe first, as in 2a — whether the action runs and
+  gets the app's token in a run that CI started after the app's own
+  commit.

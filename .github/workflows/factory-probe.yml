@@ -1,0 +1,97 @@
+name: Factory probe
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  probe:
+    if: >-
+      ${{
+        vars.FACTORY_ENABLED == 'true'
+        && github.event.workflow_run.event == 'pull_request'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.head_repository.full_name == github.repository
+        && startsWith(github.event.workflow_run.head_branch, 'probe/2b-')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: factory
+    concurrency:
+      group: factory-probe
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Who started this run, and how far the probe is
+        id: where
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          RUN_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          RUN_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          if [[ ! $BRANCH =~ ^probe/2b-[a-z0-9-]{1,30}$ ]] || [[ ! $HEAD_SHA =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Not a probe branch" >&2
+            exit 1
+          fi
+          echo "github.actor=$ACTOR"
+          echo "github.triggering_actor=$TRIGGERING_ACTOR"
+          echo "workflow_run.actor=$RUN_ACTOR"
+          echo "workflow_run.triggering_actor=$RUN_TRIGGERING_ACTOR"
+          echo "workflow_run.pull_requests[0]=${RUN_PR:-none}"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA" \
+            --jq '"head commit: " + .sha[0:7] + " author=" + (.author.login // "?") + " committer=" + (.committer.login // "?") + " signed=" + (.commit.verification.verified | tostring)'
+          commits=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$HEAD_SHA" --jq '.total_commits')
+          echo "commits on the branch: $commits"
+          if [[ ! $commits =~ ^[0-9]+$ ]] || [ "$commits" -ge 3 ]; then
+            echo "step=done" >> "$GITHUB_OUTPUT"
+          else
+            echo "step=$commits" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.where.outputs.step != 'done' }}
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          persist-credentials: false
+
+      - name: The agent (claude-code-action v1 at b5e3765)
+        id: agent
+        if: ${{ steps.where.outputs.step != 'done' }}
+        uses: anthropics/claude-code-action@b5e37652b7d48df841bfddfd6520610e19bf3136
+        env:
+          CLAUDE_BRANCH: ${{ env.BRANCH }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: >-
+            Create the file docs/probe-2b/step-${{ steps.where.outputs.step }}.md containing the single line
+            "probe step ${{ steps.where.outputs.step }}". Then commit exactly that file with the tool
+            mcp__github_file_ops__commit_files and the message "probe: step ${{ steps.where.outputs.step }}".
+            Do nothing else.
+          use_commit_signing: true
+          claude_args: >-
+            --model claude-haiku-5-5
+            --tools "Read,Grep,Glob,Edit,Write"
+            --allowedTools "Write(./docs/probe-2b/**),mcp__github_file_ops__commit_files"
+            --permission-mode dontAsk
+            --max-budget-usd 1
+
+      - name: What landed
+        if: ${{ !cancelled() && steps.where.outputs.step != 'done' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.agent.outcome }}
+        run: |
+          echo "agent step: $OUTCOME"
+          gh api "repos/$GITHUB_REPOSITORY/compare/main...$BRANCH" \
+            --jq '.commits[] | .sha[0:7] + " by " + (.author.login // .commit.author.name // "?") + ", signed: " + (.commit.verification.verified | tostring) + ", " + .commit.message'

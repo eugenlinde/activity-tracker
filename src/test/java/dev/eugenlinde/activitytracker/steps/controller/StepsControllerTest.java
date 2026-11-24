@@ -182,6 +182,39 @@ class StepsControllerTest {
     }
 
     @Test
+    void getStepsForDate_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/steps/2026-11-13")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getStepsForDate_whenEntryExists_returnsIt() throws Exception {
+        when(stepsService.findByDate(userId, DATE)).thenReturn(new StepsResponse(DATE, 9870));
+
+        mockMvc.perform(get("/api/steps/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value("2026-11-13"))
+                .andExpect(jsonPath("$.steps").value(9870));
+    }
+
+    @Test
+    void getStepsForDate_whenNoEntry_returns404() throws Exception {
+        when(stepsService.findByDate(userId, DATE)).thenThrow(new StepEntryNotFoundException());
+
+        mockMvc.perform(get("/api/steps/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getStepsForDate_withMalformedDate_returns400() throws Exception {
+        mockMvc.perform(get("/api/steps/13-11-2026").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
     void deleteSteps_whenEntryExists_returns204() throws Exception {
         mockMvc.perform(delete("/api/steps/2026-11-13").with(authenticatedAs(userId)))
                 .andExpect(status().isNoContent());

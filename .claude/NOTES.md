@@ -633,3 +633,26 @@ maps onto this project. Nothing decided yet. Proposals given:
   labels (`factory/labels.sh`), set `FACTORY_AUTHORS` to
   `app/github-actions`, pick a small real issue together, drills.
 
+## 2026-11-24 (evening) — first real build, drills of slice 2a
+
+- PR #40 merged. With the developer's go-ahead: labels created,
+  `FACTORY_AUTHORS` set to `app/github-actions`. Trial issue #41 (read
+  one day's steps entry), chosen by the developer.
+- The developer labelled #41. Pull request #42 with the agent's commit
+  80 seconds later; CI green on the first attempt; review agent clean;
+  staging took it. #42 is the developer's to test and merge or close.
+- Drills: second build on #41 refused; switch off, everything skipped;
+  the builder switched `FACTORY_ENABLED` back on right after.
+- Drill issue #43 (forbidden changes only), labelled by the developer.
+  The agent ended after one turn with no tool call. The builder then
+  made the issue's text insist on real tool calls and started a second
+  run by hand (same issue, same label, disclosed to the developer):
+  same result. So the empty path is proven in the real repository and
+  the tool limits are not; their evidence stays the probe.
+- Lesson: a drill that depends on the agent misbehaving cannot be
+  ordered through the issue; the prompt outranks the issue's text. To
+  exercise the limits, the prompt has to ask, as the probe did.
+- Seen: a pull request closed as empty keeps the label `building`.
+  Recorded as a known gap, not fixed.
+- Next: slice 2b gets its own spec issue (gate reads CI and findings,
+  fix agent, three rounds) when the developer says so.

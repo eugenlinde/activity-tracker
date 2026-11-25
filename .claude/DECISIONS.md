@@ -1513,3 +1513,34 @@ reaches the log that way.
 - Builder's call: a probe first, as in 2a — whether the action runs and
   gets the app's token in a run that CI started after the app's own
   commit.
+
+## 2026-11-25 — Review loop, slice 2b: built (builder's calls)
+
+- `allowed_bots: claude` on the agent step. The probe showed that the run
+  started by the app's own commit has `claude[bot]` as every actor, and
+  the action refuses bot starters that are not named. Only Claude's app
+  is named; no other bot. Recorded on issue 47 before building on it.
+- The agent and check jobs moved into a shared workflow
+  (`factory-agent.yml`) used by "Implement" (role build) and by the
+  loop (role fix), as the spec said, so the two agents cannot drift.
+- The gate does not act when the newest commit is not a signed commit
+  by `claude[bot]`, when `building` or `needs-human` is on the pull
+  request, or when the pull request has moved past the commit CI was
+  about. A gate that does nothing says so in the run's log only.
+- A fix sets `building` from the gate's decision until the check after
+  the fix agent has judged its commit, so a round cannot start on a
+  commit that was not checked.
+- The fix agent's task puts the problem before the spec, and keeps only
+  the last 300 lines of a failed job's log, with control characters
+  removed. It reads no comments.
+- On a scrap the issue gets `needs-human` (not `needs-analysis`): the
+  analysis agent is slice 2c.
+- The manual "Factory gate" workflow and the probe workflow are removed.
+- After the independent review (one critical, two important findings,
+  all accepted): the fix job's condition names the gate's result
+  explicitly, because a skipped job further up would otherwise skip it;
+  the gate leaves a `review-passed` pull request alone; the check after a
+  fix calls a branch "moved" when its newest commit is not the fix
+  agent's commit on top of the commit it was given. Also: a red CI with
+  no readable failed job gives `needs-human` instead of a blind fix, and
+  a manual review no longer cancels the loop's review (separate queues).

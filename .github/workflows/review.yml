@@ -13,7 +13,7 @@ on:
 permissions: {}
 
 jobs:
-  review:
+  which:
     if: >-
       ${{
         vars.FACTORY_ENABLED == 'true'
@@ -21,21 +21,92 @@ jobs:
           github.event_name == 'workflow_dispatch'
           || (
             github.event.workflow_run.event == 'pull_request'
-            && github.event.workflow_run.conclusion == 'success'
+            && (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
             && github.event.workflow_run.head_repository.full_name == github.repository
           )
         )
       }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      number: ${{ steps.pr.outputs.number }}
+      head: ${{ steps.pr.outputs.head }}
+      ci: ${{ steps.pr.outputs.ci }}
+      loop: ${{ steps.pr.outputs.loop }}
+    steps:
+      - name: Which pull request, which commit, and is it in the loop
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          ASKED_FOR: ${{ inputs.pr }}
+          NAMED_BY_RUN: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            number=$ASKED_FOR
+            ci=success
+          else
+            if [[ ! $RUN_HEAD =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Unexpected commit id" >&2
+              exit 1
+            fi
+            case "$RUN_CONCLUSION" in success|failure) ci=$RUN_CONCLUSION ;; *) echo "Unexpected CI result" >&2; exit 1 ;; esac
+            number=$NAMED_BY_RUN
+            if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
+              number=$(gh api "repos/$REPO/commits/$RUN_HEAD/pulls" \
+                --jq "[.[] | select(.state == \"open\" and .head.sha == \"$RUN_HEAD\" and .head.repo.full_name == \"$REPO\")][0].number // empty")
+            fi
+          fi
+          if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "No pull request."
+            echo "number=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pull=$(gh pr view "$number" --repo "$REPO" --json headRefOid,labels)
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            head=$(jq -r '.headRefOid // ""' <<< "$pull")
+          else
+            head=$RUN_HEAD
+          fi
+          if [[ ! $head =~ ^[0-9a-f]{40}$ ]]; then
+            echo "No commit" >&2
+            exit 1
+          fi
+          loop=false
+          if [ "$EVENT" = "workflow_run" ] && jq -e 'any(.labels[]?; .name == "factory")' <<< "$pull" > /dev/null; then
+            loop=true
+          fi
+          echo "pull request $number, commit $head, CI $ci, in the loop: $loop"
+          {
+            echo "number=$number"
+            echo "head=$head"
+            echo "ci=$ci"
+            echo "loop=$loop"
+          } >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: which
+    if: ${{ needs.which.outputs.number != '' && needs.which.outputs.ci == 'success' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: factory
     concurrency:
-      group: review-${{ github.event_name == 'workflow_dispatch' && inputs.pr || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
+      group: review-${{ needs.which.outputs.number }}-${{ needs.which.outputs.loop }}
       cancel-in-progress: true
     permissions:
       contents: read
       pull-requests: write
       issues: read
+    outputs:
+      outcome: ${{ steps.review.outputs.outcome }}
+      reason: ${{ steps.collect.outputs.reason }}
+      findings: ${{ steps.answer.outputs.findings }}
     env:
       REPO: ${{ github.repository }}
       MODEL: ${{ vars.FACTORY_MODEL_REVIEW || 'claude-fable-5-2' }}
@@ -50,30 +121,8 @@ jobs:
       - name: Which pull request
         id: pr
         env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          ASKED_FOR: ${{ inputs.pr }}
-          NAMED_BY_RUN: ${{ github.event.workflow_run.pull_requests[0].number }}
-          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            number=$ASKED_FOR
-          else
-            if [[ ! $RUN_HEAD =~ ^[0-9a-f]{40}$ ]]; then
-              echo "Unexpected commit id" >&2
-              exit 1
-            fi
-            number=$NAMED_BY_RUN
-            if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
-              number=$(gh api "repos/$REPO/commits/$RUN_HEAD/pulls" \
-                --jq "[.[] | select(.state == \"open\" and .head.sha == \"$RUN_HEAD\" and .head.repo.full_name == \"$REPO\")][0].number // empty")
-            fi
-          fi
-          if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
-            echo "No pull request to review."
-            number=''
-          fi
-          echo "number=$number" >> "$GITHUB_OUTPUT"
+          NUMBER: ${{ needs.which.outputs.number }}
+        run: echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Collect what the reviewer may see
         id: collect
@@ -82,7 +131,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ steps.pr.outputs.number }}
           EVENT: ${{ github.event_name }}
-          RUN_HEAD: ${{ github.event.workflow_run.head_sha }}
+          RUN_HEAD: ${{ needs.which.outputs.head }}
           FACTORY_AUTHORS: ${{ vars.FACTORY_AUTHORS }}
         run: |
           mkdir -p "$RUNNER_TEMP/review/inputs"
@@ -185,3 +234,171 @@ jobs:
             echo "The review did not produce findings: ${OUTCOME:-did not run} ${DETAIL:-}" >&2
             exit 1
           fi
+
+      - name: Hand the findings to the gate
+        id: answer
+        if: ${{ !cancelled() && steps.review.outputs.outcome == 'findings' }}
+        run: |
+          delimiter="findings-$(openssl rand -hex 16)"
+          {
+            echo "findings<<$delimiter"
+            jq -c . "$RUNNER_TEMP/review-out/findings.json"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  failed-ci:
+    needs: which
+    if: ${{ needs.which.outputs.loop == 'true' && needs.which.outputs.ci == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      job: ${{ steps.log.outputs.job }}
+      log: ${{ steps.log.outputs.log }}
+    steps:
+      - name: The failed job and the end of its log
+        id: log
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if [[ ! $RUN_ID =~ ^[0-9]{1,15}$ ]]; then
+            echo "Unexpected run id" >&2
+            exit 1
+          fi
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --jq '[.jobs[] | select(.conclusion == "failure")][0] | (.id | tostring) + "\t" + .name' || true)
+          id=$(printf '%s' "$failed" | cut -f1)
+          name=$(printf '%s' "$failed" | cut -f2 | tr -cd 'A-Za-z0-9 ._-' | cut -c1-60)
+          if [[ ! $id =~ ^[0-9]{1,15}$ ]] || [ -z "$name" ]; then
+            echo "No failed job to read"
+            exit 0
+          fi
+          gh run view --job "$id" --repo "$REPO" --log-failed | cut -f3- | tail -n 300 > "$RUNNER_TEMP/ci.log" || true
+          echo "failed job: $name, $(wc -l < "$RUNNER_TEMP/ci.log") log lines"
+          delimiter="log-$(openssl rand -hex 16)"
+          {
+            echo "job=$name"
+            echo "log<<$delimiter"
+            cat "$RUNNER_TEMP/ci.log"
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  gate:
+    needs: [which, review, failed-ci]
+    if: >-
+      ${{
+        always()
+        && needs.which.result == 'success'
+        && needs.which.outputs.loop == 'true'
+        && needs.review.result != 'cancelled'
+        && needs.failed-ci.result != 'cancelled'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      fix: ${{ steps.decide.outputs.fix }}
+      issue: ${{ steps.decide.outputs.issue }}
+      prompt: ${{ steps.decide.outputs.prompt }}
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Decide, and act on the decision
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ needs.which.outputs.number }}
+          HEAD: ${{ needs.which.outputs.head }}
+          CI_RESULT: ${{ needs.which.outputs.ci }}
+          REVIEW_RESULT: ${{ needs.review.result }}
+          REVIEW_OUTCOME: ${{ needs.review.outputs.outcome }}
+          REVIEW_REASON: ${{ needs.review.outputs.reason }}
+          FINDINGS: ${{ needs.review.outputs.findings }}
+          FAILED_JOB: ${{ needs.failed-ci.outputs.job }}
+          FAILED_LOG: ${{ needs.failed-ci.outputs.log }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/gate"
+          review=failed
+          if [ "$CI_RESULT" = success ]; then
+            if [ "$REVIEW_OUTCOME" = findings ] && [ -n "$FINDINGS" ]; then
+              printf '%s' "$FINDINGS" > "$RUNNER_TEMP/gate/answer.json"
+              jq -c '.findings' "$RUNNER_TEMP/gate/answer.json" > "$RUNNER_TEMP/gate/findings.json" || review=failed
+              [ -s "$RUNNER_TEMP/gate/findings.json" ] && review=findings
+            elif [ "$REVIEW_OUTCOME" = unreadable ]; then
+              review=unreadable
+            elif [ "$REVIEW_REASON" = too-large ]; then
+              review=too-large
+            fi
+          fi
+          echo "CI $CI_RESULT, review job $REVIEW_RESULT, review $review"
+          answer=$(factory/run-gate.sh --repo "$REPO" --pr "$NUMBER" --head "$HEAD" --ci "$CI_RESULT" \
+            --review "$review" --findings "$RUNNER_TEMP/gate/findings.json" --review-try 2)
+          printf '%s\n' "$answer"
+          decision=$(printf '%s\n' "$answer" | sed -n 's/^decision=//p' | tail -n 1)
+          issue=$(printf '%s\n' "$answer" | sed -n 's/^issue=//p' | head -n 1)
+          if [ "$decision" != FIX ]; then
+            echo "fix=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! $issue =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "No issue for the fix" >&2
+            exit 1
+          fi
+          if [ "$CI_RESULT" = failure ] && [ -z "$FAILED_JOB" ]; then
+            ready=$'ready=no\nreason=no-failed-job-log'
+          elif [ "$CI_RESULT" = success ]; then
+            ready=$(factory/fix/prompt.sh --repo "$REPO" --issue "$issue" --out "$RUNNER_TEMP/fix" --findings "$RUNNER_TEMP/gate/answer.json" || true)
+          else
+            printf '%s\n' "$FAILED_LOG" > "$RUNNER_TEMP/gate/ci.log"
+            ready=$(factory/fix/prompt.sh --repo "$REPO" --issue "$issue" --out "$RUNNER_TEMP/fix" --ci-log "$RUNNER_TEMP/gate/ci.log" --ci-job "$FAILED_JOB" || true)
+          fi
+          printf '%s\n' "$ready"
+          if ! printf '%s\n' "$ready" | grep -qx 'ready=yes'; then
+            reason=$(printf '%s\n' "$ready" | sed -n 's/^reason=//p' | tr -cd 'a-z-' | head -c 40)
+            gh pr comment "$NUMBER" --repo "$REPO" --body "**Review gate:** the fix agent could not be given its task (${reason:-unknown}). Marked \`needs-human\`."
+            gh pr edit "$NUMBER" --repo "$REPO" --add-label needs-human --remove-label building
+            gh issue edit "$issue" --repo "$REPO" --add-label needs-human
+            exit 1
+          fi
+          delimiter="prompt-$(openssl rand -hex 16)"
+          {
+            echo "fix=yes"
+            echo "issue=$issue"
+            echo "prompt<<$delimiter"
+            cat "$RUNNER_TEMP/fix/prompt.md"
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  fix:
+    needs: [which, gate]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && needs.gate.outputs.fix == 'yes' }}
+    concurrency:
+      group: factory-issue-${{ needs.gate.outputs.issue }}-build
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: ./.github/workflows/factory-agent.yml
+    with:
+      role: fix
+      number: ${{ needs.gate.outputs.issue }}
+      branch: factory/issue-${{ needs.gate.outputs.issue }}
+      pr: ${{ needs.which.outputs.number }}
+      prompt: ${{ needs.gate.outputs.prompt }}
+      before: ${{ needs.which.outputs.head }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

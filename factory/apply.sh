@@ -51,22 +51,35 @@ case $decision in
   *) usage ;;
 esac
 
+failed=0
+
+on_issue() {
+  [ "$issue" -gt 0 ] || return 0
+  gh issue comment "$issue" --repo "$repo" --body "**Review gate:** pull request #$pr $1" || failed=1
+}
+
 gh pr comment "$pr" --repo "$repo" --body "$summary"
 case $decision in
   PASS)
     gh pr edit "$pr" --repo "$repo" --remove-label needs-fix --add-label review-passed
+    on_issue "is ready for you ($summary). Staging runs its newest green commit; try it there, then merge or close it."
     ;;
   FIX)
-    gh pr edit "$pr" --repo "$repo" --remove-label "review-round-$round" --add-label "review-round-$((round + 1))" --add-label needs-fix
+    gh pr edit "$pr" --repo "$repo" --remove-label "review-round-$round" --add-label "review-round-$((round + 1))" --add-label needs-fix --add-label building
     ;;
   SCRAP)
-    gh pr close "$pr" --repo "$repo" --delete-branch --comment "Scrapped by the review gate. Analysis follows on #$issue."
-    gh issue edit "$issue" --repo "$repo" --add-label needs-analysis
+    gh pr close "$pr" --repo "$repo" --comment "Scrapped by the review gate; the branch is deleted. This pull request keeps the diff and every review."
+    gh api -X DELETE "repos/$repo/git/refs/heads/factory/issue-$issue" > /dev/null || failed=1
+    gh issue edit "$issue" --repo "$repo" --add-label needs-human || failed=1
+    on_issue "was scrapped ($summary). Its branch is deleted; the closed pull request keeps the diff and every review. The automatic analysis and rebuild do not exist yet, so the factory stops on this issue."
     ;;
   NEEDS_HUMAN)
     gh pr edit "$pr" --repo "$repo" --add-label needs-human
     if [ "$issue" -gt 0 ]; then
-      gh issue edit "$issue" --repo "$repo" --add-label needs-human
+      gh issue edit "$issue" --repo "$repo" --add-label needs-human || failed=1
     fi
+    on_issue "needs you ($summary). The factory does nothing more on it."
     ;;
 esac
+
+[ "$failed" -eq 0 ]

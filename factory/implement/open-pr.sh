@@ -66,7 +66,7 @@ if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
   stop "The pull request's number could not be read"
 fi
 
-if ! gh api -X POST "repos/$repo/issues/$number/labels" -f "labels[]=factory" -f "labels[]=building" > /dev/null; then
+if ! gh api -X POST "repos/$repo/issues/$number/labels" -f "labels[]=factory" -f "labels[]=building" -f "labels[]=review-round-1" > /dev/null; then
   remove_branch
   stop "Could not label the pull request"
 fi

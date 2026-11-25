@@ -656,3 +656,20 @@ maps onto this project. Nothing decided yet. Proposals given:
   Recorded as a known gap, not fixed.
 - Next: slice 2b gets its own spec issue (gate reads CI and findings,
   fix agent, three rounds) when the developer says so.
+
+## 2026-11-25 — slice 2b: probe and build
+
+- The developer approved the spec of slice 2b (issue 47) in chat on
+  2026-11-24 and merged the probe (PR #48), then its fix (PR #50).
+- Probe 1 (PR #49): Haiku committed nothing after one refused call; the
+  log did not say which. Lesson: a probe's log must name refused calls;
+  now it does. Probe 2 (PR #51, Sonnet): the app's commit started CI; the
+  next run's actor was `claude[bot]`; token exchange worked; the action
+  refused the bot actor until `allowed_bots` names it. Result on #47.
+- Built on branch `f4-loop`: gate state checks, decisions on the issue,
+  the fix agent's task, the shared agent workflow, the round in
+  "Review". Suites: run 87, review 113, implement 147, infra 106, all
+  green by exit status. Twenty-four mutations, all caught. An independent
+  reviewer found one critical and two important defects; all fixed with
+  tests that failed first (details in DECISIONS).
+- Not seen in the repository yet: everything after the merge (drills).

@@ -47,7 +47,7 @@ no() {
   exit 0
 }
 
-pull=$(gh pr view "$pr" --repo "$repo" --json number,state,isCrossRepository,author,headRefOid,title,body)
+pull=$(gh pr view "$pr" --repo "$repo" --json number,state,isCrossRepository,author,headRefOid,title,body,labels)
 [ -n "$pull" ] || { echo "GitHub gave no answer for the pull request" >&2; exit 1; }
 
 head=$(jq -r '.headRefOid // ""' <<< "$pull")
@@ -67,6 +67,9 @@ while IFS=$'\t' read -r path previous; do
     documentation "$previous" || code=1
   fi
 done <<< "$files"
+if jq -e 'any(.labels[]?; .name == "factory")' <<< "$pull" > /dev/null; then
+  code=1
+fi
 [ "$code" -eq 1 ] || no docs-only
 
 gh pr diff "$pr" --repo "$repo" > "$out/diff.patch" || no failed

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: check-branch.sh --repo OWNER/NAME --branch factory/issue-N --pr N --out DIR" >&2
+  echo "usage: check-branch.sh --repo OWNER/NAME --branch factory/issue-N --pr N --out DIR [--before SHA]" >&2
   exit 2
 }
 
@@ -10,17 +10,20 @@ repo=""
 branch=""
 pr=""
 out=""
+before=""
 while [ $# -gt 0 ]; do
   case $1 in
     --repo) repo=${2:-}; shift 2 ;;
     --branch) branch=${2:-}; shift 2 ;;
     --pr) pr=${2:-}; shift 2 ;;
     --out) out=${2:-}; shift 2 ;;
+    --before) before=${2:-}; shift 2 ;;
     *) usage ;;
   esac
 done
 [[ $repo =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ $branch =~ ^factory/issue-[1-9][0-9]{0,6}$ ]] \
   && [[ $pr =~ ^[1-9][0-9]{0,6}$ ]] && [ -n "$out" ] || usage
+[ -z "$before" ] || [[ $before =~ ^[0-9a-f]{40}$ ]] || usage
 
 mkdir -p "$out"
 : > "$out/outside.txt"
@@ -67,6 +70,11 @@ case $state in
   *) result failed ;;
 esac
 
+if [ -n "$before" ]; then
+  [ "$(jq -r '.commits[-1].sha // ""' <<< "$json")" != "$before" ] || result unchanged "$count"
+  newest=$(jq -r '.commits[-1] | (.parents[0].sha // "") + " " + (.author.login // "")' <<< "$json")
+  [ "$newest" = "$before claude[bot]" ] || result moved "$count"
+fi
 [ "$count" -gt 0 ] || result empty 0
 [ "$count" -lt 300 ] || result too-many "$count"
 

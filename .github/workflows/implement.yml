@@ -127,169 +127,17 @@ jobs:
   agent:
     needs: prepare
     if: ${{ needs.prepare.outputs.pr != '' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    environment: factory
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      outcome: ${{ steps.numbers.outputs.outcome }}
-      turns: ${{ steps.numbers.outputs.turns }}
-      seconds: ${{ steps.numbers.outputs.seconds }}
-      cost: ${{ steps.numbers.outputs.cost }}
-      denials: ${{ steps.numbers.outputs.denials }}
-      tools: ${{ steps.numbers.outputs.tools }}
-    steps:
-      - name: The factory's own scripts, from main
-        uses: actions/checkout@v7
-        with:
-          ref: main
-          persist-credentials: false
-
-      - name: Put the scripts where the agent cannot write
-        run: cp -R factory "$RUNNER_TEMP/factory"
-
-      - name: The branch, for the agent to work in
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.branch }}
-          persist-credentials: false
-
-      - name: The agent (claude-code-action v1 at b5e3765)
-        id: agent
-        continue-on-error: true
-        timeout-minutes: 30
-        uses: anthropics/claude-code-action@b5e37652b7d48df841bfddfd6520610e19bf3136
-        env:
-          CLAUDE_BRANCH: ${{ needs.prepare.outputs.branch }}
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: ${{ needs.prepare.outputs.prompt }}
-          use_commit_signing: true
-          claude_args: >-
-            --model ${{ env.MODEL }}
-            --tools "Read,Grep,Glob,Edit,Write"
-            --allowedTools "Edit(./src/**),Write(./src/**),Edit(./frontend/src/**),Write(./frontend/src/**),Edit(./http/**),Write(./http/**),Edit(./docs/**),Write(./docs/**),mcp__github_file_ops__commit_files"
-            --disallowedTools "Read(./.git/**),Edit(./.git/**),Write(./.git/**)"
-            --permission-mode dontAsk
-            --max-budget-usd 10
-
-      - name: The run's numbers
-        id: numbers
-        if: ${{ !cancelled() }}
-        env:
-          AGENT_OUTCOME: ${{ steps.agent.outcome }}
-          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
-        run: |
-          cd "$RUNNER_TEMP"
-          outcome=failure
-          if [ "$AGENT_OUTCOME" = "success" ]; then
-            outcome=success
-          fi
-          numbers=$(factory/implement/run-numbers.sh "${EXECUTION_FILE:-none}" | grep -E '^(turns|seconds|cost|denials|tools)=[A-Za-z0-9_.,]*$')
-          echo "outcome=$outcome"
-          printf '%s\n' "$numbers"
-          {
-            echo "outcome=$outcome"
-            printf '%s\n' "$numbers"
-          } >> "$GITHUB_OUTPUT"
-
-  check:
-    needs: [prepare, agent]
-    if: ${{ always() && needs.prepare.outputs.pr != '' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: factory
     permissions:
       contents: write
       pull-requests: write
       issues: write
-    steps:
-      - name: The factory's own scripts, from main
-        uses: actions/checkout@v7
-        with:
-          ref: main
-          persist-credentials: false
-
-      - name: Read back what landed on the branch, and report
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          NUMBER: ${{ needs.prepare.outputs.number }}
-          BRANCH: ${{ needs.prepare.outputs.branch }}
-          PR: ${{ needs.prepare.outputs.pr }}
-          OUTCOME: ${{ needs.agent.outputs.outcome }}
-          TURNS: ${{ needs.agent.outputs.turns }}
-          SECONDS_USED: ${{ needs.agent.outputs.seconds }}
-          COST: ${{ needs.agent.outputs.cost }}
-          DENIALS: ${{ needs.agent.outputs.denials }}
-          TOOLS: ${{ needs.agent.outputs.tools }}
-        run: |
-          report=factory/implement/report.sh
-          agent=failure
-          if [ "$OUTCOME" = "success" ]; then
-            agent=success
-          fi
-          [[ $TURNS =~ ^[0-9]{1,9}$ ]] || TURNS=0
-          [[ $SECONDS_USED =~ ^[0-9]{1,9}$ ]] || SECONDS_USED=0
-          [[ $DENIALS =~ ^[0-9]{1,9}$ ]] || DENIALS=0
-          [[ $COST =~ ^[0-9]{1,6}(\.[0-9]{1,4})?$ ]] || COST=0
-          [[ $TOOLS =~ ^[A-Za-z0-9_.,]{1,400}$ ]] || TOOLS=none
-          answer=$(factory/implement/check-branch.sh --repo "$REPO" --branch "$BRANCH" --pr "$PR" --out "$RUNNER_TEMP/implement")
-          result=$(printf '%s\n' "$answer" | sed -n 's/^result=//p' | head -n 1)
-          files=$(printf '%s\n' "$answer" | sed -n 's/^files=//p' | head -n 1)
-          [[ $files =~ ^[0-9]{1,6}$ ]] || files=0
-          case "$result" in
-            ok|empty|outside|too-many|token|closed) ;;
-            *) result=failed ;;
-          esac
-          echo "agent=$agent result=$result files=$files tools=$TOOLS"
-          {
-            echo "### Issue $NUMBER → pull request $PR"
-            echo
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Agent's run | $agent |"
-            echo "| What landed | $result, $files files |"
-            echo "| Model | $MODEL |"
-            echo "| Turns | $TURNS |"
-            echo "| Seconds | $SECONDS_USED |"
-            echo "| Estimated cost (not billed on a subscription) | $COST |"
-            echo "| Tool calls refused | $DENIALS |"
-            echo "| Tools called | $TOOLS |"
-          } >> "$GITHUB_STEP_SUMMARY"
-          status=0
-          case "$result" in
-            ok)
-              "$report" finished --repo "$REPO" --issue "$NUMBER" --pr "$PR" --model "$MODEL" --agent "$agent" \
-                --turns "$TURNS" --cost "$COST" --seconds "$SECONDS_USED" --denials "$DENIALS" || status=1
-              if [ "$agent" != "success" ]; then
-                status=1
-              fi
-              ;;
-            closed)
-              "$report" closed --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" || status=1
-              ;;
-            empty)
-              "$report" empty --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" --agent "$agent" || true
-              status=1
-              ;;
-            outside)
-              "$report" outside --repo "$REPO" --issue "$NUMBER" --pr "$PR" --files "$RUNNER_TEMP/implement/outside.txt" || true
-              status=1
-              ;;
-            too-many)
-              "$report" too-many --repo "$REPO" --issue "$NUMBER" --pr "$PR" || true
-              status=1
-              ;;
-            token)
-              "$report" token --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" || true
-              status=1
-              ;;
-            *)
-              "$report" unchecked --repo "$REPO" --issue "$NUMBER" --pr "$PR" || true
-              status=1
-              ;;
-          esac
-          exit "$status"
+      id-token: write
+    uses: ./.github/workflows/factory-agent.yml
+    with:
+      role: build
+      number: ${{ needs.prepare.outputs.number }}
+      branch: ${{ needs.prepare.outputs.branch }}
+      pr: ${{ needs.prepare.outputs.pr }}
+      prompt: ${{ needs.prepare.outputs.prompt }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

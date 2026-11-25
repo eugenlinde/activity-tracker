@@ -19,7 +19,7 @@ begin() {
   CASE_DIR="$WORK/$RANDOM$RANDOM"
   mkdir -p "$CASE_DIR"
   : > "$CASE_DIR/stub.log"
-  unset STUB_PR_JSON STUB_ISSUE_JSON STUB_GH_FAIL_ON
+  unset STUB_PR_JSON STUB_ISSUE_JSON STUB_GH_FAIL_ON STUB_COMMIT_LINE
   export STUB_LOG="$CASE_DIR/stub.log"
 }
 
@@ -100,6 +100,25 @@ GATE="$FACTORY/gate.sh"
 review() {
   run "$GATE" review --round "$1" --ci "$2" --findings "$3" --review-try "${4:-1}"
 }
+
+begin "review_did_not_run"
+for outcome in failed unreadable too-large; do
+  run "$GATE" review --round 2 --ci success --review "$outcome"
+  expect_decision NEEDS_HUMAN
+  expect_line 2 "Round 2 · CI green · review $outcome → needs human"
+done
+end
+
+begin "review_did_not_run_but_ci_red"
+run "$GATE" review --round 1 --ci failure --review failed
+expect_decision FIX
+expect_line 2 "Round 1 · CI red → fix"
+end
+
+begin "review_unknown_outcome_refused"
+run "$GATE" review --round 1 --ci success --review maybe
+expect_status 2
+end
 
 begin "review_empty_round1"
 review 1 success "$(findings '[]')"
@@ -255,6 +274,8 @@ expect_status 2
 end
 
 STATE="$FACTORY/state.sh"
+HEAD_SHA=0123456789abcdef0123456789abcdef01234567
+OTHER_SHA=fedcba9876543210fedcba9876543210fedcba98
 
 pr_json() {
   local issues=$1 labels="" name
@@ -272,7 +293,7 @@ pr_json() {
       *) refs+="{\"number\":$n,\"url\":\"https://github.com/o/r/issues/$n\"}" ;;
     esac
   done
-  echo "{\"state\":\"$state\",\"labels\":[$labels],\"closingIssuesReferences\":[$refs]}"
+  echo "{\"state\":\"$state\",\"labels\":[$labels],\"closingIssuesReferences\":[$refs],\"headRefOid\":\"${PR_HEAD:-$HEAD_SHA}\"}"
 }
 
 issue_json() {
@@ -288,13 +309,13 @@ begin "state_normal"
 export STUB_PR_JSON STUB_ISSUE_JSON
 STUB_PR_JSON=$(pr_json 7 factory review-round-2 enhancement)
 STUB_ISSUE_JSON=$(issue_json attempt-1 bug)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "factory=true"
 expect_output "round=2"
 expect_output "issue=7"
 expect_output "attempt=1"
-expect_log "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+expect_log "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences,headRefOid"
 expect_log "gh issue view 7 --repo o/r --json labels"
 end
 
@@ -302,7 +323,7 @@ begin "state_attempt_2"
 export STUB_PR_JSON STUB_ISSUE_JSON
 STUB_PR_JSON=$(pr_json 7 factory review-round-1)
 STUB_ISSUE_JSON=$(issue_json attempt-2)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "attempt=2"
 end
@@ -310,16 +331,16 @@ end
 begin "state_not_factory"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json 7 review-round-1)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "factory=false"
-expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences,headRefOid"
 end
 
 begin "state_no_round"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json 7 factory)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=no-round-label"
 end
@@ -327,7 +348,7 @@ end
 begin "state_two_rounds"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json 7 factory review-round-1 review-round-2)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=many-round-labels"
 end
@@ -335,7 +356,7 @@ end
 begin "state_no_issue"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json "" factory review-round-1)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=no-linked-issue"
 end
@@ -343,7 +364,7 @@ end
 begin "state_two_issues"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json "7 8" factory review-round-1)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=no-linked-issue"
 end
@@ -352,7 +373,7 @@ begin "state_no_attempt_label"
 export STUB_PR_JSON STUB_ISSUE_JSON
 STUB_PR_JSON=$(pr_json 7 factory review-round-3)
 STUB_ISSUE_JSON=$(issue_json)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "round=3"
 expect_output "attempt=1"
@@ -362,30 +383,30 @@ begin "state_two_attempts"
 export STUB_PR_JSON STUB_ISSUE_JSON
 STUB_PR_JSON=$(pr_json 7 factory review-round-1)
 STUB_ISSUE_JSON=$(issue_json attempt-1 attempt-2)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=many-attempt-labels"
 end
 
 begin "state_gh_fails"
 export STUB_GH_FAIL_ON="pr view"
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 1
 end
 
 begin "state_closed_pr"
 export STUB_PR_JSON
 STUB_PR_JSON=$(PR_STATE=CLOSED pr_json 7 factory review-round-3)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "open=false"
-expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences,headRefOid"
 end
 
 begin "state_merged_pr"
 export STUB_PR_JSON
 STUB_PR_JSON=$(PR_STATE=MERGED pr_json 7 factory review-round-1)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "open=false"
 end
@@ -393,7 +414,7 @@ end
 begin "state_other_repo_issue_ignored"
 export STUB_PR_JSON
 STUB_PR_JSON=$(pr_json "other/repo#7" factory review-round-1)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 3
 expect_output "error=no-linked-issue"
 expect_no_log "gh issue view"
@@ -403,9 +424,91 @@ begin "state_other_repo_issue_plus_own"
 export STUB_PR_JSON STUB_ISSUE_JSON
 STUB_PR_JSON=$(pr_json "other/repo#7 9" factory review-round-1)
 STUB_ISSUE_JSON=$(issue_json)
-run "$STATE" --repo o/r --pr 12
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
 expect_status 0
 expect_output "issue=9"
+end
+
+begin "state_checks_the_head_commit"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=yes"
+expect_log "gh api repos/o/r/commits/$HEAD_SHA --jq (.author.login // \"\") + \" \" + (.commit.verification.verified | tostring)"
+end
+
+begin "state_needs_human_stops"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-2 needs-human)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=no"
+expect_output "reason=needs-human"
+expect_no_log "gh api"
+expect_no_log "gh issue view"
+end
+
+begin "state_review_passed_stops"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-2 review-passed)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=no"
+expect_output "reason=review-passed"
+expect_no_log "gh api"
+end
+
+begin "state_building_stops"
+export STUB_PR_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1 building)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=no"
+expect_output "reason=building"
+end
+
+begin "state_moved_on_stops"
+export STUB_PR_JSON
+STUB_PR_JSON=$(PR_HEAD=$OTHER_SHA pr_json 7 factory review-round-1)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=no"
+expect_output "reason=moved-on"
+expect_no_log "gh api"
+end
+
+begin "state_commit_by_someone_else_stops"
+export STUB_PR_JSON STUB_COMMIT_LINE="eugenlinde true"
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "act=no"
+expect_output "reason=not-the-app"
+expect_no_log "gh issue view"
+end
+
+begin "state_unsigned_app_commit_stops"
+export STUB_PR_JSON STUB_COMMIT_LINE="claude[bot] false"
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 0
+expect_output "reason=not-the-app"
+end
+
+begin "state_commit_unreadable_fails"
+export STUB_PR_JSON STUB_GH_FAIL_ON="api"
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+run "$STATE" --repo o/r --pr 12 --head "$HEAD_SHA"
+expect_status 1
+expect_no_log "gh issue view"
+end
+
+begin "state_bad_head_refused"
+run "$STATE" --repo o/r --pr 12 --head main
+expect_status 2
+expect_log_exactly ""
 end
 
 begin "state_missing_args"
@@ -424,7 +527,8 @@ apply 12 2 PASS
 expect_status 0
 expect_log_exactly \
   "gh pr comment 12 --repo o/r --body S x" \
-  "gh pr edit 12 --repo o/r --remove-label needs-fix --add-label review-passed"
+  "gh pr edit 12 --repo o/r --remove-label needs-fix --add-label review-passed" \
+  "gh issue comment 7 --repo o/r --body **Review gate:** pull request #12 is ready for you (S x). Staging runs its newest green commit; try it there, then merge or close it."
 end
 
 begin "apply_fix"
@@ -432,7 +536,7 @@ apply 12 2 FIX
 expect_status 0
 expect_log_exactly \
   "gh pr comment 12 --repo o/r --body S x" \
-  "gh pr edit 12 --repo o/r --remove-label review-round-2 --add-label review-round-3 --add-label needs-fix"
+  "gh pr edit 12 --repo o/r --remove-label review-round-2 --add-label review-round-3 --add-label needs-fix --add-label building"
 end
 
 begin "apply_fix_round3_refused"
@@ -452,8 +556,18 @@ apply 12 3 SCRAP
 expect_status 0
 expect_log_exactly \
   "gh pr comment 12 --repo o/r --body S x" \
-  "gh pr close 12 --repo o/r --delete-branch --comment Scrapped by the review gate. Analysis follows on #7." \
-  "gh issue edit 7 --repo o/r --add-label needs-analysis"
+  "gh pr close 12 --repo o/r --comment Scrapped by the review gate; the branch is deleted. This pull request keeps the diff and every review." \
+  "gh api -X DELETE repos/o/r/git/refs/heads/factory/issue-7" \
+  "gh issue edit 7 --repo o/r --add-label needs-human" \
+  "gh issue comment 7 --repo o/r --body **Review gate:** pull request #12 was scrapped (S x). Its branch is deleted; the closed pull request keeps the diff and every review. The automatic analysis and rebuild do not exist yet, so the factory stops on this issue."
+end
+
+begin "apply_scrap_branch_already_gone"
+export STUB_GH_FAIL_ON="api"
+apply 12 3 SCRAP
+expect_status 1
+expect_log "gh issue edit 7 --repo o/r --add-label needs-human"
+expect_log "gh issue comment 7 --repo o/r --body **Review gate:** pull request #12 was scrapped (S x). Its branch is deleted; the closed pull request keeps the diff and every review. The automatic analysis and rebuild do not exist yet, so the factory stops on this issue."
 end
 
 begin "apply_needs_human"
@@ -462,7 +576,8 @@ expect_status 0
 expect_log_exactly \
   "gh pr comment 12 --repo o/r --body S x" \
   "gh pr edit 12 --repo o/r --add-label needs-human" \
-  "gh issue edit 7 --repo o/r --add-label needs-human"
+  "gh issue edit 7 --repo o/r --add-label needs-human" \
+  "gh issue comment 7 --repo o/r --body **Review gate:** pull request #12 needs you (S x). The factory does nothing more on it."
 end
 
 begin "apply_needs_human_no_issue"
@@ -499,7 +614,7 @@ end
 RUN_GATE="$FACTORY/run-gate.sh"
 
 run_gate() {
-  run "$RUN_GATE" --repo o/r --pr 12 --ci "$1" --findings "$2" --review-try "${3:-1}"
+  run "$RUN_GATE" --repo o/r --pr 12 --head "$HEAD_SHA" --ci "$1" --findings "$2" --review-try "${3:-1}"
 }
 
 begin "run_gate_not_factory"
@@ -508,7 +623,7 @@ STUB_PR_JSON=$(pr_json 7 enhancement)
 run_gate success "$(findings '[]')"
 expect_status 0
 expect_output "Not a factory PR, nothing to do"
-expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences"
+expect_log_exactly "gh pr view 12 --repo o/r --json state,labels,closingIssuesReferences,headRefOid"
 end
 
 begin "run_gate_closed_pr"
@@ -528,7 +643,9 @@ STUB_ISSUE_JSON=$(issue_json attempt-1)
 run_gate success "$(findings '[{"severity":"major"},{"severity":"major"}]')"
 expect_status 0
 expect_log "gh pr comment 12 --repo o/r --body Round 1 · CI green · critical 0 · major 2 → fix"
-expect_log "gh pr edit 12 --repo o/r --remove-label review-round-1 --add-label review-round-2 --add-label needs-fix"
+expect_log "gh pr edit 12 --repo o/r --remove-label review-round-1 --add-label review-round-2 --add-label needs-fix --add-label building"
+expect_output "decision=FIX"
+expect_output "issue=7"
 end
 
 begin "run_gate_scrap"
@@ -537,8 +654,9 @@ STUB_PR_JSON=$(pr_json 7 factory review-round-3)
 STUB_ISSUE_JSON=$(issue_json attempt-1)
 run_gate success "$(findings '[{"severity":"major"}]')"
 expect_status 0
-expect_log "gh pr close 12 --repo o/r --delete-branch --comment Scrapped by the review gate. Analysis follows on #7."
-expect_log "gh issue edit 7 --repo o/r --add-label needs-analysis"
+expect_log "gh pr close 12 --repo o/r --comment Scrapped by the review gate; the branch is deleted. This pull request keeps the diff and every review."
+expect_log "gh api -X DELETE repos/o/r/git/refs/heads/factory/issue-7"
+expect_log "gh issue edit 7 --repo o/r --add-label needs-human"
 end
 
 begin "run_gate_ci_red"
@@ -579,6 +697,28 @@ expect_status 1
 expect_log "gh pr comment 12 --repo o/r --body Factory state is broken (many-attempt-labels) → needs human"
 expect_log "gh issue edit 7 --repo o/r --add-label needs-human"
 expect_no_log "review-passed"
+end
+
+begin "run_gate_not_the_app"
+export STUB_PR_JSON STUB_COMMIT_LINE="eugenlinde false"
+STUB_PR_JSON=$(pr_json 7 factory review-round-2)
+run_gate success "$(findings '[{"severity":"major"}]')" 2
+expect_status 0
+expect_output "Nothing to do: not-the-app"
+expect_output "decision=NONE"
+expect_no_log "gh pr comment"
+expect_no_log "gh pr edit"
+expect_no_log "gh issue"
+end
+
+begin "run_gate_review_failed"
+export STUB_PR_JSON STUB_ISSUE_JSON
+STUB_PR_JSON=$(pr_json 7 factory review-round-1)
+STUB_ISSUE_JSON=$(issue_json)
+run "$RUN_GATE" --repo o/r --pr 12 --head "$HEAD_SHA" --ci success --review failed
+expect_status 0
+expect_log "gh pr comment 12 --repo o/r --body Round 1 · CI green · review failed → needs human"
+expect_log "gh pr edit 12 --repo o/r --add-label needs-human"
 end
 
 begin "run_gate_gh_down"

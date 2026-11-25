@@ -78,9 +78,9 @@ end() {
 }
 
 pr_json() {
-  local state=${1:-OPEN} cross=${2:-false} author=${3:-owner} body=${4:-Closes #7}
-  jq -cn --arg state "$state" --argjson cross "$cross" --arg author "$author" --arg body "$body" \
-    '{number: 12, state: $state, isCrossRepository: $cross, author: {login: $author}, headRefOid: "0123456789abcdef0123456789abcdef01234567", title: "Add steps goal", body: $body}'
+  local state=${1:-OPEN} cross=${2:-false} author=${3:-owner} body=${4:-Closes #7} label=${5:-enhancement}
+  jq -cn --arg state "$state" --argjson cross "$cross" --arg author "$author" --arg body "$body" --arg label "$label" \
+    '{number: 12, state: $state, isCrossRepository: $cross, author: {login: $author}, headRefOid: "0123456789abcdef0123456789abcdef01234567", title: "Add steps goal", body: $body, labels: [{name: $label}]}'
 }
 
 issue_json() {
@@ -153,6 +153,13 @@ collect
 expect_output "review=no"
 expect_output "reason=docs-only"
 expect_no_log "gh pr diff"
+end
+
+begin "a factory pull request that changes only documentation is still reviewed"
+pull_request OPEN false owner "Closes #7" factory
+printf 'docs/ARCHITECTURE.md\t\n' > "$CASE_DIR/files"
+collect
+expect_output "review=yes"
 end
 
 begin "documentation next to code is reviewed"

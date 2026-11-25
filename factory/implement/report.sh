@@ -10,6 +10,10 @@ usage() {
   echo "       report.sh token --repo R --issue N --pr N --branch factory/issue-N" >&2
   echo "       report.sh closed --repo R --issue N --pr N --branch factory/issue-N" >&2
   echo "       report.sh finished --repo R --issue N --pr N --model M --agent success|failure --turns N --cost C --seconds N --denials N" >&2
+  echo "       report.sh fixed --repo R --issue N --pr N --model M --agent success|failure --turns N --cost C --seconds N --denials N" >&2
+  echo "       report.sh unchanged --repo R --issue N --pr N --agent success|failure" >&2
+  echo "       report.sh moved --repo R --issue N --pr N" >&2
+  echo "       outside, too-many, unchecked, token and closed take --role fix after a fix" >&2
   exit 2
 }
 
@@ -28,6 +32,7 @@ turns=""
 cost=""
 seconds=""
 denials=""
+role=build
 while [ $# -gt 0 ]; do
   case $1 in
     --repo) repo=${2:-}; shift 2 ;;
@@ -42,6 +47,7 @@ while [ $# -gt 0 ]; do
     --cost) cost=${2:-}; shift 2 ;;
     --seconds) seconds=${2:-}; shift 2 ;;
     --denials) denials=${2:-}; shift 2 ;;
+    --role) role=${2:-}; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -54,6 +60,11 @@ count='^[0-9]{1,9}$'
 [ -z "$branch" ] || [[ $branch =~ ^factory/issue-[1-9][0-9]{0,6}$ ]] || usage
 [ -z "$model" ] || [[ $model =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]] || usage
 case $agent in '' | success | failure) ;; *) usage ;; esac
+case $role in
+  build) who="Implementation agent" ;;
+  fix) who="Fix agent" ;;
+  *) usage ;;
+esac
 [ -z "$turns" ] || [[ $turns =~ $count ]] || usage
 [ -z "$seconds" ] || [[ $seconds =~ $count ]] || usage
 [ -z "$denials" ] || [[ $denials =~ $count ]] || usage
@@ -102,7 +113,7 @@ case $what in
       failed) text="The issue could not be read from GitHub, or its pull request could not be opened. Nothing was built; the run's log has the reason. $again" ;;
       *) usage ;;
     esac
-    try on_issue "**Implementation agent:** $text"
+    try on_issue "**$who:** $text"
     ;;
 
   empty)
@@ -113,7 +124,7 @@ case $what in
     fi
     try gh pr close "$pr" --repo "$repo" --comment "The implementation agent committed no change. Closed; the branch is deleted."
     try remove_branch
-    try on_issue "**Implementation agent:** no change was written. $how Pull request #$pr is closed and its branch deleted. $again"
+    try on_issue "**$who:** no change was written. $how Pull request #$pr is closed and its branch deleted. $again"
     ;;
 
   outside)
@@ -124,24 +135,24 @@ case $what in
     if [ "$total" -gt 30 ]; then
       more=$'\n'"- and $((total - 30)) more"
     fi
-    try on_pr "**Implementation agent:** this change touches files outside the places the factory may write (\`src/\`, \`frontend/src/\`, \`http/\`, \`docs/\`):"$'\n\n'"$list$more"$'\n\n'"The pull request is left as it is for the developer to look at. Do not merge it without reading those files."
-    try on_issue "**Implementation agent:** pull request #$pr was written, but it touches files outside the places the factory may write. It is marked \`needs-human\`."
+    try on_pr "**$who:** this change touches files outside the places the factory may write (\`src/\`, \`frontend/src/\`, \`http/\`, \`docs/\`):"$'\n\n'"$list$more"$'\n\n'"The pull request is left as it is for the developer to look at. Do not merge it without reading those files."
+    try on_issue "**$who:** pull request #$pr was written, but it touches files outside the places the factory may write. It is marked \`needs-human\`."
     try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;
 
   too-many)
     [ -n "$pr" ] || usage
-    try on_pr "**Implementation agent:** this change has more files or commits than can be read back, so it could not be checked. It is left as it is for the developer to look at."
-    try on_issue "**Implementation agent:** pull request #$pr was written, but it is too large to check. It is marked \`needs-human\`."
+    try on_pr "**$who:** this change has more files or commits than can be read back, so it could not be checked. It is left as it is for the developer to look at."
+    try on_issue "**$who:** pull request #$pr was written, but it is too large to check. It is marked \`needs-human\`."
     try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;
 
   unchecked)
     [ -n "$pr" ] || usage
-    try on_pr "**Implementation agent:** what the agent committed could not be read back from GitHub, so it was not checked against the places the factory may write. It is left as it is for the developer to look at."
-    try on_issue "**Implementation agent:** pull request #$pr could not be checked after the agent's run. It is marked \`needs-human\`; the run's log has the reason."
+    try on_pr "**$who:** what the agent committed could not be read back from GitHub, so it was not checked against the places the factory may write. It is left as it is for the developer to look at."
+    try on_issue "**$who:** pull request #$pr could not be checked after the agent's run. It is marked \`needs-human\`; the run's log has the reason."
     try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     ;;
 
@@ -152,23 +163,57 @@ case $what in
       failed=1
       gone="**The branch could not be deleted: delete \`$branch\` by hand now.** Pull request #$pr is still open."
     fi
-    try on_issue "**Implementation agent:** the change the agent committed contained the text of the Claude token. $gone **Treat the token as public:** GitHub keeps a pull request's commits readable after the branch is gone. Make a new token with \`claude setup-token\`, store it in the \`factory\` environment, and switch \`FACTORY_ENABLED\` off until the cause is known."
+    try on_issue "**$who:** the change the agent committed contained the text of the Claude token. $gone **Treat the token as public:** GitHub keeps a pull request's commits readable after the branch is gone. Make a new token with \`claude setup-token\`, store it in the \`factory\` environment, and switch \`FACTORY_ENABLED\` off until the cause is known."
     ;;
 
   closed)
     [ -n "$pr" ] && [ -n "$branch" ] || usage
     try remove_branch
-    try on_issue "**Implementation agent:** pull request #$pr was closed while the agent worked. Its branch is deleted and nothing more was done. $again"
+    try on_issue "**$who:** pull request #$pr was closed while the agent worked. Its branch is deleted and nothing more was done. $again"
+    ;;
+
+  fixed)
+    [ -n "$pr" ] && [ -n "$model" ] && [ -n "$agent" ] && [ -n "$turns" ] && [ -n "$cost" ] && [ -n "$seconds" ] && [ -n "$denials" ] || usage
+    numbers="model \`$model\`, $turns turns, $seconds s, estimated \$$cost (the subscription is not billed per run), $denials refused tool calls"
+    if [ "$agent" = failure ]; then
+      try on_pr "**Fix agent:** committed a fix, but its run ended with an error after it, so the fix may be incomplete. Marked \`needs-human\`; the loop stops here."$'\n\n'"<sub>$numbers.</sub>"
+      try gh pr edit "$pr" --repo "$repo" --add-label needs-human
+      try gh issue edit "$issue" --repo "$repo" --add-label needs-human
+    else
+      try on_pr "**Fix agent:** committed a fix. CI and the review take it from here; that is the next round."$'\n\n'"<sub>$numbers.</sub>"
+    fi
+    gh pr edit "$pr" --repo "$repo" --remove-label building --remove-label needs-fix > /dev/null 2>&1 || true
+    ;;
+
+  unchanged)
+    [ -n "$pr" ] && [ -n "$agent" ] || usage
+    how="Its run ended normally."
+    if [ "$agent" = failure ]; then
+      how="Its run ended with an error (token, usage limit, time limit or the agent itself); the run's log has the reason."
+    fi
+    try on_pr "**Fix agent:** committed nothing. $how Without a new commit there is no next round, so this pull request is marked \`needs-human\`."
+    try gh pr edit "$pr" --repo "$repo" --add-label needs-human
+    try gh issue edit "$issue" --repo "$repo" --add-label needs-human
+    try on_issue "**Fix agent:** pull request #$pr was not fixed: the agent committed nothing. It is marked \`needs-human\`."
+    gh pr edit "$pr" --repo "$repo" --remove-label building --remove-label needs-fix > /dev/null 2>&1 || true
+    ;;
+
+  moved)
+    [ -n "$pr" ] || usage
+    try on_pr "**Fix agent:** while it worked, the branch moved: its newest commit is not the fix agent's commit on top of the commit it was given. A commit by someone else may be in between, and the fix may have written over it. Marked \`needs-human\`; read the newest commits before going on."
+    try gh pr edit "$pr" --repo "$repo" --add-label needs-human
+    try gh issue edit "$issue" --repo "$repo" --add-label needs-human
+    try on_issue "**Fix agent:** pull request #$pr changed while the fix agent worked. It is marked \`needs-human\`."
     ;;
 
   finished)
     [ -n "$pr" ] && [ -n "$model" ] && [ -n "$agent" ] && [ -n "$turns" ] && [ -n "$cost" ] && [ -n "$seconds" ] && [ -n "$denials" ] || usage
     numbers="model \`$model\`, $turns turns, $seconds s, estimated \$$cost (the subscription is not billed per run), $denials refused tool calls"
     if [ "$agent" = failure ]; then
-      try on_issue "**Implementation agent:** pull request #$pr has a commit, but the agent's run ended with an error after it, so the work may be incomplete. It is marked \`needs-human\`."$'\n\n'"<sub>$numbers.</sub>"
+      try on_issue "**$who:** pull request #$pr has a commit, but the agent's run ended with an error after it, so the work may be incomplete. It is marked \`needs-human\`."$'\n\n'"<sub>$numbers.</sub>"
       try gh pr edit "$pr" --repo "$repo" --add-label needs-human
     else
-      try on_issue "**Implementation agent:** pull request #$pr holds the change. CI, staging and the review agent take it from here; nothing was compiled or tested by the agent."$'\n\n'"<sub>$numbers.</sub>"
+      try on_issue "**$who:** pull request #$pr holds the change. CI, staging and the review agent take it from here; nothing was compiled or tested by the agent."$'\n\n'"<sub>$numbers.</sub>"
     fi
     gh pr edit "$pr" --repo "$repo" --remove-label building > /dev/null 2>&1 || true
     ;;

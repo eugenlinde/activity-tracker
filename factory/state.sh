@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: state.sh --repo OWNER/NAME --pr N" >&2
+  echo "usage: state.sh --repo OWNER/NAME --pr N --head SHA" >&2
   exit 2
 }
 
@@ -13,16 +13,18 @@ broken() {
 
 repo=""
 pr=""
+head=""
 while [ $# -gt 0 ]; do
   case $1 in
     --repo) repo=${2:-}; shift 2 ;;
     --pr) pr=${2:-}; shift 2 ;;
+    --head) head=${2:-}; shift 2 ;;
     *) usage ;;
   esac
 done
-[ -n "$repo" ] && [[ $pr =~ ^[0-9]+$ ]] || usage
+[ -n "$repo" ] && [[ $pr =~ ^[0-9]+$ ]] && [[ $head =~ ^[0-9a-f]{40}$ ]] || usage
 
-pr_json=$(gh pr view "$pr" --repo "$repo" --json state,labels,closingIssuesReferences)
+pr_json=$(gh pr view "$pr" --repo "$repo" --json state,labels,closingIssuesReferences,headRefOid)
 
 if ! jq -e 'any(.labels[]; .name == "factory")' <<< "$pr_json" > /dev/null; then
   echo "factory=false"
@@ -35,6 +37,24 @@ if [ "$(jq -r .state <<< "$pr_json")" != OPEN ]; then
   exit 0
 fi
 echo "open=true"
+
+stop() {
+  echo "act=no"
+  echo "reason=$1"
+  exit 0
+}
+
+has_label() {
+  jq -e --arg name "$1" 'any(.labels[]; .name == $name)' <<< "$pr_json" > /dev/null
+}
+
+has_label needs-human && stop needs-human
+has_label review-passed && stop review-passed
+has_label building && stop building
+[ "$(jq -r .headRefOid <<< "$pr_json")" = "$head" ] || stop moved-on
+author=$(gh api "repos/$repo/commits/$head" --jq '(.author.login // "") + " " + (.commit.verification.verified | tostring)')
+[ "$author" = "claude[bot] true" ] || stop not-the-app
+echo "act=yes"
 
 rounds=$(jq -r '[.labels[].name | select(test("^review-round-[123]$")) | ltrimstr("review-round-")] | join(" ")' <<< "$pr_json")
 read -r -a round_list <<< "$rounds"

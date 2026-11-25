@@ -51,6 +51,7 @@ case "$1 $2" in
   "pr view") printf '%s\n' "${STUB_PR_JSON:-}" ;;
   "issue view") printf '%s\n' "${STUB_ISSUE_JSON:-}" ;;
   "pr diff") cat "${STUB_PR_DIFF:-/dev/null}" ;;
+  "api repos/"*/commits/*) printf '%s\n' "${STUB_COMMIT_LINE:-claude[bot] true}" ;;
   "api repos/"*) cat "${STUB_PR_FILES:-/dev/null}" ;;
 esac
 exit 0

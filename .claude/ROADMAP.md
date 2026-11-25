@@ -113,9 +113,11 @@ piece in their own words before the phase is checked off.
                   and cannot do, what the check does, how to stop it
         - [ ] 2b, issue #47: the gate reads CI and findings; fix agent,
               three rounds (spec approved 2026-11-24)
-            - [ ] Probe: the action in a run that CI started after the
-                  app's own commit
-            - [ ] Gate wired in after every review, fix agent, check
+            - [x] Probe (2026-11-25, PRs #49, #51): the token exchange
+                  works when the app's own commit started the run; the
+                  action needs `allowed_bots: claude`
+            - [x] Gate wired in after every review, fix agent, check
+                  (2026-11-25; script tests, 24 rules mutation-checked, independent review)
             - [ ] Drills: pass, a real fix round, scrap, a push by the
                   developer, the switch
         - [ ] 2c: analysis agent and one automatic rebuild

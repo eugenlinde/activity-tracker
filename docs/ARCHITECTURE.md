@@ -1024,8 +1024,8 @@ year is over).
 **What it is.** The developer puts the label `approved` on an issue they
 wrote. An AI agent writes the change and its tests into a pull request.
 From there nothing is new: CI, staging, the review agent's comment, the
-developer's merge. Nothing fixes a red CI or a review finding yet; the
-developer sees the pull request as the agent left it.
+developer's merge. Since slice 2b the review loop takes over after the
+first commit: see "Factory: review loop".
 
 **Decided by the developer (2026-11-24).** The agent acts on GitHub as
 Claude's official GitHub App, and it runs no commands: it reads and
@@ -1033,8 +1033,10 @@ edits files. The tests run in the pull request's CI.
 
 **How a build runs.** The workflow "Implement"
 (`.github/workflows/implement.yml`) has three jobs, each on a fresh
-machine. A label always starts the copy on `main`; a manual start from
-any other branch is refused.
+machine; jobs 2 and 3 live in the shared workflow
+`.github/workflows/factory-agent.yml`, which the fix agent uses too. A
+label always starts the copy on `main`; a manual start from any other
+branch is refused.
 
 *Job 1, prepare* — holds the workflow's own GitHub token with write
 rights; no Claude token, no agent.
@@ -1048,8 +1050,8 @@ rights; no Claude token, no agent.
    spec; comments are not read.
 2. `factory/implement/open-pr.sh` creates the branch
    `factory/issue-<number>` from `main` with one empty commit and opens
-   a pull request for it ("Closes #<number>"), labelled `factory` and
-   `building`. A branch left over from an earlier, closed attempt is
+   a pull request for it ("Closes #<number>"), labelled `factory`,
+   `building` and `review-round-1`. A branch left over from an earlier, closed attempt is
    replaced.
 
 *Job 2, agent* — holds the Claude token; its GitHub token can only
@@ -1259,109 +1261,167 @@ Actions tab. Closing the pull request alone does not stop the agent,
 but when it finishes, job 3 sees the closed pull request, deletes the
 branch and does nothing more. To take the app away, uninstall it.
 
-## Factory: review gate (part 1 built, no agents yet)
+## Factory: review loop (built 2026-11-25; issue 47; not drilled yet)
 
-Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`.
-Next step: issue 47 (slice 2b, approved 2026-11-24) wires the gate in
-after every review, with a fix agent; until then only its probe exists.
+Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`, as
+narrowed by the spec of slice 2b (issue 47). The analysis agent and the
+automatic rebuild after a scrap are slice 2c and do not exist yet.
 
-**The probe for slice 2b** is the workflow "Factory probe"
-(`.github/workflows/factory-probe.yml`), temporary like the probe of
-slice 2a. In the loop the fix agent will run in a job that CI's end
-started, after a commit made by Claude's app itself. Whether the
-action runs there, and gets the app's token, is read from its source
-but not yet seen. The probe answers that. It starts after every green
-CI run of a pull request from this repository whose branch is named
-`probe/2b-…`. Branches with that name can only be pushed by the owner
-and by the factory's app. While the branch has fewer than three commits
-it runs the action, pinned to the same commit as "Implement". The
-agent is asked to write one file under `docs/probe-2b/` and commit it
-through the app; it may write nowhere else. That commit starts CI
-again, so the second probe run is one whose CI the app started. The
-log names who started each run and who wrote the newest commit. The
-switch is `FACTORY_ENABLED`. Removed again in the change that builds
-the loop.
+**What it is.** After every commit by Claude's app on a factory pull
+request, one round runs: CI, then the review agent (or, when CI is red,
+the end of the failed job's log), then a script — the gate — decides.
+The pull request is either ready for the developer, or the fix agent
+repairs it on the same branch and the next round starts, or after three
+rounds it is scrapped. Nothing merges by itself.
 
-**What it is.** The rule book of the review loop, as a script. A review
-agent (not built yet) will read a factory PR and list its major and
-critical findings. The gate takes that list, the round number and the CI
-result, and decides what happens to the PR. The decision is made by plain
-shell code, not by an AI, so the limits cannot be talked around and are
-covered by tests.
+**One round is one run of the workflow "Review"**
+(`.github/workflows/review.yml`), which starts when CI ends:
 
-**The rules.**
+| Job | Runs when | Does |
+|---|---|---|
+| `which` | CI ended green or red on a pull request of this repository; or a manual start | Names the pull request, the commit CI was about, the CI result, and whether the loop applies: only for a CI-started run of a pull request with the label `factory` |
+| `review` | CI green | The review agent, unchanged (see "Factory: review agent"). For factory pull requests it also runs when only documents changed. Hands its findings to the gate |
+| `failed-ci` | CI red, in the loop | Reads which CI job failed and the last 300 lines of its failed step |
+| `gate` | In the loop | `factory/run-gate.sh`: reads the state, decides, writes the decision. On "fix" it builds the fix agent's task with `factory/fix/prompt.sh` |
+| `fix` | The gate said fix | The fix agent, through the shared workflow `factory-agent.yml` |
 
-| Situation | Decision |
+Hand-made pull requests only ever get the `review` job: report-only, as
+before.
+
+**The gate's rules** (`factory/gate.sh`; the developer's rules of
+2026-11-16):
+
+| What it sees | Decision |
 |---|---|
 | CI red, round 1 or 2 | fix |
 | CI red, round 3 | scrap |
-| findings unreadable, first time | run the review again |
-| findings unreadable, second time | needs human |
-| 6 or more critical findings, any round | scrap |
-| no major or critical findings | pass |
-| major or critical findings, round 3 | scrap |
-| major or critical findings, round 1 or 2 | fix |
+| CI green, the review gave no usable answer, could not run, or the change was too large to review | needs human |
+| 6 or more critical findings | scrap |
+| no critical or major findings | ready (`review-passed`) |
+| critical or major findings, round 1 or 2 | fix |
+| critical or major findings, round 3 | scrap |
 
-After a scrap the analysis agent (not built yet) names the cause. A rebuild
-starts only on the first attempt and only when the cause is not "the
-review was wrong"; otherwise the issue gets `needs-human`.
+The decision is posted on the pull request with the numbers it used, for
+example `Round 2 · CI green · critical 0 · major 2 → fix`.
 
-**State lives in labels**, so it is visible from the phone:
+**When the gate does nothing** (`factory/state.sh`): the pull request is
+not `factory`, or not open; it carries `review-passed`, `needs-human` or
+`building` (a passed pull request is never reviewed into a fix again,
+even when its CI is rerun to put it back on staging); its
+newest commit is no longer the one CI was about (a newer round is
+coming); or that commit is not a signed commit by `claude[bot]` — a
+push by the developer or anyone else does not count as a round and is
+not fixed. Broken label state (no round label, two, no linked issue)
+gives `needs-human`.
+
+**What each decision does** (`factory/apply.sh`):
+
+- *Ready:* `review-passed` on the pull request; the issue gets a comment
+  ("ready for you, try it on staging"). The developer wrote the issue,
+  so GitHub notifies them.
+- *Fix:* the round label moves on (`review-round-2`, `-3`), and
+  `needs-fix` and `building` are added. The fix agent runs in the same
+  run.
+- *Scrap:* the pull request is closed with a comment, its branch is
+  deleted, the issue gets `needs-human` and a comment. The closed pull
+  request keeps the diff and every review, for the analysis of 2c.
+- *Needs human:* `needs-human` on the pull request and the issue, and a
+  comment on the issue.
+
+**The fix agent** is the implementation agent's twin: the same action
+pinned to the same commit, the same tools, the same allowed places, the
+same model variable (`FACTORY_MODEL_IMPLEMENT`), the same check after it.
+Both run through `.github/workflows/factory-agent.yml`, so they cannot
+drift apart. It differs in four things:
+
+- Its task (`factory/fix/prompt.md`) is to repair, not to build, and it
+  gets the problem: the review's findings (rule, file, line, what, why),
+  or the failed CI job's name and the end of its log, with control
+  characters removed. Then the spec: the issue's title and text. No
+  comments, from anyone. The issue must still be the owner's.
+- It starts from the exact commit the gate judged.
+- Its starter is `claude[bot]`, because the app's own commit started the
+  CI run that started the round. The action refuses bot starters unless
+  named, so the step names `allowed_bots: claude` — only Claude's own
+  app. (Seen in the probe of 2026-11-25; with that setting the action
+  also gives git the app's token through a helper instead of writing it
+  into `.git/config`.)
+- The check after it also knows "unchanged" (the agent committed
+  nothing, so there would be no next round) and "moved" (the newest
+  commit is not the fix agent's commit directly on top of the commit it
+  was given — someone pushed while it worked). Both give `needs-human`.
+  A fix that landed removes `building` and `needs-fix`; its commit
+  starts CI, and the next round begins.
+
+**Why no workflow starts another one.** A label set by a workflow starts
+nothing (GitHub's rule). Starting another workflow directly would need a
+token with `actions: write`, and such a token can also start CI's manual
+run, which can put an older version on production. So the round's jobs
+all live in the run of "Review", and the only thing that starts the next
+round is the app's commit itself.
+
+**Labels** (created by `factory/labels.sh`):
 
 | Label | On | Meaning |
 |---|---|---|
 | `factory` | PR | the loop acts on this PR; remove it to take the PR over by hand |
-| `review-round-1` / `-2` / `-3` | PR | current round |
-| `needs-fix` | PR | the gate asked the fix agent to work |
-| `review-passed` | PR | no major or critical findings left; ready for the developer |
-| `attempt-1` / `attempt-2` | issue | first build or the one rebuild |
-| `needs-analysis` | issue | PR was scrapped; analysis should run |
-| `needs-human` | issue or PR | the factory stopped; the developer decides |
+| `building` | PR | an agent's work has not been checked yet; the gate waits |
+| `review-round-1` / `-2` / `-3` | PR | current round; the implementation agent's PR starts at 1 |
+| `needs-fix` | PR | the gate sent the fix agent |
+| `review-passed` | PR | no critical or major findings; ready for the developer |
+| `needs-human` | issue and PR | the factory stopped; the developer decides |
+| `attempt-1` / `attempt-2`, `needs-analysis` | issue | for slice 2c; not used yet |
 
-**The pieces** (all in `factory/`, tests in `factory/test/run.sh`, run by
-the `infra` job of CI with a fake `gh`):
+**What it costs.** No money. Per issue at most 1 implementation, 3
+reviews and 2 fixes: 6 agent runs on the subscription's windows, about
+half an hour.
 
-- `gate.sh` — the rules above; reads nothing from GitHub.
-- `state.sh` — reads the PR's state, labels and its linked issue
-  (`Closes #N` in the PR text; links to issues in other repositories are
-  ignored). A closed or merged PR is left alone. Otherwise exactly one
-  round label and one linked issue, or it reports the state as broken.
-- `apply.sh` — writes the decision to GitHub: a comment with the numbers
-  (`Round 2 · CI green · critical 1 · major 3 → fix`), label changes, and
-  for a scrap: close the PR, delete its branch, mark the issue
-  `needs-analysis`. The closed PR keeps its diff and comments.
-- `run-gate.sh` — the three above in order; what the workflow runs.
-- `labels.sh` — creates the labels once (safe to run again).
-- `.github/workflows/factory-gate.yml` — starts `run-gate.sh`. Today by
-  hand (Actions → Factory gate → Run workflow, with a PR number, the CI
-  result and findings as JSON); later the review agent calls it. Its
-  checkout is pinned to `main`, never the PR, so a PR cannot change the
-  rules it is judged by. Empty findings are treated as unreadable, never
-  as "no findings", so a caller that forgets to pass them cannot make a
-  PR pass. Findings must use the severities critical, major, minor or
-  info; anything else counts as unreadable.
+**Checked.**
 
-**What happens when it fails.**
+- Script tests with a stand-in for GitHub: `factory/test/run.sh` (gate,
+  state, decisions), `factory/test/implement.sh` (the check and the
+  reports of both agents, the fix agent's task),
+  `factory/test/review.sh`. Twenty-four new rules were switched off one at a
+  time; a test failed each time.
+- The probe of 2026-11-25 (issue 47): the action and the app's token
+  work in a run that the app's own commit started; the starter is
+  `claude[bot]`.
+- **Not checked yet:** the workflows themselves in the repository — a
+  pass, a real fix round, a scrap, a push by the developer, the switch.
+  These are the drills of issue 47. Also unseen: a whole fix run with
+  `allowed_bots`, and the token reaching an agent job through the shared
+  workflow (GitHub's documentation says the environment's secret is
+  used; the first run will show it).
 
-- Broken label state (no round label, two round labels, no linked issue,
-  two attempt labels): the PR, and the issue when known, get
-  `needs-human` with a comment saying which; the run is red.
-- GitHub unreachable or a `gh` call fails: the run is red. Steps already
-  done stay done; if the PR could not be closed, the issue is not marked
-  `needs-analysis`. Rerun the workflow once the cause is gone.
-- A label missing from the repository makes `gh` fail: run
-  `factory/labels.sh --repo eugenlinde/activity-tracker` once before the
-  first use.
+**Known gaps.**
 
-**How to stop it.** Set the repository variable `FACTORY_ENABLED` to
-anything but `true` (Settings → Secrets and variables → Actions →
-Variables): every gate run is skipped. To stop it on one PR only, remove
-the `factory` label.
+- The reviewer and the fixer are both models. A wrong finding gets
+  "fixed", and the code can get worse for it. `review-passed` means "no
+  serious defect found", not "correct".
+- The reviewer does not see the previous round's findings; it may raise
+  new ones each round. The three-round limit stops that.
+- A red CI that is not the code's fault (a GitHub outage, a flaky test)
+  still costs a round.
+- If the check after an agent cannot run at all, or the gate's job dies
+  between setting `building` and starting the fix, `building` stays and
+  the gate waits forever. The pull request then needs a look by hand.
+- A push by the developer while the fix agent works is not prevented.
+  The agent's commit lands on top of it and can write over the
+  developer's change in the files the agent touched. The check calls
+  this "moved" and stops the loop with `needs-human`, so it is visible,
+  not silent.
+- If CI on an agent's commit finishes before the check after that agent
+  has removed `building`, that round is ignored and nothing starts
+  another. Unlikely (CI takes minutes, the check seconds), but it would
+  leave the pull request without a telling label.
+- A red CI with no failed job to read (it never started, or was
+  cancelled) does not send the fix agent off blind: it gives
+  `needs-human`.
 
-**Not built yet (part 2, after plan A or B is chosen):** the review, fix
-and analysis agents; report-only review of other PRs; the GitHub App token
-the agents need, because labels set with the workflow's own token do not
-start other workflows.
+**How to stop it.** Set `FACTORY_ENABLED` to anything but `true`:
+nothing in "Review", "Implement" or the loop runs. To stop one pull
+request, remove its label `factory` or close it. To stop one fix
+already running, cancel its run in the Actions tab.
 
 ## Target (not built yet)
 
@@ -1375,5 +1435,5 @@ into pull requests.
 Sections to be written when they become true:
 
 - The rest of the path of a change (issue → spec → … → staging → prod)
-- How to stop the factory as a whole (the review gate already has its switch, see above)
+- How to stop the factory as a whole (each part has the switch `FACTORY_ENABLED`, see above)
 - What it costs per month

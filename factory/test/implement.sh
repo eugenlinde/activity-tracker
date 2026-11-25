@@ -305,6 +305,7 @@ expect_log "title=Steps for one day"
 expect_log "api -X POST repos/owner/repo/issues/41/labels"
 expect_log "labels[]=factory"
 expect_log "labels[]=building"
+expect_log "labels[]=review-round-1"
 expect_order "git/refs" "repos/owner/repo/pulls"
 expect_order "repos/owner/repo/pulls" "issues/41/labels"
 expect_no_log "-X DELETE"
@@ -422,6 +423,55 @@ expect_status 0
 expect_output "result=ok"
 expect_output "files=5"
 expect_log "api repos/owner/repo/compare/main...factory/issue-7"
+end
+
+begin "a fix that committed nothing leaves the branch unchanged"
+compare "src/main/java/A.java"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" \
+  --before 2222222222222222222222222222222222222222
+expect_status 0
+expect_output "result=unchanged"
+end
+
+begin "a fix that landed on another commit than the one it started from is not trusted"
+compare "src/main/java/A.java"
+jq '.commits[-1] += {parents: [{sha: "3333333333333333333333333333333333333333"}], author: {login: "claude[bot]"}}' "$STUB_GH_DIR/api-compare" > "$CASE_DIR/c.json" && mv "$CASE_DIR/c.json" "$STUB_GH_DIR/api-compare"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" \
+  --before 1111111111111111111111111111111111111111
+expect_status 0
+expect_output "result=moved"
+end
+
+begin "a newest commit by someone else after a fix is not trusted"
+compare "src/main/java/A.java"
+jq '.commits[-1] += {parents: [{sha: "1111111111111111111111111111111111111111"}], author: {login: "owner"}}' "$STUB_GH_DIR/api-compare" > "$CASE_DIR/c.json" && mv "$CASE_DIR/c.json" "$STUB_GH_DIR/api-compare"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" \
+  --before 1111111111111111111111111111111111111111
+expect_status 0
+expect_output "result=moved"
+end
+
+begin "a fix that committed something is checked as usual"
+compare "src/main/java/A.java" "infra/deploy.sh"
+jq '.commits[-1] += {parents: [{sha: "1111111111111111111111111111111111111111"}], author: {login: "claude[bot]"}}' "$STUB_GH_DIR/api-compare" > "$CASE_DIR/c.json" && mv "$CASE_DIR/c.json" "$STUB_GH_DIR/api-compare"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" \
+  --before 1111111111111111111111111111111111111111
+expect_status 0
+expect_output "result=outside"
+end
+
+begin "an unchanged branch whose pull request was closed is closed"
+compare "src/main/java/A.java"
+echo '{"number": 41, "state": "closed"}' > "$STUB_GH_DIR/api-pull"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" \
+  --before 2222222222222222222222222222222222222222
+expect_output "result=closed"
+end
+
+begin "a malformed commit before the fix is refused"
+compare "src/main/java/A.java"
+run "$IMPLEMENT/check-branch.sh" --repo owner/repo --branch factory/issue-7 --pr 41 --out "$CASE_DIR/out" --before main
+expect_status 2
 end
 
 begin "a branch with no changed file is empty"
@@ -727,6 +777,57 @@ expect_no_log "needs-human"
 expect_log "pr edit 41 --repo owner/repo --remove-label building"
 end
 
+begin "a fix is reported on the pull request with its numbers, and the round goes on"
+report fixed --repo owner/repo --issue 7 --pr 41 --model claude-sonnet-5-5 --agent success --turns 9 --cost 0.2 --seconds 40 --denials 0
+expect_status 0
+BODY=$(body_of 'pr comment 41')
+for PART in "Fix agent" "claude-sonnet-5-5" "9 turns" "40 s" "0.2" "0 refused"; do
+  case "$BODY" in *"$PART"*) ;; *) fail "the comment lacks: $PART" ;; esac
+done
+expect_log "pr edit 41 --repo owner/repo --remove-label building --remove-label needs-fix"
+expect_no_log "needs-human"
+expect_no_log "issue comment"
+end
+
+begin "a fix whose run ended in an error after its commit is marked needs-human"
+report fixed --repo owner/repo --issue 7 --pr 41 --model m --agent failure --turns 9 --cost 0.2 --seconds 40 --denials 0
+expect_status 0
+expect_log "pr edit 41 --repo owner/repo --add-label needs-human"
+expect_log "issue edit 7 --repo owner/repo --add-label needs-human"
+end
+
+begin "a fix that committed nothing: needs-human on both, the round cannot go on"
+report unchanged --repo owner/repo --issue 7 --pr 41 --agent success
+expect_status 0
+expect_log "pr edit 41 --repo owner/repo --add-label needs-human"
+expect_log "issue edit 7 --repo owner/repo --add-label needs-human"
+expect_log "pr edit 41 --repo owner/repo --remove-label building --remove-label needs-fix"
+case "$(body_of 'issue comment 7')" in *"#41"*) ;; *) fail "the issue is not pointed to the pull request" ;; esac
+case "$(body_of 'pr comment 41')" in *"Fix agent"*"committed nothing"*) ;; *) fail "the pull request is not told" ;; esac
+end
+
+begin "the fix agent's other reports carry its name"
+printf 'infra/deploy.sh\n' > "$CASE_DIR/outside.txt"
+report outside --repo owner/repo --issue 7 --pr 41 --files "$CASE_DIR/outside.txt" --role fix
+expect_status 0
+case "$(body_of 'pr comment 41')" in "**Fix agent:**"*) ;; *"**Fix agent:**"*) ;; *) fail "the pull request comment is not the fix agent's" ;; esac
+case "$(body_of 'issue comment 7')" in *"Implementation agent"*) fail "the issue comment names the wrong agent" ;; esac
+end
+
+begin "an unknown role is refused"
+report too-many --repo owner/repo --issue 7 --pr 41 --role boss
+expect_status 2
+expect_no_calls
+end
+
+begin "a moved branch is reported and needs a human"
+report moved --repo owner/repo --issue 7 --pr 41
+expect_status 0
+expect_log "pr edit 41 --repo owner/repo --add-label needs-human"
+expect_log "issue edit 7 --repo owner/repo --add-label needs-human"
+case "$(body_of 'pr comment 41')" in *"Fix agent"*) ;; *) fail "the pull request is not told" ;; esac
+end
+
 begin "a pull request closed while the agent worked: branch deleted, the issue told"
 report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
 expect_status 0
@@ -801,6 +902,90 @@ end
 
 begin "an unknown report is refused"
 report celebrate --repo owner/repo --issue 7
+expect_status 2
+expect_no_calls
+end
+
+echo "fix/prompt.sh"
+
+FIX=$(dirname "$HERE")/fix
+
+answer() {
+  printf '%s' "$1" > "$CASE_DIR/answer.json"
+}
+
+fix_prompt() {
+  run "$FIX/prompt.sh" --repo owner/repo --issue 7 --out "$CASE_DIR/out" "$@"
+}
+
+begin "review findings become the fix agent's prompt, after the spec"
+issue OPEN owner factory
+answer '{"reviewed":true,"summary":"s","findings":[{"severity":"major","rule":"no-test","file":"src/main/java/A.java","line":12,"what":"The new endpoint has no test.","why":"No test calls it."},{"severity":"critical","rule":"security","file":"src/main/java/B.java","line":null,"what":"Another user reads the entry.","why":"No owner check."}]}'
+fix_prompt --findings "$CASE_DIR/answer.json"
+expect_status 0
+expect_output "ready=yes"
+expect_file_has "$CASE_DIR/out/prompt.md" "You are the fix agent"
+expect_file_has "$CASE_DIR/out/prompt.md" "Add GET /api/steps/{date}."
+expect_file_has "$CASE_DIR/out/prompt.md" "src/main/java/A.java"
+expect_file_has "$CASE_DIR/out/prompt.md" "The new endpoint has no test."
+expect_file_has "$CASE_DIR/out/prompt.md" "no-test"
+expect_file_has "$CASE_DIR/out/prompt.md" "Another user reads the entry."
+end
+
+begin "a red CI becomes the prompt: the failed job and the end of its log"
+issue OPEN owner factory
+seq 1 1000 | sed 's/^/log line /' > "$CASE_DIR/ci.log"
+fix_prompt --ci-log "$CASE_DIR/ci.log" --ci-job backend
+expect_status 0
+expect_output "ready=yes"
+expect_file_has "$CASE_DIR/out/prompt.md" "backend"
+expect_file_has "$CASE_DIR/out/prompt.md" "log line 1000"
+expect_file_has "$CASE_DIR/out/prompt.md" "log line 701"
+if grep -q "log line 700$" "$CASE_DIR/out/prompt.md"; then fail "more than the last 300 lines of the log"; fi
+end
+
+begin "control characters in the log are dropped"
+issue OPEN owner factory
+printf 'ok \033[31mred\033[0m end\n' > "$CASE_DIR/ci.log"
+fix_prompt --ci-log "$CASE_DIR/ci.log" --ci-job backend
+expect_status 0
+if LC_ALL=C grep -q $'\033' "$CASE_DIR/out/prompt.md"; then fail "an escape character reached the prompt"; fi
+end
+
+begin "an issue written by someone else gives no prompt"
+issue OPEN stranger factory
+answer '{"reviewed":true,"summary":"s","findings":[]}'
+fix_prompt --findings "$CASE_DIR/answer.json"
+expect_status 0
+expect_output "ready=no"
+if [ -s "$CASE_DIR/out/prompt.md" ]; then fail "a prompt was written"; fi
+end
+
+begin "an issue that cannot be read gives no prompt"
+echo 1 > "$STUB_GH_DIR/issue-view.exit"
+answer '{"reviewed":true,"summary":"s","findings":[]}'
+fix_prompt --findings "$CASE_DIR/answer.json"
+expect_status 0
+expect_output "ready=no"
+end
+
+begin "findings that are not the review's answer give no prompt"
+issue OPEN owner factory
+answer 'looks fine'
+fix_prompt --findings "$CASE_DIR/answer.json"
+expect_status 0
+expect_output "ready=no"
+end
+
+begin "a job name that is not plain is refused"
+issue OPEN owner factory
+printf 'x\n' > "$CASE_DIR/ci.log"
+fix_prompt --ci-log "$CASE_DIR/ci.log" --ci-job 'backend; id'
+expect_status 2
+end
+
+begin "neither findings nor a log is refused"
+fix_prompt
 expect_status 2
 expect_no_calls
 end

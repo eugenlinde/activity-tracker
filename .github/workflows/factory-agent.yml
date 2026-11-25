@@ -1,0 +1,265 @@
+name: Factory agent
+
+on:
+  workflow_call:
+    inputs:
+      role:
+        description: build (the implementation agent) or fix (the fix agent)
+        required: true
+        type: string
+      number:
+        description: The issue's number
+        required: true
+        type: string
+      branch:
+        description: factory/issue-<number>
+        required: true
+        type: string
+      pr:
+        description: The factory pull request's number
+        required: true
+        type: string
+      prompt:
+        description: What the agent is asked to do
+        required: true
+        type: string
+      before:
+        description: For a fix, the branch's newest commit before the agent ran
+        required: false
+        type: string
+        default: ''
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: Named here so that the jobs below may use it; its value comes from their environment, factory
+        required: false
+
+permissions: {}
+
+env:
+  REPO: ${{ github.repository }}
+  MODEL: ${{ vars.FACTORY_MODEL_IMPLEMENT || 'claude-sonnet-5-5' }}
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: factory
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      outcome: ${{ steps.numbers.outputs.outcome }}
+      turns: ${{ steps.numbers.outputs.turns }}
+      seconds: ${{ steps.numbers.outputs.seconds }}
+      cost: ${{ steps.numbers.outputs.cost }}
+      denials: ${{ steps.numbers.outputs.denials }}
+      tools: ${{ steps.numbers.outputs.tools }}
+    steps:
+      - name: Only a factory branch
+        env:
+          ROLE: ${{ inputs.role }}
+          NUMBER: ${{ inputs.number }}
+          BRANCH: ${{ inputs.branch }}
+          PR: ${{ inputs.pr }}
+          BEFORE: ${{ inputs.before }}
+        run: |
+          case "$ROLE" in build|fix) ;; *) echo "Unknown role" >&2; exit 1 ;; esac
+          if [[ ! $NUMBER =~ ^[1-9][0-9]{0,6}$ ]] || [ "$BRANCH" != "factory/issue-$NUMBER" ] || [[ ! $PR =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "Not a factory branch" >&2
+            exit 1
+          fi
+          if [ "$ROLE" = fix ] && [[ ! $BEFORE =~ ^[0-9a-f]{40}$ ]]; then
+            echo "A fix needs the commit it starts from" >&2
+            exit 1
+          fi
+          if [[ ! $MODEL =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
+            echo "The model's name is not a plain name" >&2
+            exit 1
+          fi
+
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Put the scripts where the agent cannot write
+        run: cp -R factory "$RUNNER_TEMP/factory"
+
+      - name: The branch, for the agent to work in
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.role == 'fix' && inputs.before || inputs.branch }}
+          persist-credentials: false
+
+      - name: The agent (claude-code-action v1 at b5e3765)
+        id: agent
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: anthropics/claude-code-action@b5e37652b7d48df841bfddfd6520610e19bf3136
+        env:
+          CLAUDE_BRANCH: ${{ inputs.branch }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ inputs.prompt }}
+          use_commit_signing: true
+          allowed_bots: claude
+          claude_args: >-
+            --model ${{ env.MODEL }}
+            --tools "Read,Grep,Glob,Edit,Write"
+            --allowedTools "Edit(./src/**),Write(./src/**),Edit(./frontend/src/**),Write(./frontend/src/**),Edit(./http/**),Write(./http/**),Edit(./docs/**),Write(./docs/**),mcp__github_file_ops__commit_files"
+            --disallowedTools "Read(./.git/**),Edit(./.git/**),Write(./.git/**)"
+            --permission-mode dontAsk
+            --max-budget-usd 10
+
+      - name: The run's numbers
+        id: numbers
+        if: ${{ !cancelled() }}
+        env:
+          AGENT_OUTCOME: ${{ steps.agent.outcome }}
+          EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
+        run: |
+          cd "$RUNNER_TEMP"
+          outcome=failure
+          if [ "$AGENT_OUTCOME" = "success" ]; then
+            outcome=success
+          fi
+          numbers=$(factory/implement/run-numbers.sh "${EXECUTION_FILE:-none}" | grep -E '^(turns|seconds|cost|denials|tools)=[A-Za-z0-9_.,]*$')
+          echo "outcome=$outcome"
+          printf '%s\n' "$numbers"
+          {
+            echo "outcome=$outcome"
+            printf '%s\n' "$numbers"
+          } >> "$GITHUB_OUTPUT"
+
+  check:
+    needs: agent
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: factory
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Read back what landed on the branch, and report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ROLE: ${{ inputs.role }}
+          NUMBER: ${{ inputs.number }}
+          BRANCH: ${{ inputs.branch }}
+          PR: ${{ inputs.pr }}
+          BEFORE: ${{ inputs.before }}
+          OUTCOME: ${{ needs.agent.outputs.outcome }}
+          TURNS: ${{ needs.agent.outputs.turns }}
+          SECONDS_USED: ${{ needs.agent.outputs.seconds }}
+          COST: ${{ needs.agent.outputs.cost }}
+          DENIALS: ${{ needs.agent.outputs.denials }}
+          TOOLS: ${{ needs.agent.outputs.tools }}
+        run: |
+          report=factory/implement/report.sh
+          case "$ROLE" in build|fix) ;; *) echo "Unknown role" >&2; exit 1 ;; esac
+          if [[ ! $NUMBER =~ ^[1-9][0-9]{0,6}$ ]] || [ "$BRANCH" != "factory/issue-$NUMBER" ] || [[ ! $PR =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "Not a factory branch" >&2
+            exit 1
+          fi
+          agent=failure
+          if [ "$OUTCOME" = "success" ]; then
+            agent=success
+          fi
+          [[ $TURNS =~ ^[0-9]{1,9}$ ]] || TURNS=0
+          [[ $SECONDS_USED =~ ^[0-9]{1,9}$ ]] || SECONDS_USED=0
+          [[ $DENIALS =~ ^[0-9]{1,9}$ ]] || DENIALS=0
+          [[ $COST =~ ^[0-9]{1,6}(\.[0-9]{1,4})?$ ]] || COST=0
+          [[ $TOOLS =~ ^[A-Za-z0-9_.,]{1,400}$ ]] || TOOLS=none
+          before=()
+          if [ "$ROLE" = fix ]; then
+            if [[ ! $BEFORE =~ ^[0-9a-f]{40}$ ]]; then
+              echo "A fix needs the commit it starts from" >&2
+              exit 1
+            fi
+            before=(--before "$BEFORE")
+          fi
+          answer=$(factory/implement/check-branch.sh --repo "$REPO" --branch "$BRANCH" --pr "$PR" --out "$RUNNER_TEMP/implement" "${before[@]}")
+          result=$(printf '%s\n' "$answer" | sed -n 's/^result=//p' | head -n 1)
+          files=$(printf '%s\n' "$answer" | sed -n 's/^files=//p' | head -n 1)
+          [[ $files =~ ^[0-9]{1,6}$ ]] || files=0
+          case "$result" in
+            ok|empty|unchanged|moved|outside|too-many|token|closed) ;;
+            *) result=failed ;;
+          esac
+          if [ "$ROLE" = build ] && { [ "$result" = unchanged ] || [ "$result" = moved ]; }; then
+            result=failed
+          fi
+          if [ "$ROLE" = fix ] && [ "$result" = empty ]; then
+            result=failed
+          fi
+          echo "role=$ROLE agent=$agent result=$result files=$files tools=$TOOLS"
+          {
+            echo "### Issue $NUMBER → pull request $PR ($ROLE)"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Agent's run | $agent |"
+            echo "| What landed | $result, $files files |"
+            echo "| Model | $MODEL |"
+            echo "| Turns | $TURNS |"
+            echo "| Seconds | $SECONDS_USED |"
+            echo "| Estimated cost (not billed on a subscription) | $COST |"
+            echo "| Tool calls refused | $DENIALS |"
+            echo "| Tools called | $TOOLS |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          numbers=(--model "$MODEL" --agent "$agent" --turns "$TURNS" --cost "$COST" --seconds "$SECONDS_USED" --denials "$DENIALS")
+          status=0
+          case "$result" in
+            ok)
+              if [ "$ROLE" = fix ]; then
+                "$report" fixed --repo "$REPO" --issue "$NUMBER" --pr "$PR" "${numbers[@]}" || status=1
+              else
+                "$report" finished --repo "$REPO" --issue "$NUMBER" --pr "$PR" "${numbers[@]}" || status=1
+              fi
+              if [ "$agent" != "success" ]; then
+                status=1
+              fi
+              ;;
+            closed)
+              "$report" closed --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" --role "$ROLE" || status=1
+              ;;
+            empty)
+              "$report" empty --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" --agent "$agent" || true
+              status=1
+              ;;
+            moved)
+              "$report" moved --repo "$REPO" --issue "$NUMBER" --pr "$PR" || true
+              status=1
+              ;;
+            unchanged)
+              "$report" unchanged --repo "$REPO" --issue "$NUMBER" --pr "$PR" --agent "$agent" || true
+              status=1
+              ;;
+            outside)
+              "$report" outside --repo "$REPO" --issue "$NUMBER" --pr "$PR" --files "$RUNNER_TEMP/implement/outside.txt" --role "$ROLE" || true
+              status=1
+              ;;
+            too-many)
+              "$report" too-many --repo "$REPO" --issue "$NUMBER" --pr "$PR" --role "$ROLE" || true
+              status=1
+              ;;
+            token)
+              "$report" token --repo "$REPO" --issue "$NUMBER" --pr "$PR" --branch "$BRANCH" --role "$ROLE" || true
+              status=1
+              ;;
+            *)
+              "$report" unchecked --repo "$REPO" --issue "$NUMBER" --pr "$PR" --role "$ROLE" || true
+              status=1
+              ;;
+          esac
+          exit "$status"

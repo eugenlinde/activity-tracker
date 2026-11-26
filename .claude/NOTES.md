@@ -673,3 +673,41 @@ maps onto this project. Nothing decided yet. Proposals given:
   reviewer found one critical and two important defects; all fixed with
   tests that failed first (details in DECISIONS).
 - Not seen in the repository yet: everything after the merge (drills).
+
+## 2026-11-26 — slice 2b: drills
+
+- The developer merged PR #52 and closed PR #42 (issue #41 is gone from
+  GitHub; branch `factory/issue-41` is left).
+- Drill 1, a pass: issue #53 (weight for one day) → PR #54. Implement
+  ran through the shared workflow and the token reached the agent;
+  review-passed in round 1, about 5 minutes after the label.
+- Drill 2, a fix round: the developer chose Haiku for one issue.
+  `FACTORY_MODEL_IMPLEMENT=claude-haiku-5-5` for issue #55 (steps
+  summary) → PR #56: CI green and review clean in round 1. Variable
+  removed again. No fix round happened.
+- The developer chose to skip the fix round and scrap and go on.
+- Drill 4, a push by the developer: on PR #54 the builder took off
+  `review-passed` and pushed, in the developer's name, a commit that
+  breaks a test. CI red, `failed-ci` read the backend log (89 lines),
+  the gate said not-the-app and did nothing.
+- Drill 5, the switch: `FACTORY_ENABLED=false`, a revert push and a hand
+  start of Implement: every factory job skipped; staging still
+  deployed. Switched back on.
+- Results on issue #47. PR #54 is left without `review-passed` and
+  without a review of its newest commit (code equal to the reviewed
+  one); PRs #54 and #56 wait for the developer.
+
+## 2026-11-26 — slice 3: spec and build
+
+- The developer merged PR #57 (drills of 2b; closed #47) and chose slice
+  3 before 2c (2c only matters after a scrap, and none has happened).
+- Spec issue #58 approved in chat: one spec agent, questions or spec or
+  out-of-reach, spec written into the issue's text in the format of #39.
+- Built on branch `f4-spec`: `spec.yml`, `factory/spec/` (collect,
+  run-spec, check-reply, write, prompt, schema), `factory/run-agent.sh`
+  shared with the review agent, two labels. Suites: run 87, review 113,
+  implement 147, spec 96, infra 106. Thirty-eight mutations, all caught.
+  An independent reviewer found four important defects, no critical
+  one; all fixed. The review agent on PR #59 found two major ones;
+  both fixed (details in DECISIONS).
+- Not seen in the repository yet: the workflow (drills after the merge).

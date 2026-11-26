@@ -1544,3 +1544,67 @@ reaches the log that way.
   agent's commit on top of the commit it was given. Also: a red CI with
   no readable failed job gives `needs-human` instead of a blind fix, and
   a manual review no longer cancels the loop's review (separate queues).
+
+## 2026-11-26 — Review loop, slice 2b: drills stop short of a fix round (developer's decision)
+
+- Two issues passed in round 1, the second on Haiku, the smallest model,
+  which was meant to make a fix round likely. The builder proposed a
+  third try on Haiku with a change to behaviour that existing tests pin
+  down, unnamed in the spec. The developer chose to skip the fix round
+  and the scrap and go on to the push and switch drills.
+- Cost if wrong: the first real fix round, with `allowed_bots`, and the
+  first scrap run unwatched in real use. The pieces before them
+  (`failed-ci`, the gate's red-CI path, the state check) have run.
+- Builder's call: for the push drill the builder took `review-passed`
+  off a passed pull request, because the gate leaves a passed pull
+  request alone before it looks at who pushed; and the builder pushed in
+  the developer's name from this machine, which is the same account and
+  the same unsigned commit a push from the developer's phone would be.
+
+## 2026-11-26 — Spec agent, slice 3 (issue 58; spec approved by the developer; builder's calls below)
+
+- One agent does triage and spec: same input, same code to read, one
+  workflow, one prompt, one schema. The design's two steps are the
+  reply's shapes (questions, spec, out-of-reach).
+- The spec replaces the issue's text, in the format of #39, with the
+  developer's own text folded at the end between two marks. Reason: the
+  implementation agent builds from the issue's text, so what the
+  developer approves is what gets built, and "Implement" is unchanged.
+  The summary is rendered by the script from five one-line fields, so
+  the format and the 8-line limit cannot drift.
+- The title is never changed: it stays the developer's.
+- A new issue that already opens with `**Decision needed:**` is left
+  alone: that is a spec written by hand in an interactive session
+  (issues opened with `gh` carry the owner as author, so they would
+  otherwise start the agent).
+- Limits: 5 runs per issue (counted from the agent's own marked
+  comments by `github-actions`; the owner pasting the mark does not
+  count), 40,000 bytes of original text (job outputs pass through
+  environment variables, which hold about 128 KB), 20,000 characters of
+  spec, 5 questions.
+- `write.sh` reads the labels again before writing and writes nothing
+  if `approved`, `building` or `needs-human` arrived meanwhile.
+- A comment starts the workflow only on an issue labelled `needs-info`
+  or `spec-ready` (checked in the workflow's `if`, so other comments do
+  not even start a runner) and again in `collect.sh`.
+- The Claude call moved from `run-review.sh` into `factory/run-agent.sh`,
+  shared by the review agent and the spec agent, so the token handling
+  is written once. The review suite passed unchanged on it.
+- Model `FACTORY_MODEL_SPEC`, default `claude-fable-5-2`, as for the
+  review: a spec decides more than a review does.
+- After the independent review (four important findings, all accepted,
+  each with a test that failed first where a script could hold it):
+  runs started by others' comments get their own concurrency queue, so
+  they cannot cancel the developer's waiting run (`implement.yml` does
+  the same); `write.sh` compares a fingerprint of the issue's text and
+  writes no spec over an edit the developer made meanwhile; carriage
+  returns from browser edits are removed before the marks are looked
+  for; the run limit is final and says so, and the other stops say to
+  start "Spec" by hand (a comment would not start it). Also: an issue
+  that cannot be read turns the run red instead of passing silently.
+- After the review agent's comment on PR #59 (two major findings, both
+  accepted, each with a test that failed first): a hand start with a
+  pull request's number is refused (`gh issue view` also resolves pull
+  requests; the address is checked), and an edit by the developer on a
+  `spec-ready` issue no longer calls `gh issue edit` with nothing to
+  change before posting its comment.

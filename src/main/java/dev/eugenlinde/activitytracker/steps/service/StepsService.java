@@ -1,21 +1,26 @@
 package dev.eugenlinde.activitytracker.steps.service;
 
 import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
+import dev.eugenlinde.activitytracker.common.exception.InvalidDateRangeException;
 import dev.eugenlinde.activitytracker.common.exception.StepEntryNotFoundException;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
+import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
 @Transactional
 public class StepsService {
     private static final int DEFAULT_RANGE_WEEKS = 8;
+    private static final int MAX_SUMMARY_DAYS = 366;
 
     private final StepEntryRepository stepEntryRepository;
     private final UserRepository userRepository;
@@ -40,6 +45,30 @@ public class StepsService {
                 .stream()
                 .map(StepsResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StepsSummaryResponse summarize(Long userId, LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new InvalidDateRangeException("'from' must not be after 'to'");
+        }
+        if (ChronoUnit.DAYS.between(from, to) + 1 > MAX_SUMMARY_DAYS) {
+            throw new InvalidDateRangeException("A summary covers at most 366 days");
+        }
+        List<StepEntry> entries = stepEntryRepository
+                .findAllByUserIdAndEntryDateBetweenOrderByEntryDateAsc(userId, from, to);
+        int daysLogged = entries.size();
+        if (daysLogged == 0) {
+            return new StepsSummaryResponse(from, to, 0, 0, 0, null);
+        }
+        long totalSteps = entries.stream().mapToLong(StepEntry::getSteps).sum();
+        long averagePerLoggedDay = (2 * totalSteps + daysLogged) / (2L * daysLogged);
+        StepEntry bestDay = entries.stream()
+                .max(Comparator.comparingInt(StepEntry::getSteps)
+                        .thenComparing(StepEntry::getEntryDate, Comparator.reverseOrder()))
+                .orElseThrow();
+        return new StepsSummaryResponse(
+                from, to, daysLogged, totalSteps, averagePerLoggedDay, StepsResponse.from(bestDay));
     }
 
     public StepsResponse upsert(Long userId, LocalDate date, int steps) {

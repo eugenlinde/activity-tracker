@@ -4,6 +4,8 @@ import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.StepEntryNotFoundException;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
+import dev.eugenlinde.activitytracker.common.exception.UserNotFoundException;
+import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.user.UserRepository;
@@ -126,6 +128,52 @@ class StepsServiceTest {
         assertThrows(StepEntryNotFoundException.class, () -> stepsService.delete(userId, TODAY));
 
         verify(stepEntryRepository, never()).delete(any());
+    }
+
+    @Test
+    void findGoal_returnsTheUsersGoal() {
+        User user = new User();
+        user.setStepsGoal(12000);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertEquals(new StepsGoalResponse(12000), stepsService.findGoal(userId));
+    }
+
+    @Test
+    void findGoal_forAUserWhoNeverChangedIt_returnsTheDefault() {
+        when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
+
+        assertEquals(new StepsGoalResponse(8000), stepsService.findGoal(userId));
+    }
+
+    @Test
+    void updateGoal_setsTheGoalOnTheLoadedUserAndSavesIt() {
+        User user = new User();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        StepsGoalResponse response = stepsService.updateGoal(userId, 10000);
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertSame(user, saved.getValue());
+        assertEquals(10000, user.getStepsGoal());
+        assertEquals(new StepsGoalResponse(10000), response);
+    }
+
+    @Test
+    void findGoal_whenUserIsMissing_throwsNotFound() {
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> stepsService.findGoal(userId));
+    }
+
+    @Test
+    void updateGoal_whenUserIsMissing_throwsNotFoundAndSavesNothing() {
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> stepsService.updateGoal(userId, 10000));
+
+        verify(userRepository, never()).save(any());
     }
 
     private StepEntry entry(LocalDate date, int steps) {

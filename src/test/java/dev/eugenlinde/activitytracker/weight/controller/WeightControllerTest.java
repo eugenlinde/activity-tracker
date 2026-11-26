@@ -208,7 +208,7 @@ class WeightControllerTest {
         when(weightService.find(userId, DATE)).thenThrow(new WeightEntryNotFoundException());
 
         mockMvc.perform(get("/api/weights/2026-11-13").with(authenticatedAs(userId)))
-                .andExpect(status().isOk());
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -111,15 +111,21 @@ piece in their own words before the phase is checked off.
                   real workflow (the agent declined before trying)
             - [ ] Explain-back: what starts a build, what the agent can
                   and cannot do, what the check does, how to stop it
-        - [ ] 2b, issue #47: the gate reads CI and findings; fix agent,
-              three rounds (spec approved 2026-11-24)
+        - [x] 2b, issue #47: the gate reads CI and findings; fix agent,
+              three rounds (spec approved 2026-11-24; done 2026-11-26)
             - [x] Probe (2026-11-25, PRs #49, #51): the token exchange
                   works when the app's own commit started the run; the
                   action needs `allowed_bots: claude`
             - [x] Gate wired in after every review, fix agent, check
                   (2026-11-25; script tests, 24 rules mutation-checked, independent review)
-            - [ ] Drills: pass, a real fix round, scrap, a push by the
-                  developer, the switch
+            - [x] Drills (2026-11-26): a pass (#53 → #54, round 1), a
+                  push by the developer (gate: not-the-app), the switch
+                  (everything skipped). A real fix round was tried on
+                  Haiku (#55 → #56) and passed in round 1 instead. Not
+                  drilled, by the developer's decision: a real fix round
+                  and a scrap; the first real failure shows them
+            - [ ] Explain-back: one round, what the gate decides, what
+                  stops the loop, how to stop it
         - [ ] 2c: analysis agent and one automatic rebuild
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`

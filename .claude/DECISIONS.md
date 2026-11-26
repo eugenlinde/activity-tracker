@@ -1544,3 +1544,19 @@ reaches the log that way.
   agent's commit on top of the commit it was given. Also: a red CI with
   no readable failed job gives `needs-human` instead of a blind fix, and
   a manual review no longer cancels the loop's review (separate queues).
+
+## 2026-11-26 — Review loop, slice 2b: drills stop short of a fix round (developer's decision)
+
+- Two issues passed in round 1, the second on Haiku, the smallest model,
+  which was meant to make a fix round likely. The builder proposed a
+  third try on Haiku with a change to behaviour that existing tests pin
+  down, unnamed in the spec. The developer chose to skip the fix round
+  and the scrap and go on to the push and switch drills.
+- Cost if wrong: the first real fix round, with `allowed_bots`, and the
+  first scrap run unwatched in real use. The pieces before them
+  (`failed-ci`, the gate's red-CI path, the state check) have run.
+- Builder's call: for the push drill the builder took `review-passed`
+  off a passed pull request, because the gate leaves a passed pull
+  request alone before it looks at who pushed; and the builder pushed in
+  the developer's name from this machine, which is the same account and
+  the same unsigned commit a push from the developer's phone would be.

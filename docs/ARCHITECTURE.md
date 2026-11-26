@@ -1261,7 +1261,7 @@ Actions tab. Closing the pull request alone does not stop the agent,
 but when it finishes, job 3 sees the closed pull request, deletes the
 branch and does nothing more. To take the app away, uninstall it.
 
-## Factory: review loop (built 2026-11-25; issue 47; not drilled yet)
+## Factory: review loop (built 2026-11-25, drilled 2026-11-26; issue 47; switched on)
 
 Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`, as
 narrowed by the spec of slice 2b (issue 47). The analysis agent and the
@@ -1386,12 +1386,20 @@ half an hour.
 - The probe of 2026-11-25 (issue 47): the action and the app's token
   work in a run that the app's own commit started; the starter is
   `claude[bot]`.
-- **Not checked yet:** the workflows themselves in the repository — a
-  pass, a real fix round, a scrap, a push by the developer, the switch.
-  These are the drills of issue 47. Also unseen: a whole fix run with
-  `allowed_bots`, and the token reaching an agent job through the shared
-  workflow (GitHub's documentation says the environment's secret is
-  used; the first run will show it).
+- The drills of 2026-11-26 (issue 47, details in its comments):
+
+  | Drill | What happened |
+  |---|---|
+  | A pass | Issue 53 → pull request 54. The label started Implement through the shared workflow; the token reached the agent; CI green; no critical or major findings; `review-passed` and the issue told, in round 1, about 5 minutes after the label |
+  | A real fix round, on the smallest model | Issue 55 → pull request 56 with `FACTORY_MODEL_IMPLEMENT=claude-haiku-5-5` for that one issue. It passed in round 1 as well, so no fix round happened |
+  | A push by the developer | On pull request 54 (its `review-passed` taken off first), a commit by the developer that breaks a test. CI red; `failed-ci` read the failed job's log; the gate said `not-the-app` and did nothing; no fix, no label, no comment |
+  | The switch | `FACTORY_ENABLED=false`: a push gave a Review run with every job skipped; Implement started by hand skipped every job. Staging still deployed: it has its own switch. Switched back on |
+
+- **Not checked yet**, by the developer's decision of 2026-11-26 to move
+  on: a real fix round (so a whole fix run with `allowed_bots`), and a
+  scrap. Of the fix path, `failed-ci` and the gate's red-CI path up to
+  the state check have run for real. The first real failure will be the
+  first fix round; watch its run.
 
 **Known gaps.**
 
@@ -1417,11 +1425,16 @@ half an hour.
 - A red CI with no failed job to read (it never started, or was
   cancelled) does not send the fix agent off blind: it gives
   `needs-human`.
+- When the developer pushes to a factory pull request, the loop stops
+  without a word: no label, no comment. The pull request keeps the
+  labels it had (seen in the drill). The developer pushed, so they know.
 
 **How to stop it.** Set `FACTORY_ENABLED` to anything but `true`:
 nothing in "Review", "Implement" or the loop runs. To stop one pull
 request, remove its label `factory` or close it. To stop one fix
 already running, cancel its run in the Actions tab.
+Commits pushed while the switch is off get no review; after switching
+back on, start "Review" by hand for a pull request that should have one.
 
 ## Target (not built yet)
 

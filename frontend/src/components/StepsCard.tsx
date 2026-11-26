@@ -25,6 +25,7 @@ export function StepsCard() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [version, setVersion] = useState(0)
   const [goal, setGoal] = useState<number | null>(null)
+  const [goalError, setGoalError] = useState<unknown>(null)
   const [goalDialogOpen, setGoalDialogOpen] = useState(false)
 
   const to = todayIso()
@@ -52,10 +53,12 @@ export function StepsCard() {
     stepsApi
       .goal()
       .then((saved) => {
-        if (!cancelled) setGoal(saved.goal)
+        if (cancelled) return
+        setGoal(saved.goal)
+        setGoalError(null)
       })
       .catch((err) => {
-        if (!cancelled) setError(err)
+        if (!cancelled) setGoalError(err)
       })
     return () => {
       cancelled = true
@@ -102,6 +105,7 @@ export function StepsCard() {
       </div>
 
       <ErrorMessage error={error} />
+      <ErrorMessage error={goalError} />
 
       {entries !== null && chart.bars.length === 0 ? (
         <span className="muted">No steps logged in this period.</span>

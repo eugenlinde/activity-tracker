@@ -129,7 +129,16 @@ piece in their own words before the phase is checked off.
         - [ ] 2c: analysis agent and one automatic rebuild
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`
-    - [ ] Slice 3: triage agent and spec agent
+    - [ ] Slice 3, issue #58: spec agent (triage and spec in one; spec
+          approved 2026-11-26)
+        - [x] Built (2026-11-26): `spec.yml`, `factory/spec/`, shared
+              `factory/run-agent.sh`; script tests, 38 rules
+              mutation-checked, independent review
+        - [ ] Drills: clear request to `review-passed`, vague request to
+              questions and a spec, a change asked on a spec, a request
+              needing `build.gradle`, the switch
+        - [ ] Explain-back: what starts it, the three answers, where the
+              spec lives, how to stop it
     - [ ] Slice 4: acceptance — one issue from label to a tested pull
           request on staging without an interactive session
     - [ ] Review loop: 3 rounds, scrap and rebuild (design approved

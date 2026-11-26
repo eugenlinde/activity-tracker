@@ -1,0 +1,218 @@
+name: Spec
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Number of the issue to write a spec for
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: spec-${{ github.event_name == 'workflow_dispatch' && inputs.issue || github.event.issue.number }}-${{ github.event.sender.login == github.repository_owner && 'owner' || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  REPO: ${{ github.repository }}
+  MODEL: ${{ vars.FACTORY_MODEL_SPEC || 'claude-fable-5-2' }}
+
+jobs:
+  agent:
+    if: >-
+      ${{
+        vars.FACTORY_ENABLED == 'true'
+        && github.ref == 'refs/heads/main'
+        && github.event.sender.login == github.repository_owner
+        && (
+          github.event_name == 'workflow_dispatch'
+          || github.event_name == 'issues'
+          || (
+            github.event_name == 'issue_comment'
+            && !github.event.issue.pull_request
+            && (contains(github.event.issue.labels.*.name, 'needs-info') || contains(github.event.issue.labels.*.name, 'spec-ready'))
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: factory
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      number: ${{ steps.which.outputs.number }}
+      act: ${{ steps.collect.outputs.act }}
+      reason: ${{ steps.collect.outputs.reason }}
+      run: ${{ steps.collect.outputs.run }}
+      body: ${{ steps.collect.outputs.body }}
+      outcome: ${{ steps.spec.outputs.outcome }}
+      turns: ${{ steps.spec.outputs.turns }}
+      cost: ${{ steps.spec.outputs.cost }}
+      seconds: ${{ steps.spec.outputs.seconds }}
+      denials: ${{ steps.spec.outputs.denials }}
+      detail: ${{ steps.spec.outputs.detail }}
+      reply: ${{ steps.answer.outputs.reply }}
+      original: ${{ steps.answer.outputs.original }}
+    steps:
+      - name: The factory's own scripts and the code, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: main
+          persist-credentials: false
+
+      - name: Which issue, and why
+        id: which
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ISSUE: ${{ inputs.issue }}
+          EVENT_ISSUE: ${{ github.event.issue.number }}
+        run: |
+          case "$EVENT_NAME" in
+            issues) event=opened; number=$EVENT_ISSUE ;;
+            issue_comment) event=comment; number=$EVENT_ISSUE ;;
+            workflow_dispatch) event=dispatch; number=$INPUT_ISSUE ;;
+            *) echo "Unknown event" >&2; exit 1 ;;
+          esac
+          if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
+            echo "Not an issue number" >&2
+            exit 1
+          fi
+          {
+            echo "event=$event"
+            echo "number=$number"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect what the spec agent may see
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ steps.which.outputs.event }}
+          NUMBER: ${{ steps.which.outputs.number }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          answer=$(main/factory/spec/collect.sh --repo "$REPO" --issue "$NUMBER" --event "$EVENT" --sender "$SENDER" --out "$RUNNER_TEMP/spec")
+          act=$(printf '%s\n' "$answer" | sed -n 's/^act=//p' | head -n 1)
+          reason=$(printf '%s\n' "$answer" | sed -n 's/^reason=//p' | head -n 1)
+          run=$(printf '%s\n' "$answer" | sed -n 's/^run=//p' | head -n 1)
+          body=$(printf '%s\n' "$answer" | sed -n 's/^body=//p' | head -n 1)
+          case "$act" in yes|stop) ;; *) act=no ;; esac
+          [[ $reason =~ ^[a-z-]{0,40}$ ]] || reason=unknown
+          [[ $run =~ ^[1-9][0-9]?$ ]] || { [ "$act" = no ] || { echo "No run number" >&2; exit 1; }; }
+          [[ $body =~ ^[0-9a-f]{64}$ ]] || { [ "$act" != yes ] || { echo "No fingerprint of the issue's text" >&2; exit 1; }; }
+          echo "act=$act reason=${reason:--} run=${run:--}"
+          {
+            echo "act=$act"
+            echo "reason=$reason"
+            echo "run=$run"
+            echo "body=$body"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$reason" = unreadable ]; then
+            echo "The issue could not be read" >&2
+            exit 1
+          fi
+
+      - name: Install the spec agent
+        if: ${{ steps.collect.outputs.act == 'yes' }}
+        run: npm install --global --no-fund --no-audit @anthropic-ai/claude-code@2.1.325
+
+      - name: Spec
+        id: spec
+        if: ${{ steps.collect.outputs.act == 'yes' }}
+        timeout-minutes: 15
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "The factory environment has no Claude token" >&2
+            echo "outcome=failed" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          answer=$(main/factory/spec/run-spec.sh --work "$RUNNER_TEMP/spec/work" --out "$RUNNER_TEMP/spec-out" \
+            --code "$GITHUB_WORKSPACE/main" --model "$MODEL")
+          printf '%s\n' "$answer" | grep -E '^(outcome|turns|cost|seconds|denials|detail)=[A-Za-z0-9._-]*$' >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$answer" | grep -E '^(outcome|turns|cost|seconds|denials|detail)=[A-Za-z0-9._-]*$'
+
+      - name: Hand the reply to the writer
+        id: answer
+        if: ${{ !cancelled() && steps.spec.outputs.outcome == 'reply' }}
+        run: |
+          delimiter="spec-$(openssl rand -hex 16)"
+          {
+            echo "reply<<$delimiter"
+            jq -c . "$RUNNER_TEMP/spec-out/reply.json"
+            echo "$delimiter"
+            echo "original<<$delimiter"
+            cat "$RUNNER_TEMP/spec/original.md"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  write:
+    needs: agent
+    if: ${{ !cancelled() && (needs.agent.outputs.act == 'yes' || needs.agent.outputs.act == 'stop') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Write the answer on the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ needs.agent.outputs.number }}
+          ACT: ${{ needs.agent.outputs.act }}
+          REASON: ${{ needs.agent.outputs.reason }}
+          RUN_NUMBER: ${{ needs.agent.outputs.run }}
+          BODY_SHA: ${{ needs.agent.outputs.body }}
+          OUTCOME: ${{ needs.agent.outputs.outcome }}
+          TURNS: ${{ needs.agent.outputs.turns }}
+          COST: ${{ needs.agent.outputs.cost }}
+          SECONDS_USED: ${{ needs.agent.outputs.seconds }}
+          DENIALS: ${{ needs.agent.outputs.denials }}
+          DETAIL: ${{ needs.agent.outputs.detail }}
+          REPLY: ${{ needs.agent.outputs.reply }}
+          ORIGINAL: ${{ needs.agent.outputs.original }}
+        run: |
+          numbers=(--repo "$REPO" --issue "$NUMBER" --run "$RUN_NUMBER" --model "$MODEL" --turns "${TURNS:-0}" --seconds "${SECONDS_USED:-0}" --cost "${COST:-0}" --out "$RUNNER_TEMP/written")
+          status=0
+          if [ "$ACT" = stop ]; then
+            case "$REASON" in limit|too-long) ;; *) echo "Unknown stop" >&2; exit 1 ;; esac
+            factory/spec/write.sh "${numbers[@]}" --stop "$REASON" || status=1
+          elif [ "$OUTCOME" = reply ] && [ -n "$REPLY" ]; then
+            printf '%s\n' "$REPLY" > "$RUNNER_TEMP/reply.json"
+            printf '%s\n' "$ORIGINAL" > "$RUNNER_TEMP/original.md"
+            factory/spec/write.sh "${numbers[@]}" --reply "$RUNNER_TEMP/reply.json" --original "$RUNNER_TEMP/original.md" --body-sha "$BODY_SHA" || status=1
+          elif [ "$OUTCOME" = unreadable ]; then
+            factory/spec/write.sh "${numbers[@]}" --stop unreadable || true
+            status=1
+          else
+            factory/spec/write.sh "${numbers[@]}" --stop failed || true
+            status=1
+          fi
+          {
+            echo "### Spec agent on issue $NUMBER"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Run | ${RUN_NUMBER:-–} |"
+            echo "| Outcome | ${OUTCOME:-did not run} ${REASON:-} |"
+            echo "| Model | $MODEL |"
+            echo "| Turns | ${TURNS:-–} |"
+            echo "| Seconds | ${SECONDS_USED:-–} |"
+            echo "| Estimated cost (not billed on a subscription) | ${COST:-–} |"
+            echo "| Tool calls refused | ${DENIALS:-–} |"
+            echo "| Detail | ${DETAIL:-–} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "type", "questions", "reason", "what", "why", "changes", "risk", "size", "spec"],
+  "properties": {
+    "kind": {"type": "string", "enum": ["questions", "spec", "out-of-reach"], "description": "questions: you need answers before a spec; spec: the spec is ready; out-of-reach: the change cannot be made by the implementation agent"},
+    "type": {"type": "string", "enum": ["bug", "feature", "none"], "description": "For a spec: bug or feature. Otherwise none"},
+    "questions": {"type": "array", "maxItems": 5, "items": {"type": "string", "maxLength": 300}, "description": "For questions: 1 to 5 questions, each one line. Otherwise empty"},
+    "reason": {"type": "string", "maxLength": 1000, "description": "For out-of-reach: why, in plain words. Otherwise empty"},
+    "what": {"type": "string", "maxLength": 200, "description": "For a spec: one line, what changes"},
+    "why": {"type": "string", "maxLength": 200, "description": "For a spec: one line, why"},
+    "changes": {"type": "string", "maxLength": 200, "description": "For a spec: one line, what the developer will see or have to do differently"},
+    "risk": {"type": "string", "enum": ["low", "medium", "high", "none"], "description": "For a spec: low, medium or high. Otherwise none"},
+    "size": {"type": "string", "enum": ["S", "M", "L", "none"], "description": "For a spec: S, M or L. Otherwise none"},
+    "spec": {"type": "string", "maxLength": 20000, "description": "For a spec: the full spec in Markdown. Otherwise empty"}
+  }
+}

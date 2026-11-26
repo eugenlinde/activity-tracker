@@ -841,7 +841,8 @@ list and posting the comment are plain shell scripts with tests.
    owner opened that issue) into a folder.
 3. The pull request's code is checked out next to it, to be read.
 4. `run-review.sh` starts Claude Code once, without a terminal, in
-   restricted mode. It gets the rubric, the spec, the diff, the
+   restricted mode (the call itself is `factory/run-agent.sh`, shared
+   with the spec agent since slice 3). It gets the rubric, the spec, the diff, the
    project's rules (`CLAUDE.md` from `main`) and the code.
 5. Its answer must fit a fixed shape: whether it could read the
    material at all, a summary, and a list of findings, each with
@@ -1019,13 +1020,131 @@ year is over).
   developer's reading: the documentation describes this setup but the
   legal page only speaks of "ordinary, individual usage".
 
+## Factory: spec agent (built 2026-11-26; issue 58; not drilled yet)
+
+**What it is.** The developer opens an issue, often a few lines from the
+phone. Within minutes an AI agent either asks questions on the issue, or
+replaces the issue's text with a spec the developer can approve with
+`approved`, or says the change is out of the factory's reach. The pivot
+design had two agents here, triage and spec; one agent does both
+(builder's call: same input, same code to read, fewer moving parts).
+
+**The flow** (`.github/workflows/spec.yml`, scripts in `factory/spec/`):
+
+1. *Starts when* the repo owner opens an issue, or the repo owner
+   comments on an issue labelled `needs-info` or `spec-ready`, or the
+   workflow "Spec" is started by hand. Nobody else's issue or comment
+   starts it, it never acts on a pull request (not even when started
+   by hand with a pull request's number), and `FACTORY_ENABLED` must be
+   `true`.
+2. *Job `agent`* (environment `factory`, reads only):
+   `collect.sh` reads the issue and decides whether to act. It does
+   nothing when the issue is closed, not the owner's, or carries
+   `approved`, `building` or `needs-human`; when a comment arrives on an
+   issue the agent is not waiting on; and when a new issue already
+   opens with the summary (`**Decision needed:**` — a spec written by
+   hand in an interactive session). It stops the factory with
+   `needs-human` after five runs on one issue (every comment of the
+   agent counts, a stop included; the limit is final for that issue),
+   or when the developer's text is over 40,000 bytes. If the issue
+   cannot be read at all, the run turns red and nothing is written.
+   Line endings from a browser edit (CRLF) are ignored. Otherwise it writes three files for the
+   agent: the title and the developer's original text, the current
+   spec (if any), and the conversation — the owner's comments and the
+   agent's own earlier replies, nobody else's.
+3. `run-spec.sh` starts Claude Code once (twice if the first answer is
+   unusable), the same way as the review agent (`factory/run-agent.sh`,
+   shared by both): restricted mode, tools `Read,Grep,Glob` only, the
+   repository's `main` beside it to read, no GitHub token in its
+   environment, a budget cap. Model `FACTORY_MODEL_SPEC`
+   (`claude-fable-5-2` when not set).
+4. Its answer must fit a fixed shape (`reply-schema.json`), checked by
+   `check-reply.sh`: *questions* (1 to 5, one line each), *spec* (five
+   one-line summary fields, bug or feature, risk, size, and the spec of
+   at most 20,000 characters), or *out-of-reach* (a reason).
+5. *Job `write`* (may write issues, no Claude token): `write.sh` reads
+   the issue's labels again and writes nothing if `approved`, `building`
+   or `needs-human` arrived meanwhile. It also compares the issue's text
+   with a fingerprint of what the agent read: if the developer edited it
+   meanwhile, it writes no spec over it, says so in a comment, and the
+   developer's next comment starts a run on the new text. Then:
+   - *questions:* a comment with them, label `needs-info`.
+   - *spec:* the issue's text becomes the summary of #39 (decision,
+     what, why, what changes for you, risk and size, source) with the
+     spec folded below it, and the developer's own text folded at the
+     end, unchanged, between two marks
+     (`<!-- factory-original:start -->` / `:end -->`) so that the next
+     run finds it. Labels `spec-ready` and `bug` or `enhancement`, and a
+     comment.
+   - *out-of-reach, a stop, or a failed run:* `needs-human` and a
+     comment saying why. The factory does nothing more on the issue.
+   Every comment of the agent carries the mark `<!-- factory-spec -->`;
+   the run count is the number of such comments by `github-actions`.
+6. The developer answers in a comment, or asks for a change in a
+   comment → the next run. Or adds `approved` → "Implement", which reads
+   the issue's text: the spec the developer approved.
+
+**Why the spec goes into the issue's text, not a comment.** The
+implementation agent already builds from the issue's text. So what the
+developer approved is exactly what gets built, and nothing in
+"Implement" changed. The developer's own words stay, folded, at the end.
+
+**Why the agent's comment does not start the agent again.** The
+comment is written with the workflow's own token, and GitHub starts no
+workflow for that. The only starts are the developer's.
+
+**What it costs.** No money. One to five runs per issue on the
+subscription.
+
+**Checked.** Script tests with a stand-in for GitHub and for Claude
+(`factory/test/spec.sh`): who may start it, each rule for doing
+nothing, the run limit, each answer shape, an answer that breaks the
+shape (nothing written), the developer's text surviving a write and a
+read unchanged, labels added and removed. The review agent's tests
+(`factory/test/review.sh`) pass unchanged on the shared
+`run-agent.sh`.
+
+**Not checked yet:** the workflow itself in the repository — the
+drills of issue 58: a clear request to `review-passed`, a vague one to
+questions and a spec, a change asked on a spec, a request needing
+`build.gradle`, the switch.
+
+**Known gaps.**
+
+- The spec is a model's work. `spec-ready` means "written", not
+  "right": the developer's approval is the check. Read the summary
+  before adding `approved`.
+- A mention (`@name`) in the agent's text notifies that person. The
+  prompt says to put code and annotations in backticks; nothing
+  enforces it.
+- If the developer adds `approved` while a run is writing, the write
+  step sees it and writes nothing; if the label lands in the second
+  between that check and the write, the spec may change after the
+  approval.
+- Issues opened before slice 3 get no spec unless "Spec" is started by
+  hand for them.
+- Any comment by the developer on a `spec-ready` issue starts a rewrite,
+  "looks good" included. Approve with the label, not with a comment.
+- Runs started by other people's comments are skipped, and each has its
+  own queue, so they cannot cancel a waiting run of the developer's.
+
+**Before it first runs,** `factory/labels.sh --repo eugenlinde/activity-tracker`
+must have created `needs-info` and `spec-ready`; without them the write
+step fails.
+
+**How to stop it.** Set `FACTORY_ENABLED` to anything but `true`. To
+stop it on one issue, add `needs-human`. After a stop, "Spec" started by
+hand (with `needs-human` removed) tries again, except after the run
+limit, which is final.
+
 ## Factory: implementation agent (built and drilled 2026-11-24; issue 36; switched on)
 
 **What it is.** The developer puts the label `approved` on an issue they
 wrote. An AI agent writes the change and its tests into a pull request.
 From there nothing is new: CI, staging, the review agent's comment, the
 developer's merge. Since slice 2b the review loop takes over after the
-first commit: see "Factory: review loop".
+first commit: see "Factory: review loop". Since slice 3 the issue's text is
+usually the spec agent's: see "Factory: spec agent".
 
 **Decided by the developer (2026-11-24).** The agent acts on GitHub as
 Claude's official GitHub App, and it runs no commands: it reads and
@@ -1261,7 +1380,7 @@ Actions tab. Closing the pull request alone does not stop the agent,
 but when it finishes, job 3 sees the closed pull request, deletes the
 branch and does nothing more. To take the app away, uninstall it.
 
-## Factory: review loop (built 2026-11-25; issue 47; not drilled yet)
+## Factory: review loop (built 2026-11-25, drilled 2026-11-26; issue 47; switched on)
 
 Design: `docs/superpowers/specs/2026-11-16-review-loop-design.md`, as
 narrowed by the spec of slice 2b (issue 47). The analysis agent and the
@@ -1386,12 +1505,20 @@ half an hour.
 - The probe of 2026-11-25 (issue 47): the action and the app's token
   work in a run that the app's own commit started; the starter is
   `claude[bot]`.
-- **Not checked yet:** the workflows themselves in the repository — a
-  pass, a real fix round, a scrap, a push by the developer, the switch.
-  These are the drills of issue 47. Also unseen: a whole fix run with
-  `allowed_bots`, and the token reaching an agent job through the shared
-  workflow (GitHub's documentation says the environment's secret is
-  used; the first run will show it).
+- The drills of 2026-11-26 (issue 47, details in its comments):
+
+  | Drill | What happened |
+  |---|---|
+  | A pass | Issue 53 → pull request 54. The label started Implement through the shared workflow; the token reached the agent; CI green; no critical or major findings; `review-passed` and the issue told, in round 1, about 5 minutes after the label |
+  | A real fix round, on the smallest model | Issue 55 → pull request 56 with `FACTORY_MODEL_IMPLEMENT=claude-haiku-5-5` for that one issue. It passed in round 1 as well, so no fix round happened |
+  | A push by the developer | On pull request 54 (its `review-passed` taken off first), a commit by the developer that breaks a test. CI red; `failed-ci` read the failed job's log; the gate said `not-the-app` and did nothing; no fix, no label, no comment |
+  | The switch | `FACTORY_ENABLED=false`: a push gave a Review run with every job skipped; Implement started by hand skipped every job. Staging still deployed: it has its own switch. Switched back on |
+
+- **Not checked yet**, by the developer's decision of 2026-11-26 to move
+  on: a real fix round (so a whole fix run with `allowed_bots`), and a
+  scrap. Of the fix path, `failed-ci` and the gate's red-CI path up to
+  the state check have run for real. The first real failure will be the
+  first fix round; watch its run.
 
 **Known gaps.**
 
@@ -1417,11 +1544,16 @@ half an hour.
 - A red CI with no failed job to read (it never started, or was
   cancelled) does not send the fix agent off blind: it gives
   `needs-human`.
+- When the developer pushes to a factory pull request, the loop stops
+  without a word: no label, no comment. The pull request keeps the
+  labels it had (seen in the drill). The developer pushed, so they know.
 
 **How to stop it.** Set `FACTORY_ENABLED` to anything but `true`:
 nothing in "Review", "Implement" or the loop runs. To stop one pull
 request, remove its label `factory` or close it. To stop one fix
 already running, cancel its run in the Actions tab.
+Commits pushed while the switch is off get no review; after switching
+back on, start "Review" by hand for a pull request that should have one.
 
 ## Target (not built yet)
 

@@ -143,6 +143,34 @@ class WeightServiceTest {
         verify(weightEntryRepository, never()).delete(any());
     }
 
+    @Test
+    void find_whenEntryExists_returnsIt() {
+        when(weightEntryRepository.findByUserIdAndEntryDate(userId, TODAY))
+                .thenReturn(Optional.of(entry(TODAY, "81.3")));
+
+        assertEquals(new WeightResponse(TODAY, new BigDecimal("81.3")), weightService.find(userId, TODAY));
+    }
+
+    @Test
+    void find_whenNoEntryForThatDate_throwsNotFound() {
+        when(weightEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.empty());
+
+        assertThrows(WeightEntryNotFoundException.class, () -> weightService.find(userId, TODAY));
+    }
+
+    @Test
+    void find_whenOnlyAnotherUserHasAnEntryOnThatDate_throwsNotFound() {
+        Long otherUserId = 8L;
+        when(weightEntryRepository.findByUserIdAndEntryDate(otherUserId, TODAY))
+                .thenReturn(Optional.of(entry(TODAY, "70.0")));
+        when(weightEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.empty());
+
+        assertThrows(WeightEntryNotFoundException.class, () -> weightService.find(userId, TODAY));
+
+        verify(weightEntryRepository).findByUserIdAndEntryDate(userId, TODAY);
+        verify(weightEntryRepository, never()).findByUserIdAndEntryDate(otherUserId, TODAY);
+    }
+
     private WeightEntry entry(LocalDate date, String weightKg) {
         WeightEntry entry = new WeightEntry();
         entry.setEntryDate(date);

@@ -94,9 +94,9 @@ comment() {
 }
 
 issue_json() {
-  local body=$1 labels=${2:-} author=${3:-eugenlinde} state=${4:-OPEN} comments=${5:-[]}
-  jq -cn --arg body "$body" --arg labels "$labels" --arg author "$author" --arg state "$state" --argjson comments "$comments" \
-    '{number: 60, state: $state, title: "Steps goal", body: $body, author: {login: $author},
+  local body=$1 labels=${2:-} author=${3:-eugenlinde} state=${4:-OPEN} comments=${5:-[]} kind=${6:-issues}
+  jq -cn --arg body "$body" --arg labels "$labels" --arg author "$author" --arg state "$state" --argjson comments "$comments" --arg kind "$kind" \
+    '{number: 60, url: ("https://github.com/eugenlinde/activity-tracker/" + $kind + "/60"), state: $state, title: "Steps goal", body: $body, author: {login: $author},
       labels: ($labels | split(",") | map(select(. != "")) | map({name: .})), comments: $comments}'
 }
 
@@ -242,6 +242,22 @@ export STUB_ISSUE_JSON='null'
 collect opened
 expect_output "act=no"
 expect_output "reason=unreadable"
+end
+
+begin "a pull request is never collected, even by a hand start"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "My pull request's text" "" eugenlinde OPEN "[]" pull)
+collect dispatch
+expect_output "act=no"
+expect_output "reason=pull-request"
+end
+
+begin "an answer without an address is not collected"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" | jq -c 'del(.url)')
+collect dispatch
+expect_output "act=no"
+expect_output "reason=pull-request"
 end
 
 begin "a closed issue is not collected"
@@ -568,6 +584,25 @@ expect_no_log "--body-file $CASE_DIR/result/body.md"
 expect_log "--add-label needs-info"
 expect_file_has "$CASE_DIR/result/comment.md" "$MARK"
 expect_file_has "$CASE_DIR/result/comment.md" "changed while"
+end
+
+begin "a changed body on a spec-ready issue posts the comment and touches no labels"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "edited spec text" "spec-ready")
+write --reply "$(reply_file "$SPEC_REPLY")" --original "$(original_file "goal")" --body-sha "$(printf '%s' "old spec text" | shasum -a 256 | cut -d' ' -f1)"
+expect_status 0
+expect_output "written=changed"
+expect_no_log "gh issue edit"
+expect_log "gh issue comment 60"
+end
+
+begin "a pull request is never written"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "" eugenlinde OPEN "[]" pull)
+write --reply "$(reply_file "$SPEC_REPLY")" --original "$(original_file)"
+expect_output "written=no"
+expect_no_log "gh issue edit"
+expect_no_log "gh issue comment"
 end
 
 begin "an unchanged body is written"

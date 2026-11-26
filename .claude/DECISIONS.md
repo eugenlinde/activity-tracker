@@ -1602,3 +1602,9 @@ reaches the log that way.
   for; the run limit is final and says so, and the other stops say to
   start "Spec" by hand (a comment would not start it). Also: an issue
   that cannot be read turns the run red instead of passing silently.
+- After the review agent's comment on PR #59 (two major findings, both
+  accepted, each with a test that failed first): a hand start with a
+  pull request's number is refused (`gh issue view` also resolves pull
+  requests; the address is checked), and an edit by the developer on a
+  `spec-ready` issue no longer calls `gh issue edit` with nothing to
+  change before posting its comment.

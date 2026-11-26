@@ -706,7 +706,8 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Built on branch `f4-spec`: `spec.yml`, `factory/spec/` (collect,
   run-spec, check-reply, write, prompt, schema), `factory/run-agent.sh`
   shared with the review agent, two labels. Suites: run 87, review 113,
-  implement 147, spec 92, infra 106. Thirty-five mutations, all caught.
+  implement 147, spec 96, infra 106. Thirty-eight mutations, all caught.
   An independent reviewer found four important defects, no critical
-  one; all fixed (details in DECISIONS).
+  one; all fixed. The review agent on PR #59 found two major ones;
+  both fixed (details in DECISIONS).
 - Not seen in the repository yet: the workflow (drills after the merge).

@@ -62,7 +62,7 @@ if [ -z "$stop" ]; then
   "$HERE/check-reply.sh" "$reply"
 fi
 
-json=$(gh issue view "$issue" --repo "$repo" --json state,labels,body)
+json=$(gh issue view "$issue" --repo "$repo" --json url,state,labels,body)
 jq -e 'type == "object" and (.state | type) == "string"' <<< "$json" > /dev/null 2>&1 || { echo "the issue could not be read" >&2; exit 1; }
 has_label() { jq -e --arg name "$1" 'any(.labels[]?; .name == $name)' <<< "$json" > /dev/null; }
 fingerprint() {
@@ -74,6 +74,7 @@ skip() {
   echo "reason=$1"
   exit 0
 }
+jq -e '(.url // "") | test("/issues/[0-9]+$")' <<< "$json" > /dev/null || skip pull-request
 [ "$(jq -r .state <<< "$json")" = OPEN ] || skip closed
 for label in approved building needs-human; do
   has_label "$label" && skip "$label"
@@ -204,7 +205,7 @@ fi
 
 if [ -f "$out/body.md" ]; then
   gh issue edit "$issue" --repo "$repo" --body-file "$out/body.md" "${labels[@]}" > /dev/null
-else
+elif [ "${#labels[@]}" -gt 0 ]; then
   gh issue edit "$issue" --repo "$repo" "${labels[@]}" > /dev/null
 fi
 gh issue comment "$issue" --repo "$repo" --body-file "$out/comment.md" > /dev/null

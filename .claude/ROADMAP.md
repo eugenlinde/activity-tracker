@@ -132,7 +132,7 @@ piece in their own words before the phase is checked off.
     - [ ] Slice 3, issue #58: spec agent (triage and spec in one; spec
           approved 2026-11-26)
         - [x] Built (2026-11-26): `spec.yml`, `factory/spec/`, shared
-              `factory/run-agent.sh`; script tests, 35 rules
+              `factory/run-agent.sh`; script tests, 38 rules
               mutation-checked, independent review
         - [ ] Drills: clear request to `review-passed`, vague request to
               questions and a spec, a change asked on a spec, a request

@@ -1034,8 +1034,9 @@ design had two agents here, triage and spec; one agent does both
 1. *Starts when* the repo owner opens an issue, or the repo owner
    comments on an issue labelled `needs-info` or `spec-ready`, or the
    workflow "Spec" is started by hand. Nobody else's issue or comment
-   starts it, comments on pull requests never do, and `FACTORY_ENABLED`
-   must be `true`.
+   starts it, it never acts on a pull request (not even when started
+   by hand with a pull request's number), and `FACTORY_ENABLED` must be
+   `true`.
 2. *Job `agent`* (environment `factory`, reads only):
    `collect.sh` reads the issue and decides whether to act. It does
    nothing when the issue is closed, not the owner's, or carries

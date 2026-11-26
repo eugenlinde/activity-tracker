@@ -60,8 +60,9 @@ mkdir -p "$out/work/inputs"
 
 [ "$(lower "$sender")" = "$(lower "$owner")" ] || no not-owner
 
-json=$(gh issue view "$issue" --repo "$repo" --json number,state,title,body,author,labels,comments) || no unreadable
+json=$(gh issue view "$issue" --repo "$repo" --json number,url,state,title,body,author,labels,comments) || no unreadable
 jq -e 'type == "object" and (.state | type) == "string"' <<< "$json" > /dev/null 2>&1 || no unreadable
+jq -e '(.url // "") | test("/issues/[0-9]+$")' <<< "$json" > /dev/null || no pull-request
 
 [ "$(jq -r '.state' <<< "$json")" = OPEN ] || no closed
 [ "$(lower "$(jq -r '.author.login // ""' <<< "$json")")" = "$(lower "$owner")" ] || no not-owner-issue

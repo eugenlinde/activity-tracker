@@ -696,3 +696,17 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Results on issue #47. PR #54 is left without `review-passed` and
   without a review of its newest commit (code equal to the reviewed
   one); PRs #54 and #56 wait for the developer.
+
+## 2026-11-26 — slice 3: spec and build
+
+- The developer merged PR #57 (drills of 2b; closed #47) and chose slice
+  3 before 2c (2c only matters after a scrap, and none has happened).
+- Spec issue #58 approved in chat: one spec agent, questions or spec or
+  out-of-reach, spec written into the issue's text in the format of #39.
+- Built on branch `f4-spec`: `spec.yml`, `factory/spec/` (collect,
+  run-spec, check-reply, write, prompt, schema), `factory/run-agent.sh`
+  shared with the review agent, two labels. Suites: run 87, review 113,
+  implement 147, spec 92, infra 106. Thirty-five mutations, all caught.
+  An independent reviewer found four important defects, no critical
+  one; all fixed (details in DECISIONS).
+- Not seen in the repository yet: the workflow (drills after the merge).

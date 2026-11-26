@@ -731,12 +731,12 @@ end
 begin "labels_all_created"
 run "$FACTORY/labels.sh" --repo o/r
 expect_status 0
-for label in approved factory building review-round-1 review-round-2 review-round-3 needs-fix review-passed attempt-1 attempt-2 needs-analysis needs-human; do
+for label in approved factory building review-round-1 review-round-2 review-round-3 needs-fix review-passed attempt-1 attempt-2 needs-analysis needs-human needs-info spec-ready; do
   if ! grep -qE "^gh label create $label --repo o/r --force --color [0-9a-f]{6} --description .+" "$STUB_LOG"; then
     fail "label $label not created"
   fi
 done
-if [ "$(wc -l < "$STUB_LOG")" -ne 12 ]; then fail "expected 12 gh calls"; fi
+if [ "$(wc -l < "$STUB_LOG")" -ne 14 ]; then fail "expected 14 gh calls"; fi
 end
 
 begin "labels_missing_repo"

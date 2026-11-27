@@ -882,7 +882,8 @@ maps onto this project. Nothing decided yet. Proposals given:
 - The review agent found one critical defect (104: choosing a status
   while the month was still loading erased that day's stored comment);
   the fix agent fixed it in the next round.
-- Pull request 106 (calendar) passed review; waits for the merge.
+- Pull request 106 (calendar) merged at the developer's word, deployed
+  green. The four MVP pages are in production.
 - Not verified: nobody has looked at the new pages in a browser; the
   scheduled "Uptime" has not started by itself once; no token on the
   server yet, so nothing reports.

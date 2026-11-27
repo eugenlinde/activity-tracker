@@ -226,7 +226,7 @@ developer's call; this is the suggested one.
       PR #8 open, now also carries steps)
 - [x] Daily steps: manual entry + dashboard chart with goal — issue #6
       (2026-11-13, PR open)
-- [ ] Dashboard calendar with workout / aerobic markers — issue #100, pull request 106 (rebuilt once after a conflict), review passed 2026-11-27, waits for the developer's merge
+- [x] Dashboard calendar with workout / aerobic markers — issue #100, pull request 106 (rebuilt once after a conflict), in production 2026-11-27
 - [x] Aerobic view with weekly minutes — issue #97, pull request 101, in production 2026-11-27
 - [x] Diet log (per-day status + comment) — issue #99, pull request 104, in production 2026-11-27 (new table `diet_entries`)
 - [x] Workout detail: targets (sets × reps, RIR), volume — issue #98, pull request 103 (rebuilt once after a conflict), in production 2026-11-27

@@ -148,6 +148,9 @@ end
 
 for GOOD in \
   '.assumed = ["a","b","c"]' \
+  '.assumed = ["goal of 8,000 steps; per user"]' \
+  '.what = "Mail to name@example.com is not sent"' \
+  '.why = "Fewer than 3 days -> no notice"' \
   '.assumed = ["a","b","c","d","e","f","g","h"]' \
   '.assumed = [("x" * 150)]' \
   '.workaround = "Strength sets are left out; Garmin'"'"'s library would read them"' \
@@ -187,16 +190,30 @@ for BAD in \
   '.facts.schema = "yes"' \
   'del(.facts.access)' \
   '.facts.other = false' \
-  '.facts = []'; do
+  '.facts = []' \
+  '.assumed = ["goal 8,000 · range 1–100,000"]' \
+  '.assumed = ["friends of @eugenlinde see it"]' \
+  '.workaround = "ask @someone for the library"' \
+  '.what = "A goal, thanks @eugenlinde"' \
+  '.why = "default <!-- hidden"' \
+  '.changes = "a <b>bold</b> change"' \
+  '.assumed = ["below <!-- 8000"]'; do
   begin "a spec with $BAD is refused"
   check "$(reply_with "$BAD")"
   expect_status 1
   end
 done
 
-for BAD in '.questions = []' '.questions = ["a","b","c","d","e","f"]' '.questions = ["one\ntwo"]' '.questions = [("x" * 301)]' '.questions = [""]' '.questions = [1]'; do
+for BAD in '.questions = ["Ask @eugenlinde?"]' '.questions = ["Per day <!-- or week?"]' '.questions = []' '.questions = ["a","b","c","d","e","f"]' '.questions = ["one\ntwo"]' '.questions = [("x" * 301)]' '.questions = [""]' '.questions = [1]'; do
   begin "questions with $BAD are refused"
   check "$(jq -c "$BAD" <<< "$QUESTIONS")"
+  expect_status 1
+  end
+done
+
+for BAD in '.reason = "Ask @eugenlinde to add the library."' '.reason = "No library <!-- hidden"'; do
+  begin "out of reach with $BAD is refused"
+  check "$(jq -c "$BAD" <<< "$OUT_OF_REACH")"
   expect_status 1
   end
 done
@@ -607,6 +624,26 @@ expect_file_has "$CASE_DIR/result/comment.md" "Strength sets are left out; readi
 expect_file_has "$CASE_DIR/result/comment.md" "add the missing piece yourself"
 expect_file_lacks "$CASE_DIR/result/comment.md" "I assumed"
 if [ "$(sed -n '1,/^$/p' "$CASE_DIR/result/body.md" | grep -c .)" -gt 8 ]; then fail "the summary is longer than 8 lines"; fi
+end
+
+begin "a bug spec that waits is labelled bug and loses enhancement"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "spec-ready,enhancement")
+write --reply "$(reply_file "$(reply_with '.type = "bug" | .workaround = "Strength sets are left out"')")" --original "$(original_file)"
+expect_output "written=confirm"
+expect_log "--add-label bug"
+expect_log "--remove-label enhancement"
+expect_log "--remove-label spec-ready"
+end
+
+begin "many assumptions and a workaround are both in the comment"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "")
+write --reply "$(reply_file "$(reply_with '.assumed = ["a1", "a2", "a3", "a4", "a5"] | .workaround = "Strength sets are left out"')")" --original "$(original_file)"
+expect_output "written=confirm"
+expect_file_has "$CASE_DIR/result/comment.md" "I assumed 5 things the issue did not say"
+expect_file_has "$CASE_DIR/result/comment.md" "- a5"
+expect_file_has "$CASE_DIR/result/comment.md" "the spec takes another: Strength sets are left out"
 end
 
 begin "a bug spec is labelled bug and loses enhancement"

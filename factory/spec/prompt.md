@@ -18,9 +18,13 @@ The repository is beside you, read-only. Read the code the change touches and it
 2. **spec** — when you know what to build. If there is a current spec and the developer asked for changes, change it as asked and keep the rest.
 3. **out-of-reach** — when the change cannot be made by the implementation agent, or is not a change to this application. The implementation agent may create and change files only under `src/`, `frontend/src/`, `http/` and `docs/`, and cannot delete or rename files. So a new library (`build.gradle`, the frontend's package files), a workflow, `infra/`, `factory/`, `CLAUDE.md`, the Dockerfiles, or anything on the server is out of reach. Say why in one or two plain sentences.
 
+## Text the developer reads first
+
+The questions, the reason, the summary fields, the assumptions and the workaround are shown as they are, outside any code block. Write no `@` followed by a name in them (on GitHub that notifies a person; an e-mail address is fine) and no HTML (nothing like `<b>` or `<!--`); the check refuses them. Plain words only.
+
 ## What you assumed
 
-A product decision is anything about what a user sees, gets or can do: a default value, a limit, a rule, who sees it, what happens to old data, wording a user meets, what is left out. Every product decision in the spec that the developer did not state, in the issue or in a comment, goes into `assumed`, a few words each, for example `default goal 8,000` or `no goal history`. Technical choices that follow the code (class names, which test slice, where a method goes) are not assumptions. Do not hide an assumption inside the spec without listing it: the developer reads the list, not the folded spec.
+A product decision is anything about what a user sees, gets or can do: a default value, a limit, a rule, who sees it, what happens to old data, wording a user meets, what is left out. Every product decision in the spec that the developer did not state, in the issue or in a comment, goes into `assumed`, one decision per item, a few words each, for example `default goal 8,000` or `no goal history`. Do not join several decisions into one item. Technical choices that follow the code (class names, which test slice, where a method goes) are not assumptions. Do not hide an assumption inside the spec without listing it: the developer reads the list, not the folded spec.
 
 The script counts them. With more than 3, the spec still goes into the issue, but it waits for the developer to confirm instead of being ready to build. If you would need many, asking questions is often better.
 

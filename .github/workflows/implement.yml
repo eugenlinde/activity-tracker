@@ -54,29 +54,29 @@ jobs:
           ASKED_FOR: ${{ inputs.issue }}
           LABELLED: ${{ github.event.issue.number }}
           LABELLED_BY: ${{ github.event.sender.login }}
-          STARTED_BY: ${{ github.actor }}
         run: |
           if [[ ! $MODEL =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
             echo "The model's name is not a plain name" >&2
             exit 1
           fi
+          sender=()
           if [ "$EVENT" = "workflow_dispatch" ]; then
             number=$ASKED_FOR
-            sender=$STARTED_BY
           else
             number=$LABELLED
-            sender=$LABELLED_BY
+            sender=(--sender "$LABELLED_BY")
           fi
           if [[ ! $number =~ ^[1-9][0-9]{0,6}$ ]]; then
             echo "Not an issue number" >&2
             exit 1
           fi
-          answer=$(factory/implement/check-issue.sh --repo "$REPO" --issue "$number" --sender "$sender" --out "$RUNNER_TEMP/implement")
+          answer=$(factory/implement/check-issue.sh --repo "$REPO" --issue "$number" "${sender[@]}" --out "$RUNNER_TEMP/implement")
           build=$(printf '%s\n' "$answer" | sed -n 's/^build=//p' | head -n 1)
           reason=$(printf '%s\n' "$answer" | sed -n 's/^reason=//p' | head -n 1)
           open=$(printf '%s\n' "$answer" | sed -n 's/^pr=//p' | head -n 1)
+          line=$(printf '%s\n' "$answer" | sed -n 's/^open=//p' | head -n 1)
           case "$reason" in
-            not-owner-label|not-owner-issue|closed|no-label|empty-spec|pr-open) ;;
+            not-owner-label|not-owner-issue|closed|no-label|empty-spec|pr-open|full) ;;
             *) reason=failed ;;
           esac
           {
@@ -85,12 +85,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           if [ "$build" = "yes" ]; then
             echo "build=yes" >> "$GITHUB_OUTPUT"
+            gh issue edit "$number" --repo "$REPO" --remove-label queued > /dev/null 2>&1 || true
             exit 0
           fi
           echo "Not built: $reason"
           if [ "$reason" = "pr-open" ] && [[ $open =~ ^[1-9][0-9]{0,6}$ ]]; then
             factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason pr-open --pr "$open"
           elif [ "$reason" = "pr-open" ]; then
+            factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason failed
+          elif [ "$reason" = "full" ] && [[ $line =~ ^[1-9][0-9]{0,6}( [1-9][0-9]{0,6})*$ ]]; then
+            factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason full --open "$line"
+          elif [ "$reason" = "full" ]; then
             factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason failed
           else
             factory/implement/report.sh refuse --repo "$REPO" --issue "$number" --reason "$reason"

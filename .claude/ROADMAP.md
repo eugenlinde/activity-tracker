@@ -127,10 +127,18 @@ piece in their own words before the phase is checked off.
             - [ ] Explain-back: one round, what the gate decides, what
                   stops the loop, how to stop it
         - [ ] 2c: analysis agent and one automatic rebuild
-            - [ ] A factory pull request in conflict with `main` is
-                  closed and rebuilt from the spec on the current `main`
-                  (issue #63; direction chosen by the developer
-                  2026-11-27); same rebuild limit as after a scrap
+            - [ ] Issue #63: a factory pull request in conflict with
+                  `main` is closed and rebuilt from the spec on the
+                  current `main`; at most 2 open factory pull requests,
+                  the rest wait as `queued` (spec approved 2026-11-27)
+                - [x] Built (2026-11-27): `queue.yml`,
+                      `factory/queue/`, owner check from the issue's
+                      history; script tests, 74 rules mutation-checked,
+                      independent review (three major findings fixed)
+                - [ ] Drills: the line with three issues, a real
+                      conflict, a pull request only behind, the switch
+            - [ ] Analysis agent and a rebuild after a scrap
+                  (postponed by the developer 2026-11-27)
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`
     - [ ] Slice 3, issue #58: spec agent (triage and spec in one; spec

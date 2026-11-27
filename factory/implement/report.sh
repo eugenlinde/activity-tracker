@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: report.sh refuse --repo R --issue N --reason REASON [--pr N]" >&2
+  echo "usage: report.sh refuse --repo R --issue N --reason REASON [--pr N] [--open \"N N\"]" >&2
   echo "       report.sh empty --repo R --issue N --pr N --branch factory/issue-N --agent success|failure" >&2
   echo "       report.sh outside --repo R --issue N --pr N --files FILE" >&2
   echo "       report.sh too-many --repo R --issue N --pr N" >&2
@@ -33,6 +33,7 @@ cost=""
 seconds=""
 denials=""
 role=build
+open=""
 while [ $# -gt 0 ]; do
   case $1 in
     --repo) repo=${2:-}; shift 2 ;;
@@ -48,6 +49,7 @@ while [ $# -gt 0 ]; do
     --seconds) seconds=${2:-}; shift 2 ;;
     --denials) denials=${2:-}; shift 2 ;;
     --role) role=${2:-}; shift 2 ;;
+    --open) open=${2:-}; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -57,6 +59,7 @@ count='^[0-9]{1,9}$'
 
 [[ $repo =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] && [[ $issue =~ $id ]] || usage
 [ -z "$pr" ] || [[ $pr =~ $id ]] || usage
+[ -z "$open" ] || [[ $open =~ ^[1-9][0-9]{0,6}( [1-9][0-9]{0,6})*$ ]] || usage
 [ -z "$branch" ] || [[ $branch =~ ^factory/issue-[1-9][0-9]{0,6}$ ]] || usage
 [ -z "$model" ] || [[ $model =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]] || usage
 case $agent in '' | success | failure) ;; *) usage ;; esac
@@ -109,6 +112,13 @@ case $what in
       pr-open)
         [ -n "$pr" ] || usage
         text="Pull request #$pr for this issue is already open. Nothing was built. Close it first to build again."
+        ;;
+      full)
+        [ -n "$open" ] || usage
+        read -r -a open_prs <<< "$open"
+        named=$(printf '#%s, ' "${open_prs[@]}")
+        text="Waiting: ${#open_prs[@]} factory pull requests are open (${named%, }). Starts by itself when one is merged or closed. Remove \`approved\` to take it out of the line."
+        try gh issue edit "$issue" --repo "$repo" --add-label queued
         ;;
       failed) text="The issue could not be read from GitHub, or its pull request could not be opened. Nothing was built; the run's log has the reason. $again" ;;
       *) usage ;;
@@ -168,8 +178,14 @@ case $what in
 
   closed)
     [ -n "$pr" ] && [ -n "$branch" ] || usage
-    try remove_branch
-    try on_issue "**$who:** pull request #$pr was closed while the agent worked. Its branch is deleted and nothing more was done. $again"
+    pr_head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid || true)
+    branch_head=$(gh api "repos/$repo/git/ref/heads/$branch" --jq .object.sha || true)
+    if [[ $pr_head =~ ^[0-9a-f]{40}$ ]] && [ "$pr_head" = "$branch_head" ]; then
+      try remove_branch
+      try on_issue "**$who:** pull request #$pr was closed while the agent worked. Its branch is deleted and nothing more was done. $again"
+    else
+      try on_issue "**$who:** pull request #$pr was closed while the agent worked. Its branch has moved on (a newer pull request may use it), so it is kept, and nothing more was done."
+    fi
     ;;
 
   fixed)

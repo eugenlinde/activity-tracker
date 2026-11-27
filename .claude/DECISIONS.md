@@ -1658,3 +1658,53 @@ reaches the log that way.
   (the third drill of issue 68 checks this), or the agent lists fewer
   assumptions than it took, which no script can see.
 
+
+## 2026-11-27 — Conflicts and the line (issue 63; spec approved by the developer)
+
+Developer's decisions: rebuild only on a real conflict; one at a time;
+at most 2 open factory pull requests; a rebuild after a conflict and
+after a scrap share one limit (2 attempts per issue); a pull request
+with the developer's own commits gets `needs-human`, never a rebuild;
+the analysis agent is postponed.
+
+Builder's calls:
+
+- Rule 1 ("git first: a clean merge is committed") kept in intent, not
+  in form. A merge commit pushed with the workflow token starts no CI;
+  a CI started by hand is ignored by Review and Staging, and the gate
+  says `not-the-app`. So a pull request only behind is left to the
+  developer's "Update branch", and GitHub's own `mergeable` answer
+  decides what is a real conflict.
+- Rule 2 ("lazy, one at a time") follows from the limit of 2: the
+  conflicting pull request is closed at once and put first in line. No
+  separate `conflict` label.
+- The owner check in "Implement" reads who added `approved` from the
+  issue's history instead of who sent the event, so the queue can start
+  a build (`workflow_dispatch` by the workflow token) while a stranger
+  still cannot.
+- Order in line: `attempt-2` first, then issue number. Hourly run as a
+  safety net instead of starting the line from every place that closes
+  a pull request.
+- A branch that cannot be deleted does not keep the issue out of line:
+  "Implement" replaces a leftover branch, and the run goes red.
+- Cost if wrong: a race lets 3 open (harmless); a developer whose only
+  push was a merge of `main` (two parents) is treated as not having
+  pushed work, so that pull request can be rebuilt; a conflict that
+  GitHub reports late waits for the next run (at most an hour).
+- After the independent review (builder's calls): lists through REST,
+  not `gh … list --label` (search index lags); `pull_request_target`
+  only for closes without merge; a fix checks its pull request is still
+  open at the gate's commit before the agent starts (agent job gets
+  `pull-requests: read`); `report.sh closed` deletes a branch only when
+  it still ends at the closed pull request's commit; a label event keeps
+  the sender check and only a start without one reads the history.
+  Not done: counting running "Implement" runs as taken slots — it would
+  double-count a run whose pull request already exists and leave slots
+  empty until the hourly run; the remaining race (two merges within a
+  minute) can open a third pull request, which is harmless.
+- After the factory's own review of pull request 77 (builder's call): a
+  build started by the queue has `github-actions[bot]` as its starter,
+  which the action refuses unless named (read in its source at the
+  pinned commit). `allowed_bots` becomes `claude,github-actions`. Only
+  this repository's workflows can start a run as that bot. Unverified
+  until drill 1: whether the token exchange serves such a run.

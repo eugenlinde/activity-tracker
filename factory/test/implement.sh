@@ -100,10 +100,40 @@ issue() {
     '{number: 7, state: $state, author: {login: $author}, title: $title, body: $body, labels: ($labels | split(",") | map(select(. != "") | {name: .}))}' \
     > "$STUB_GH_DIR/issue-view"
   echo '[]' > "$STUB_GH_DIR/pr-list"
+  events owner
+}
+
+events() {
+  local login json="[]"
+  for login in "$@"; do
+    json=$(jq -c --arg login "$login" '. + [{event: "labeled", label: {name: "approved"}, actor: {login: $login}}]' <<< "$json")
+  done
+  printf '%s\n' "$json" > "$STUB_GH_DIR/api-issue-events"
+}
+
+answer() {
+  mkdir -p "$STUB_GH_DIR/args"
+  printf '%s\n' "$2" > "$STUB_GH_DIR/args/$(printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-200)"
+}
+
+FACTORY_PRS="api --paginate repos/owner/repo/pulls?state=open&per_page=100"
+
+factory_prs() {
+  local item json="[]" number repo labels
+  for item in "$@"; do
+    IFS=: read -r number repo labels <<< "$item"
+    json=$(jq -c --argjson n "$number" --arg repo "${repo:-owner/repo}" --arg labels "${labels:-factory}" \
+      '. + [{number: $n, head: {repo: {full_name: $repo}}, labels: ($labels | split(",") | map({name: .}))}]' <<< "$json")
+  done
+  answer "$FACTORY_PRS" "$json"
 }
 
 check_issue() {
-  run "$IMPLEMENT/check-issue.sh" --repo owner/repo --issue "${1-7}" --sender "${2-owner}" --out "$CASE_DIR/out"
+  run "$IMPLEMENT/check-issue.sh" --repo owner/repo --issue "${1-7}" --out "$CASE_DIR/out"
+}
+
+check_label() {
+  run "$IMPLEMENT/check-issue.sh" --repo owner/repo --issue 7 --sender "$1" --out "$CASE_DIR/out"
 }
 
 echo "check-issue.sh"
@@ -121,19 +151,89 @@ expect_file_has "$CASE_DIR/out/prompt.md" "commit"
 expect_file_has "$CASE_DIR/out/title.txt" "Steps for one day"
 end
 
-begin "a label added by someone else builds nothing and reads nothing"
+begin "a label event sent by the owner builds without reading the history"
 issue
-check_issue 7 stranger
-expect_status 0
+events stranger
+check_label owner
+expect_output "build=yes"
+expect_no_log "issues/7/events"
+end
+
+begin "a label event sent by someone else builds nothing and reads nothing"
+issue
+events owner
+check_label stranger
 expect_output "build=no"
 expect_output "reason=not-owner-label"
 expect_no_calls
+end
+
+begin "the sender of a label event is compared without regard to case"
+issue
+check_label OWNER
+expect_output "build=yes"
+end
+
+begin "a start without a label event reads who added the label: someone else builds nothing"
+issue
+events stranger
+check_issue
+expect_status 0
+expect_output "build=no"
+expect_output "reason=not-owner-label"
+expect_log "gh api --paginate repos/owner/repo/issues/7/events"
 if [ -e "$CASE_DIR/out/spec.md" ]; then fail "a spec was written"; fi
+end
+
+begin "the newest approved label counts: someone else's after the owner's builds nothing"
+issue
+events owner stranger
+check_issue
+expect_output "build=no"
+expect_output "reason=not-owner-label"
+end
+
+begin "the newest approved label counts: the owner's after someone else's builds"
+issue
+events stranger owner
+check_issue
+expect_output "build=yes"
+end
+
+begin "no event that added the label builds nothing"
+issue
+events
+check_issue
+expect_output "build=no"
+expect_output "reason=not-owner-label"
+end
+
+begin "events that cannot be read are failed, not built"
+issue
+echo 1 > "$STUB_GH_DIR/api-issue-events.exit"
+check_issue
+expect_output "build=no"
+expect_output "reason=failed"
+end
+
+begin "events over several pages are read as one list"
+issue
+printf '%s\n%s\n' '[{"event": "labeled", "label": {"name": "approved"}, "actor": {"login": "stranger"}}]' '[{"event": "labeled", "label": {"name": "approved"}, "actor": {"login": "owner"}}, {"event": "labeled", "label": {"name": "bug"}, "actor": {"login": "stranger"}}]' > "$STUB_GH_DIR/api-issue-events"
+check_issue
+expect_output "build=yes"
+end
+
+begin "a label removed by someone else does not count as adding it"
+issue
+printf '%s\n' '[{"event": "labeled", "label": {"name": "approved"}, "actor": {"login": "owner"}}, {"event": "unlabeled", "label": {"name": "approved"}, "actor": {"login": "stranger"}}]' > "$STUB_GH_DIR/api-issue-events"
+check_issue
+expect_output "build=yes"
 end
 
 begin "the owner's login is compared without regard to case"
 issue OPEN Owner
-check_issue 7 OWNER
+events OWNER
+check_issue
 expect_output "build=yes"
 end
 
@@ -191,6 +291,73 @@ expect_output "reason=pr-open"
 expect_output "pr=41"
 end
 
+begin "two open factory pull requests put the issue in line"
+issue
+factory_prs 12 14
+check_issue
+expect_status 0
+expect_output "build=no"
+expect_output "reason=full"
+expect_output "open=12 14"
+if [ -e "$CASE_DIR/out/prompt.md" ]; then fail "a prompt was written"; fi
+end
+
+begin "one open factory pull request leaves a free slot"
+issue
+factory_prs 12
+check_issue
+expect_output "build=yes"
+end
+
+begin "pull requests from forks take no slot"
+issue
+factory_prs 12 14:other/repo
+check_issue
+expect_output "build=yes"
+end
+
+begin "pull requests outside the factory take no slot"
+issue
+factory_prs 12 14:owner/repo:enhancement
+check_issue
+expect_output "build=yes"
+end
+
+begin "open pull requests over several pages are counted together"
+issue
+mkdir -p "$STUB_GH_DIR/args"
+printf '%s\n%s\n' '[{"number": 12, "head": {"repo": {"full_name": "owner/repo"}}, "labels": [{"name": "factory"}]}]' '[{"number": 14, "head": {"repo": {"full_name": "owner/repo"}}, "labels": [{"name": "factory"}]}]' > "$STUB_GH_DIR/args/$(printf '%s' "$FACTORY_PRS" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-200)"
+check_issue
+expect_output "reason=full"
+expect_output "open=12 14"
+end
+
+begin "the issue's own open pull request is named before a full line"
+issue
+echo '[{"number": 41, "isCrossRepository": false}]' > "$STUB_GH_DIR/pr-list"
+factory_prs 41 14
+check_issue
+expect_output "reason=pr-open"
+expect_output "pr=41"
+end
+
+begin "a factory pull request list that GitHub refuses is failed, not built"
+issue
+answer "$FACTORY_PRS" ''
+echo 1 > "$STUB_GH_DIR/args/$(printf '%s' "$FACTORY_PRS" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-200).exit"
+check_issue
+expect_output "build=no"
+expect_output "reason=failed"
+end
+
+begin "a factory pull request list that cannot be read is failed, not built"
+issue
+answer "$FACTORY_PRS" 'not json'
+check_issue
+expect_output "build=no"
+expect_output "reason=failed"
+end
+
 begin "an issue that cannot be read is failed, not built"
 issue
 echo 1 > "$STUB_GH_DIR/issue-view.exit"
@@ -225,6 +392,7 @@ end
 begin "an issue with a title and no text is built from the title"
 jq -cn '{number: 7, state: "OPEN", author: {login: "owner"}, title: "Only a title", body: null, labels: [{name: "approved"}]}' > "$CASE_DIR/gh/issue-view"
 echo '[]' > "$CASE_DIR/gh/pr-list"
+events owner
 check_issue
 expect_output "build=yes"
 expect_file_has "$CASE_DIR/out/spec.md" "Only a title"
@@ -260,7 +428,7 @@ done
 
 begin "a repository name that is not owner/name is refused"
 issue
-run "$IMPLEMENT/check-issue.sh" --repo "owner" --issue 7 --sender owner --out "$CASE_DIR/out"
+run "$IMPLEMENT/check-issue.sh" --repo "owner" --issue 7 --out "$CASE_DIR/out"
 expect_status 2
 expect_no_calls
 end
@@ -709,6 +877,27 @@ expect_status 0
 case "$(body_of 'issue comment 7')" in *"#41"*) ;; *) fail "the comment does not name the pull request" ;; esac
 end
 
+begin "a full line puts the issue in it and names the open pull requests"
+report refuse --repo owner/repo --issue 7 --reason full --open "12 14"
+expect_status 0
+expect_log "issue edit 7 --repo owner/repo --add-label queued"
+BODY=$(body_of 'issue comment 7')
+case "$BODY" in *"2 factory pull requests are open (#12, #14)"*) ;; *) fail "the comment does not name the open pull requests: $BODY" ;; esac
+case "$BODY" in *"Starts by itself when one is merged or closed. Remove \`approved\` to take it out of the line."*) ;; *) fail "the comment does not say how the line works" ;; esac
+end
+
+begin "a full line without the open pull requests is refused"
+report refuse --repo owner/repo --issue 7 --reason full
+expect_status 2
+expect_no_calls
+end
+
+begin "open pull requests that are not numbers are refused"
+report refuse --repo owner/repo --issue 7 --reason full --open "12 x; id"
+expect_status 2
+expect_no_calls
+end
+
 begin "an unknown refusal reason is refused"
 report refuse --repo owner/repo --issue 7 --reason 'whatever; id'
 expect_status 2
@@ -829,11 +1018,37 @@ case "$(body_of 'pr comment 41')" in *"Fix agent"*) ;; *) fail "the pull request
 end
 
 begin "a pull request closed while the agent worked: branch deleted, the issue told"
+echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" > "$STUB_GH_DIR/pr-view"
+echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" > "$STUB_GH_DIR/api-ref-branch"
 report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
 expect_status 0
+expect_log "pr view 41 --repo owner/repo --json headRefOid --jq .headRefOid"
+expect_log "api repos/owner/repo/git/ref/heads/factory/issue-7 --jq .object.sha"
 expect_log "api -X DELETE repos/owner/repo/git/refs/heads/factory/issue-7"
 expect_log "issue comment 7 --repo owner/repo"
 case "$(body_of 'issue comment 7')" in *"closed"*) ;; *) fail "the issue is not told" ;; esac
+end
+
+begin "closed: a branch that now belongs to a newer pull request is kept"
+echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" > "$STUB_GH_DIR/pr-view"
+echo "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" > "$STUB_GH_DIR/api-ref-branch"
+report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
+expect_status 0
+expect_no_log "DELETE"
+case "$(body_of 'issue comment 7')" in *"newer pull request"*) ;; *) fail "the issue is not told why the branch stays" ;; esac
+end
+
+begin "closed: when neither commit can be read the branch is kept"
+report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
+expect_status 0
+expect_no_log "DELETE"
+end
+
+begin "closed: a branch whose newest commit cannot be read is kept"
+echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" > "$STUB_GH_DIR/pr-view"
+report closed --repo owner/repo --issue 7 --pr 41 --branch factory/issue-7
+expect_status 0
+expect_no_log "DELETE"
 end
 
 begin "the token: when the branch cannot be deleted the issue is still told, and the report fails"

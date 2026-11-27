@@ -1205,11 +1205,15 @@ branch is refused.
 rights; no Claude token, no agent.
 
 1. `factory/implement/check-issue.sh` decides whether to build: the
-   label was added by the repository owner, the issue was written by
-   the repository owner, it is open, it carries the label, it has a
-   title, and no factory pull request of this repository is open for
-   it. Otherwise the issue gets a comment saying which of these failed,
-   and nothing else happens. The issue's title and text become the
+   issue was written by the repository owner, it is open, it carries
+   the label, the label was added by the owner (for a label event: its
+   sender; for a start by the queue or by hand: the newest event in the
+   issue's history that added `approved`), it has a title, no
+   factory pull request of this repository is open for it, and fewer
+   than 2 factory pull requests are open in all. With 2 open the issue
+   gets `queued` and a comment naming them (see "Factory: conflicts and
+   the line"). Otherwise the issue gets a comment saying which of these
+   failed, and nothing else happens. The issue's title and text become the
    spec; comments are not read.
 2. `factory/implement/open-pr.sh` creates the branch
    `factory/issue-<number>` from `main` with one empty commit and opens
@@ -1314,8 +1318,8 @@ allowed places, files that steer agents (`CLAUDE.md`, `AGENTS.md`,
   removed under the account's Settings → Applications.
 - Repository setting "Allow GitHub Actions to create and approve pull
   requests": on, so that the script may open the pull request.
-- Labels `approved`, `factory`, `building`, `needs-human`: they must
-  exist before the first build. `factory/labels.sh --repo <owner>/<name>`
+- Labels `approved`, `factory`, `building`, `needs-human`, `queued`,
+  `attempt-2`: they must exist before the first build. `factory/labels.sh --repo <owner>/<name>`
   creates them.
 - Repository variables: `FACTORY_ENABLED` (the switch),
   `FACTORY_MODEL_IMPLEMENT` (`claude-sonnet-5-5` when not set),
@@ -1505,10 +1509,13 @@ drift apart. It differs in four things:
 - It starts from the exact commit the gate judged.
 - Its starter is `claude[bot]`, because the app's own commit started the
   CI run that started the round. The action refuses bot starters unless
-  named, so the step names `allowed_bots: claude` — only Claude's own
-  app. (Seen in the probe of 2026-11-25; with that setting the action
-  also gives git the app's token through a helper instead of writing it
-  into `.git/config`.)
+  named, so the step names `allowed_bots: claude,github-actions` —
+  Claude's own app, and the workflow's own token, which is the starter
+  of a build the queue starts (issue 63). Only this repository's
+  workflows can start "Implement" as `github-actions`, and only Queue
+  has the right to. (Seen in the probe of 2026-11-25; with that setting
+  the action also gives git the app's token through a helper instead of
+  writing it into `.git/config`.)
 - The check after it also knows "unchanged" (the agent committed
   nothing, so there would be no next round) and "moved" (the newest
   commit is not the fix agent's commit directly on top of the commit it
@@ -1590,12 +1597,9 @@ half an hour.
 - When the developer pushes to a factory pull request, the loop stops
   without a word: no label, no comment. The pull request keeps the
   labels it had (seen in the drill). The developer pushed, so they know.
-- A factory pull request that gets a merge conflict with `main` (another
-  pull request changed the same lines first) waits for a human: `main`
-  must be up to date before merging, "Update branch" cannot fix a
-  conflict, and nothing in the factory notices one. Seen on pull
-  request 56 after pull request 62. The chosen fix, rebuilding from the
-  spec on the current `main`, is issue 63 and belongs with slice 2c.
+- A factory pull request in conflict with `main` used to wait for a
+  human (seen on pull request 56 after 62). Since issue 63 the factory
+  rebuilds it from the spec; see "Factory: conflicts and the line".
 - After a push by the developer, the review still runs, but the gate
   does nothing (`not-the-app`), and the labels stay as they were. A
   pull request can then show `review-passed` while the newest review
@@ -1610,6 +1614,122 @@ request, remove its label `factory` or close it. To stop one fix
 already running, cancel its run in the Actions tab.
 Commits pushed while the switch is off get no review; after switching
 back on, start "Review" by hand for a pull request that should have one.
+
+## Factory: conflicts and the line (built 2026-11-27, issue 63; not drilled yet)
+
+**What it is.** One workflow, `.github/workflows/queue.yml` ("Queue"),
+with two scripts: `factory/queue/conflicts.sh` and
+`factory/queue/next.sh`. No agent and no Claude token: it only reads
+GitHub's answers and moves labels.
+
+**Why it is needed.** `main` merges a pull request only when it is up
+to date. A pull request that is merely behind is fixed by "Update
+branch". One whose lines were changed by another merge (a conflict)
+cannot be, and before this it waited for a human. And with no limit on
+open factory pull requests, one merge could put many of them in
+conflict at once.
+
+**When it runs.** After every push to `main` (a merge), when a
+pull request labelled `factory` is closed without merging (a merge is
+already the push; two runs for one merge would both start a build), once
+an hour (minute 17) as a safety net, and when started by hand. One run
+at a time; a run that arrives while another waits replaces it, which is
+harmless because each run looks at everything afresh. Lists are read
+through GitHub's plain API, not its search, which can lag behind by a
+minute and still show a pull request that was just closed.
+
+**What one run does.**
+
+1. *Conflicts.* For each open factory pull request it reads the pull
+   request afresh: still open, its labels, and whether it can be
+   merged. GitHub works the last one out lazily after a push, so an
+   "unknown" is asked again, up to 6 times 10 s apart, and then left
+   for the next run. Pull requests labelled `needs-human` or `building`
+   (an agent is working) are skipped. On a conflict:
+   - the pull request has a commit of the developer (a commit with one
+     parent not made by Claude's app, signed, or by the workflow's own
+     empty first commit; merge commits from "Update branch" do not
+     count) → `needs-human` on the pull request and the issue, and a
+     comment. Nothing is thrown away.
+   - the issue already has `attempt-2` → `needs-human` and a comment:
+     the one rebuild is used.
+   - otherwise → the issue gets `attempt-2` and `queued` first, then
+     the pull request is closed (it keeps the diff and every review)
+     and its branch is deleted, and the issue gets a comment saying
+     which merge caused it. If the close fails, the two labels are taken
+     off again, so nothing is built next to an open pull request.
+2. *The line.* It counts open factory pull requests. While fewer than
+   2 are open, it starts "Implement" for the next queued issue
+   (`workflow_dispatch`, the one start the workflow's own token is
+   allowed): first issues with `attempt-2`, then by number, lowest
+   first. `queued` is removed as it starts; if the start fails, the
+   label goes back. A queued issue that is closed, lost `approved`, or
+   got `needs-human` is taken out of the line.
+
+**How an issue gets into the line.** "Implement" refuses to build when
+2 factory pull requests are open: the issue gets `queued` and the
+comment "Waiting: 2 factory pull requests are open (#A, #B). Starts by
+itself when one is merged or closed. Remove `approved` to take it out
+of the line."
+
+**Why 2.** Staging has one slot and the developer tests one pull
+request at a time; more open at once gains nothing and makes conflicts
+more likely. The number lives in `factory/limits.sh`.
+
+**Why a rebuild and not an agent that edits the conflict.** The spec
+is the source of truth and the branch is disposable (the developer's
+decision). Resolving in place would need a merge commit, and a commit
+pushed with the workflow's token starts no CI.
+
+**What it does not do.**
+
+- A pull request only *behind* `main` is left alone; the developer
+  clicks "Update branch", which starts CI, Review and Staging as usual.
+  An automatic merge by the workflow would start none of them.
+- A scrapped pull request still stops at `needs-human`; an automatic
+  rebuild after a scrap needs the analysis agent, postponed.
+- Two approvals in the same few seconds can both start and make 3
+  open. Harmless; the next approval waits again.
+
+**A rebuild while a fix was asked for.** The review gate may have
+asked the fix agent to work just before the pull request was closed
+for a rebuild. The fix waits behind the new build (same queue per
+issue), then finds its pull request closed and stops before the agent
+starts. A report about a closed pull request deletes the branch only
+when the branch still ends at that pull request's last commit, so a
+newer pull request on the same branch is never touched.
+
+**What happens when it fails.** The run goes red in the Actions tab
+(GitHub emails the owner). A failure on one pull request does not stop
+the others. If a branch cannot be deleted, the issue is still put in
+line ("Implement" replaces a leftover branch) and the run goes red. If
+the run never comes, the hourly one catches up.
+
+**Checked.** Script tests with a stand-in for GitHub
+(`factory/test/queue.sh`, 50 cases; the new cases in
+`factory/test/implement.sh`): each conflict outcome, merge commits not
+counted as the developer's, an unsigned commit in the app's name
+counted, a pull request closed by the time it is read, the limit at 1,
+2 and 3 open, the line's order, issues dropped from the line, a start
+that fails, unknown answers, lists over several pages, failures on one
+pull request, the branch kept when it moved on. 74 rules
+mutation-checked. An independent review found three major defects
+(search lag, two runs per merge, a fix landing on the rebuilt branch);
+all fixed with tests first.
+
+**Not checked yet** (drills on GitHub): three approved issues (two
+build, the third waits and starts when one is merged); a real conflict
+between two factory pull requests; a pull request only behind; the
+switch. The first queue-started build is also the first agent run whose
+starter is `github-actions[bot]`: the action allows it (read in its
+source), but whether Anthropic's token exchange gives the app's token
+to such a run is unverified. If it does not, the queue can only say
+"a slot is free" and the developer re-adds `approved`.
+
+**How to stop it.** `FACTORY_ENABLED` not `true`: nothing runs and
+queued issues wait. To take one issue out of the line, remove
+`approved`. To stop the factory rebuilding one pull request, add
+`needs-human` to it.
 
 ## Target (not built yet)
 

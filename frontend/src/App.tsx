@@ -6,6 +6,7 @@ import {
   ACTIVITY_ROUTE,
   AEROBIC_ROUTE,
   DASHBOARD_ROUTE,
+  DIET_ROUTE,
   FALLBACK_ROUTE,
   IMPORT_ROUTE,
   LOGIN_ROUTE,
@@ -15,6 +16,7 @@ import {
 import { ActivitiesPage } from './pages/ActivitiesPage'
 import { AerobicPage } from './pages/AerobicPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DietPage } from './pages/DietPage'
 import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { SharedLogPage } from './pages/SharedLogPage'
@@ -29,6 +31,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path={DASHBOARD_ROUTE} element={<DashboardPage />} />
           <Route path={ACTIVITIES_ROUTE} element={<ActivitiesPage />} />
+          <Route path={DIET_ROUTE} element={<DietPage />} />
           <Route path={AEROBIC_ROUTE} element={<AerobicPage />} />
           <Route path={SHARES_ROUTE}element={<SharesPage />} />
           <Route path={IMPORT_ROUTE} element={<ImportPage />} />

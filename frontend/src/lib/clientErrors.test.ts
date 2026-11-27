@@ -111,6 +111,7 @@ describe('routePatternOf', () => {
     expect(routePatternOf('/activities', ROUTE_PATTERNS)).toBe('/activities')
     expect(routePatternOf('/login', ROUTE_PATTERNS)).toBe('/login')
     expect(routePatternOf('/aerobic', ROUTE_PATTERNS)).toBe('/aerobic')
+    expect(routePatternOf('/diet', ROUTE_PATTERNS)).toBe('/diet')
   })
 
   it('returns * for anything else', () => {

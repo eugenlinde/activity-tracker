@@ -1,6 +1,7 @@
 export const LOGIN_ROUTE = '/login'
 export const DASHBOARD_ROUTE = '/'
 export const ACTIVITIES_ROUTE = '/activities'
+export const DIET_ROUTE = '/diet'
 export const AEROBIC_ROUTE = '/aerobic'
 export const SHARES_ROUTE = '/shares'
 export const IMPORT_ROUTE = '/import'
@@ -16,6 +17,7 @@ export const ROUTE_PATTERNS: readonly string[] = [
   LOGIN_ROUTE,
   DASHBOARD_ROUTE,
   ACTIVITIES_ROUTE,
+  DIET_ROUTE,
   AEROBIC_ROUTE,
   SHARES_ROUTE,
   IMPORT_ROUTE,

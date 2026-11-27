@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import { Button, Modal } from 'antd'
 import { EditOutlined, LeftOutlined } from '@ant-design/icons'
 import { activitiesApi } from '../api/activities'
-import { ApiError } from '../api/client'
 import type { ActivityRequest, ActivityResponse } from '../api/types'
 import { ActivityForm } from '../components/ActivityForm'
 import { ActivityMedia } from '../components/ActivityMedia'
@@ -17,6 +16,9 @@ import {
   formatTarget,
   formatVolume,
   formatWorkoutWhen,
+  isNotFoundError,
+  isWeightsWorkout,
+  parseWorkoutId,
   setCount,
   workoutVolume,
 } from '../lib/workout'
@@ -43,16 +45,16 @@ export function WorkoutPage() {
   const [editing, setEditing] = useState(false)
 
   const load = useCallback(async () => {
-    const numericId = Number(id)
-    if (id === undefined || !/^\d+$/.test(id) || !Number.isSafeInteger(numericId)) {
+    const numericId = parseWorkoutId(id)
+    if (numericId === null) {
       setState({ status: 'notFound' })
       return
     }
     try {
       const activity = await activitiesApi.get(numericId)
-      setState(activity.activityType === 'WEIGHTS' ? { status: 'ready', activity } : { status: 'notFound' })
+      setState(isWeightsWorkout(activity) ? { status: 'ready', activity } : { status: 'notFound' })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) setState({ status: 'notFound' })
+      if (isNotFoundError(err)) setState({ status: 'notFound' })
       else setState({ status: 'error', error: err })
     }
   }, [id])

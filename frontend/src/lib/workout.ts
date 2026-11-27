@@ -1,6 +1,20 @@
 import type { ActivityDetails, Exercise, WorkoutSet } from '../api/types'
 import { isoToMinutes } from './duration'
 
+export function parseWorkoutId(id: string | undefined): number | null {
+  if (id === undefined || !/^\d+$/.test(id)) return null
+  const value = Number(id)
+  return Number.isSafeInteger(value) ? value : null
+}
+
+export function isWeightsWorkout(activity: { activityType: string }): boolean {
+  return activity.activityType === 'WEIGHTS'
+}
+
+export function isNotFoundError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { status?: unknown }).status === 404
+}
+
 export function setCount(details: ActivityDetails | null): number {
   return (details?.exerciseList ?? []).reduce((sum, exercise) => sum + (exercise.workoutSetList ?? []).length, 0)
 }

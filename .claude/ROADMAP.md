@@ -206,8 +206,7 @@ developer's call; this is the suggested one.
       cells; merged and in production 2026-11-18, PR #19). Spending limit on
       the OpenRouter key confirmed by the developer 2026-11-27; closed.
 - [ ] Small fixes found along the way: `index.html` served without a
-      caching rule (fixed in the F3 change, PR #23); `mockito-core:5.+` in `build.gradle`
-      should be a fixed version (one CI run failed on its download);
+      caching rule (fixed in the F3 change, PR #23); `mockito-core` pinned to 5.25.0 (2026-11-27; the open version failed CI twice on its lookup);
       the scheduled backup check runs about nine hours late whatever
       time it asks for (alarm to the server side in F5).
 - [ ] Factory: text with the word `Bearer` and a value after it is

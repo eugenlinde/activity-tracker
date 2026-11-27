@@ -43,6 +43,14 @@ public class WeightService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public WeightResponse find(Long userId, LocalDate date) {
+        return weightEntryRepository
+                .findByUserIdAndEntryDate(userId, date)
+                .map(WeightResponse::from)
+                .orElseThrow(WeightEntryNotFoundException::new);
+    }
+
     public WeightResponse upsert(Long userId, LocalDate date, BigDecimal weightKg) {
         entryDatePolicy.requireNotInFuture(date);
         WeightEntry entry = weightEntryRepository

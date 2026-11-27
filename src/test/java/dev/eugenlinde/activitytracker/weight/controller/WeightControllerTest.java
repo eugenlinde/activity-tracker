@@ -187,7 +187,40 @@ class WeightControllerTest {
     }
 
     @Test
-    void deleteWeight_whenEntryExists_returns204() throws Exception {
+    void getWeight_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/weights/2026-11-13")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(weightService);
+    }
+
+    @Test
+    void getWeight_whenEntryExists_returnsTheEntry() throws Exception {
+        when(weightService.find(userId, DATE)).thenReturn(new WeightResponse(DATE, new BigDecimal("81.3")));
+
+        mockMvc.perform(get("/api/weights/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value("2026-11-13"))
+                .andExpect(jsonPath("$.weightKg").value(81.3));
+    }
+
+    @Test
+    void getWeight_whenNoEntry_returns404() throws Exception {
+        when(weightService.find(userId, DATE)).thenThrow(new WeightEntryNotFoundException());
+
+        mockMvc.perform(get("/api/weights/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getWeight_withMalformedDateInPath_returns400() throws Exception {
+        mockMvc.perform(get("/api/weights/13-11-2026").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(weightService);
+    }
+
+    @Test
+    void deleteWeight_whenEntryExists_returns204()throws Exception {
         mockMvc.perform(delete("/api/weights/2026-11-13").with(authenticatedAs(userId)))
                 .andExpect(status().isNoContent());
 

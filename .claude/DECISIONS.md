@@ -1702,3 +1702,9 @@ Builder's calls:
   double-count a run whose pull request already exists and leave slots
   empty until the hourly run; the remaining race (two merges within a
   minute) can open a third pull request, which is harmless.
+- After the factory's own review of pull request 77 (builder's call): a
+  build started by the queue has `github-actions[bot]` as its starter,
+  which the action refuses unless named (read in its source at the
+  pinned commit). `allowed_bots` becomes `claude,github-actions`. Only
+  this repository's workflows can start a run as that bot. Unverified
+  until drill 1: whether the token exchange serves such a run.

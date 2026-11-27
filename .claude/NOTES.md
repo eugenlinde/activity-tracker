@@ -773,4 +773,9 @@ maps onto this project. Nothing decided yet. Proposals given:
   a branch only when it still ends at the closed pull request's
   commit). Minors fixed: `queued` removed when a build starts; issue
   labelled before the pull request is closed.
+- The factory's review agent on pull request 77 found one more major:
+  queue-started builds run as `github-actions[bot]`, which the action's
+  `allowed_bots: claude` refuses. Confirmed in the action's source;
+  `allowed_bots: claude,github-actions`. Token exchange for that starter
+  is unverified until drill 1.
 - Drills still to run on GitHub after the merge.

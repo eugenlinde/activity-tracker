@@ -1509,10 +1509,13 @@ drift apart. It differs in four things:
 - It starts from the exact commit the gate judged.
 - Its starter is `claude[bot]`, because the app's own commit started the
   CI run that started the round. The action refuses bot starters unless
-  named, so the step names `allowed_bots: claude` — only Claude's own
-  app. (Seen in the probe of 2026-11-25; with that setting the action
-  also gives git the app's token through a helper instead of writing it
-  into `.git/config`.)
+  named, so the step names `allowed_bots: claude,github-actions` —
+  Claude's own app, and the workflow's own token, which is the starter
+  of a build the queue starts (issue 63). Only this repository's
+  workflows can start "Implement" as `github-actions`, and only Queue
+  has the right to. (Seen in the probe of 2026-11-25; with that setting
+  the action also gives git the app's token through a helper instead of
+  writing it into `.git/config`.)
 - The check after it also knows "unchanged" (the agent committed
   nothing, so there would be no next round) and "moved" (the newest
   commit is not the fix agent's commit directly on top of the commit it
@@ -1717,7 +1720,11 @@ all fixed with tests first.
 **Not checked yet** (drills on GitHub): three approved issues (two
 build, the third waits and starts when one is merged); a real conflict
 between two factory pull requests; a pull request only behind; the
-switch.
+switch. The first queue-started build is also the first agent run whose
+starter is `github-actions[bot]`: the action allows it (read in its
+source), but whether Anthropic's token exchange gives the app's token
+to such a run is unverified. If it does not, the queue can only say
+"a slot is free" and the developer re-adds `approved`.
 
 **How to stop it.** `FACTORY_ENABLED` not `true`: nothing runs and
 queued issues wait. To take one issue out of the line, remove

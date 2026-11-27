@@ -1,5 +1,7 @@
 package dev.eugenlinde.activitytracker.steps.controller;
 
+import dev.eugenlinde.activitytracker.steps.dto.StepsGoalRequest;
+import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsRequest;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.service.StepsService;
@@ -36,6 +38,19 @@ public class StepsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return ResponseEntity.ok(stepsService.findAll(userId(jwt), from, to));
+    }
+
+    @GetMapping("/goal")
+    public ResponseEntity<StepsGoalResponse> getGoal(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(stepsService.findGoal(userId(jwt)));
+    }
+
+    @PutMapping("/goal")
+    public ResponseEntity<StepsGoalResponse> putGoal(
+            @RequestBody @Valid StepsGoalRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ResponseEntity.ok(stepsService.updateGoal(userId(jwt), request.goal().intValueExact()));
     }
 
     @PutMapping("/{date}")

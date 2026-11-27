@@ -78,6 +78,10 @@ export interface WeightEntry {
   weightKg: number
 }
 
+export interface StepsGoal {
+  goal: number
+}
+
 export interface StepsEntry {
   date: string
   steps: number

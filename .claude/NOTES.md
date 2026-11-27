@@ -837,6 +837,11 @@ maps onto this project. Nothing decided yet. Proposals given:
   labels `prod-error` and `prod-down` (created on GitHub and added to
   `factory/labels.sh`), the spec job prints its reply into the log so a
   withheld answer can be diagnosed.
+- Issue 89 → pull request 92: round 1 CI red → fix agent; round 2 one
+  major (the hand-off to the reporter's thread had no test) → fix
+  agent; round 3 passed, CI green. The first build that used all three
+  rounds. Waits for the developer's merge (before pull request 91:
+  both add a "Monitoring" section at the same place).
 - Not verified: the uptime workflow has never run (it can only be
   started once it is on `main`); nothing of F5 is drilled.
 - Open for the developer: the token for the server; merges.

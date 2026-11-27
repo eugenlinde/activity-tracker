@@ -3,11 +3,21 @@ package dev.eugenlinde.activitytracker.errorreport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.mock.http.client.MockClientHttpResponse;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,6 +29,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -272,6 +283,70 @@ class ErrorReporterTest {
 
         assertEquals(first, second);
         assertEquals(16, first.length());
+    }
+
+    private ErrorReporter reporterWithInterceptor(ClientHttpRequestInterceptor interceptor) {
+        RestClient configured = new ErrorReportClientConfig().errorReportRestClient(RestClient.builder(), properties);
+        return new ErrorReporter(configured.mutate().requestInterceptor(interceptor).build(), properties, clock);
+    }
+
+    private static ClientHttpResponse fakeResponse(HttpRequest request) {
+        if (request.getMethod() == HttpMethod.GET) {
+            MockClientHttpResponse response =
+                    new MockClientHttpResponse("[]".getBytes(StandardCharsets.UTF_8), HttpStatus.OK);
+            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            return response;
+        }
+        return new MockClientHttpResponse(new byte[0], HttpStatus.CREATED);
+    }
+
+    @Test
+    void report_handsTheWorkToTheReporterThread() throws Exception {
+        CountDownLatch created = new CountDownLatch(1);
+        AtomicReference<String> postThread = new AtomicReference<>();
+        ErrorReporter async = reporterWithInterceptor((request, body, execution) -> {
+            if (request.getMethod() == HttpMethod.POST) {
+                postThread.set(Thread.currentThread().getName());
+                created.countDown();
+            }
+            return fakeResponse(request);
+        });
+
+        async.report(failWithMessage(), "GET", "/x");
+
+        assertTrue(created.await(5, TimeUnit.SECONDS));
+        assertEquals("error-reporter", postThread.get());
+        async.shutdown();
+    }
+
+    @Test
+    void report_withFullQueue_dropsTheReportWithoutThrowing() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicInteger calls = new AtomicInteger();
+        ErrorReporter async = reporterWithInterceptor((request, body, execution) -> {
+            calls.incrementAndGet();
+            entered.countDown();
+            try {
+                release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            return fakeResponse(request);
+        });
+
+        async.report(failWithMessage(), "GET", "/x");
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+
+        for (int i = 0; i < 10; i++) {
+            async.report(failWithMessage(), "GET", "/x");
+        }
+        assertDoesNotThrow(() -> async.report(failWithMessage(), "GET", "/x"));
+        assertDoesNotThrow(() -> async.report(failWithMessage(), "GET", "/x"));
+
+        assertEquals(1, calls.get());
+        release.countDown();
+        async.shutdown();
     }
 
     private static final class MutableClock extends Clock {

@@ -54,6 +54,17 @@ export function ExerciseEditor({ value, onChange }: Props) {
           </div>
           <div className="row">
             <Input
+              aria-label="Target sets"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={12}
+              step={1}
+              placeholder="Target sets (1-12)"
+              value={exercise.targetSets}
+              onChange={(e) => updateExercise(index, { targetSets: e.target.value })}
+            />
+            <Input
               aria-label="Target reps"
               placeholder="Target reps (10-15)"
               value={exercise.targetReps}

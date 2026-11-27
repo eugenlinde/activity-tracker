@@ -78,7 +78,7 @@ export function ActivitiesPage() {
         </Button>
       </header>
       <ErrorMessage error={error} />
-      <ActivityList activities={sorted} onEdit={setEditing} onDelete={remove} />
+      <ActivityList activities={sorted} linkWeights onEdit={setEditing} onDelete={remove} />
       <Modal
         open={formOpen}
         title={editing ? 'Edit workout' : 'New workout'}

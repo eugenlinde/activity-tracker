@@ -74,7 +74,7 @@ class ImportConfirmIntegrationTest {
     private static WorkoutImport workout() {
         return new WorkoutImport(
                 Instant.parse("2026-11-03T10:00:00Z"),
-                new Session("1", List.of(new Exercise("Kükk", null, null, null, null, List.of(new WorkoutSet(100.0, 8))))),
+                new Session("1", List.of(new Exercise("Kükk", null, null, null, null, null, List.of(new WorkoutSet(100.0, 8))))),
                 "Nädal 1 / Treening 1"
         );
     }

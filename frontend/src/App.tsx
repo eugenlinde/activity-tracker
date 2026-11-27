@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import {
   ACTIVITIES_ROUTE,
+  ACTIVITY_ROUTE,
   DASHBOARD_ROUTE,
   FALLBACK_ROUTE,
   IMPORT_ROUTE,
@@ -16,6 +17,7 @@ import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { SharedLogPage } from './pages/SharedLogPage'
 import { SharesPage } from './pages/SharesPage'
+import { WorkoutPage } from './pages/WorkoutPage'
 
 export default function App() {
   return (
@@ -25,6 +27,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path={DASHBOARD_ROUTE} element={<DashboardPage />} />
           <Route path={ACTIVITIES_ROUTE} element={<ActivitiesPage />} />
+          <Route path={ACTIVITY_ROUTE} element={<WorkoutPage />} />
           <Route path={SHARES_ROUTE} element={<SharesPage />} />
           <Route path={IMPORT_ROUTE} element={<ImportPage />} />
           <Route path={SHARED_ROUTE} element={<SharedLogPage />} />

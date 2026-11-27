@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from 'antd'
 import { DeleteOutlined, DownOutlined, EditOutlined, UpOutlined } from '@ant-design/icons'
 import type { ActivityResponse } from '../api/types'
@@ -7,11 +8,13 @@ import { ExerciseDetails } from './ExerciseDetails'
 import { exerciseCount } from '../lib/details'
 import { formatDuration } from '../lib/duration'
 import { ACTIVITY_LABELS, formatDay, formatWeekdayTime } from '../lib/labels'
+import { activityPath } from '../lib/routes'
 
 interface Props {
   activities: ActivityResponse[]
   onEdit?: (activity: ActivityResponse) => void
   onDelete?: (activity: ActivityResponse) => void
+  linkWeights?: boolean
 }
 
 function summaryOf(activity: ActivityResponse): string {
@@ -25,7 +28,7 @@ function titleOf(activity: ActivityResponse): string {
   return activity.duration === null ? label : `${label} · ${formatDuration(activity.duration)}`
 }
 
-export function ActivityList({ activities, onEdit, onDelete }: Props) {
+export function ActivityList({ activities, onEdit, onDelete, linkWeights }: Props) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
 
   function toggle(id: number) {
@@ -42,29 +45,41 @@ export function ActivityList({ activities, onEdit, onDelete }: Props) {
   return (
     <div className="stack">
       {activities.map((a) => {
-        const open = expanded.has(a.id)
+        const linked = Boolean(linkWeights) && a.activityType === 'WEIGHTS'
+        const open = !linked && expanded.has(a.id)
+        const rowContent = (
+          <>
+            <span>
+              <span className="workout-day">{formatDay(a.startedAt)}</span>
+              <br />
+              <span className="workout-weekday">{formatWeekdayTime(a.startedAt)}</span>
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span className="workout-title">{titleOf(a)}</span>
+              <span className="workout-summary">{summaryOf(a)}</span>
+            </span>
+          </>
+        )
         return (
           <article key={a.id} className="workout">
             <div className="workout-head">
-              <button
-                type="button"
-                className="workout-toggle"
-                onClick={() => toggle(a.id)}
-                aria-expanded={open}
-              >
-                <span>
-                  <span className="workout-day">{formatDay(a.startedAt)}</span>
-                  <br />
-                  <span className="workout-weekday">{formatWeekdayTime(a.startedAt)}</span>
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span className="workout-title">{titleOf(a)}</span>
-                  <span className="workout-summary">{summaryOf(a)}</span>
-                </span>
-                <span className="muted" aria-hidden="true">
-                  {open ? <UpOutlined /> : <DownOutlined />}
-                </span>
-              </button>
+              {linked ? (
+                <Link to={activityPath(a.id)} className="workout-toggle workout-link">
+                  {rowContent}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="workout-toggle"
+                  onClick={() => toggle(a.id)}
+                  aria-expanded={open}
+                >
+                  {rowContent}
+                  <span className="muted" aria-hidden="true">
+                    {open ? <UpOutlined /> : <DownOutlined />}
+                  </span>
+                </button>
+              )}
               {(onEdit || onDelete) && (
                 <div className="workout-actions">
                   {onEdit && (

@@ -29,6 +29,6 @@ public final class ActivityDetailsFixtures {
     }
 
     public static Exercise exercise(String name, List<WorkoutSet> sets) {
-        return new Exercise(name, "10-15", "1-2", "filmi, KP", "https://youtu.be/OB9g-dq2yQM", sets);
+        return new Exercise(name, "10-15", "1-2", null, "filmi, KP", "https://youtu.be/OB9g-dq2yQM", sets);
     }
 }

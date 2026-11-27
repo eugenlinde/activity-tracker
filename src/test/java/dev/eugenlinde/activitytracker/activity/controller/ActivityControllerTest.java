@@ -4,6 +4,9 @@ import dev.eugenlinde.activitytracker.activity.ActivityRepository;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityRequest;
 import dev.eugenlinde.activitytracker.activity.dto.ActivityResponse;
 import dev.eugenlinde.activitytracker.activity.model.ActivityType;
+import dev.eugenlinde.activitytracker.activity.model.Exercise;
+import dev.eugenlinde.activitytracker.activity.model.Session;
+import dev.eugenlinde.activitytracker.activity.model.WorkoutSet;
 import dev.eugenlinde.activitytracker.activity.service.ActivityService;
 import dev.eugenlinde.activitytracker.common.exception.ActivityNotFoundException;
 import dev.eugenlinde.activitytracker.config.SecurityConfig;
@@ -24,8 +27,11 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import static dev.eugenlinde.activitytracker.activity.ActivityDetailsFixtures.session;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -181,6 +187,88 @@ class ActivityControllerTest {
                         .value("Vertikaaltõmbed trenažööril pealthaare"))
                 .andExpect(jsonPath("$.details.exerciseList[0].workoutSetList[0].weight").value(31.25))
                 .andExpect(jsonPath("$.details.exerciseList[0].workoutSetList[2].reps").doesNotExist());
+    }
+
+    @Test
+    void createActivity_whenTargetSetsAboveTwelve_returns400WithKeyAndSkipsService() throws Exception {
+        String invalidJson = """
+                {
+                    "activityType": "WEIGHTS",
+                    "startedAt": "2026-10-01T08:00:00Z",
+                    "details": {
+                        "version": "1",
+                        "exerciseList": [
+                            { "name": "Kükk", "targetSets": 13, "workoutSetList": [] }
+                        ]
+                    }
+                }
+                """;
+
+        mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$['details.exerciseList[0].targetSets']").exists());
+
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void createActivity_whenExerciseHasNoTargetSets_returns201() throws Exception {
+        String validJson = """
+                {
+                    "activityType": "WEIGHTS",
+                    "startedAt": "2026-10-01T08:00:00Z",
+                    "details": {
+                        "version": "1",
+                        "exerciseList": [
+                            { "name": "Kükk", "workoutSetList": [ { "weight": 10.0, "reps": 5 } ] }
+                        ]
+                    }
+                }
+                """;
+        ActivityResponse activityResponse = new ActivityResponse(
+                1L,
+                userId,
+                ActivityType.WEIGHTS,
+                Instant.parse("2026-10-01T08:00:00Z"),
+                null,
+                null,
+                null,
+                Instant.ofEpochSecond(1),
+                Instant.ofEpochSecond(1)
+        );
+        when(activityService.create(any(ActivityRequest.class), eq(userId))).thenReturn(activityResponse);
+
+        mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validJson))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void getActivity_returnsTargetSetsOfExercise() throws Exception {
+        Session details = new Session("1", List.of(
+                new Exercise("Kükk", "8", "2", 4, null, null, List.of(new WorkoutSet(80.0, 8)))
+        ));
+        ActivityResponse activityResponse = new ActivityResponse(
+                1L,
+                userId,
+                ActivityType.WEIGHTS,
+                Instant.ofEpochSecond(123),
+                null,
+                details,
+                null,
+                Instant.ofEpochSecond(1),
+                Instant.ofEpochSecond(1)
+        );
+        when(activityService.findById(activityId, userId)).thenReturn(activityResponse);
+
+        mockMvc.perform(get("/api/activities/1").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.exerciseList[0].targetSets").value(4));
     }
 
     @Test

@@ -116,6 +116,28 @@ class ActivityRequestValidationTest {
         );
     }
 
+    @Test
+    void targetSets_nullOneAndTwelve_areAllowed() {
+        for (Integer targetSets : new Integer[]{null, 1, 12}) {
+            Session details = sessionWithExercises(List.of(
+                    new Exercise("Kükk", null, null, targetSets, null, null, List.of())
+            ));
+
+            assertTrue(validator.validate(request(details)).isEmpty());
+        }
+    }
+
+    @Test
+    void targetSets_zeroAndThirteen_areReportedOnNestedPath() {
+        for (Integer targetSets : new Integer[]{0, 13}) {
+            Session details = sessionWithExercises(List.of(
+                    new Exercise("Kükk", null, null, targetSets, null, null, List.of())
+            ));
+
+            assertEquals(Set.of("details.exerciseList[0].targetSets"), violationPaths(request(details)));
+        }
+    }
+
     private static ActivityRequest request(Session details) {
         return new ActivityRequest(
                 ActivityType.WEIGHTS,

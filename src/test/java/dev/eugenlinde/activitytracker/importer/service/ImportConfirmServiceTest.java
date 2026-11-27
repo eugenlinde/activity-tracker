@@ -45,7 +45,7 @@ class ImportConfirmServiceTest {
 
     private static Session session(double weight) {
         return new Session("1", List.of(
-                new Exercise("Kükk", "5-8", null, null, null, List.of(new WorkoutSet(weight, 8)))
+                new Exercise("Kükk", "5-8", null, null, null, null, List.of(new WorkoutSet(weight, 8)))
         ));
     }
 

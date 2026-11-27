@@ -138,17 +138,23 @@ piece in their own words before the phase is checked off.
         - [x] Built (2026-11-26): `spec.yml`, `factory/spec/`, shared
               `factory/run-agent.sh`; script tests, 38 rules
               mutation-checked, independent review
-        - [ ] Drills: clear request to `review-passed` (61 → 62, done),
-              vague request to questions and a spec (65, done), a change
-              asked on a spec (65, done), out of reach (67, done; 66
-              became slice 3b), the switch (open)
+        - [x] Drills: clear request to `review-passed` (61 → 62), vague
+              request to questions and a spec (65), a change asked on a
+              spec (65), out of reach (67; 66 became slice 3b), the
+              switch (71, 2026-11-27: Spec run started, both jobs
+              skipped); recorded on #58, closed
         - [ ] Slice 3b, issue #68: assumptions listed, a workaround or
               more than 3 assumptions wait for confirmation, risk
               computed from facts (spec approved 2026-11-27)
             - [x] Built (2026-11-27): script tests, 43 rules
                   mutation-checked, independent review
-            - [ ] Drills: a title-only request, a request needing a
-                  library, a clear small request straight to `spec-ready`
+            - [x] Drills (2026-11-27, recorded on #68): title only →
+                  questions (72); a request needing a PDF library →
+                  questions naming the workaround, then `spec-ready`
+                  (73); a clear small request → `spec-ready` with 3
+                  assumptions (74); a precise request needing an Excel
+                  library → waiting spec with 8 assumptions and a
+                  workaround, then "ok" → `spec-ready` (75)
         - [ ] Explain-back: what starts it, the three answers, where the
               spec lives, how to stop it
     - [ ] Slice 4: acceptance — one issue from label to a tested pull
@@ -198,8 +204,8 @@ developer's call; this is the suggested one.
 - [x] CSV import: workouts, weight and steps — issue #18 (2026-11-17
       built; 2026-11-18 measured on the developer's real files and
       reworked so the model only names the layout and code reads the
-      cells; merged and in production 2026-11-18, PR #19). Open: the
-      developer has not confirmed a spending limit on the OpenRouter key.
+      cells; merged and in production 2026-11-18, PR #19). Spending limit on
+      the OpenRouter key confirmed by the developer 2026-11-27; closed.
 - [ ] Small fixes found along the way: `index.html` served without a
       caching rule (fixed in the F3 change, PR #23); `mockito-core:5.+` in `build.gradle`
       should be a fixed version (one CI run failed on its download);

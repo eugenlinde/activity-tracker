@@ -738,3 +738,16 @@ maps onto this project. Nothing decided yet. Proposals given:
   risk computed. Spec suite 147 tests, 43 rules mutation-checked,
   independent review. Drill 5 (the switch) still open.
 
+
+## 2026-11-27 — Spec agent drills finished
+
+- Issue 18 closed: the OpenRouter spending limit is confirmed.
+- Drill 5 (the switch): `FACTORY_ENABLED=false`, issue 71 started a
+  Spec run with both jobs skipped; switch back on; issue 58 closed.
+- Slice 3b drills, run by the builder from the developer's account at
+  their request: 72 (title only) → questions; 73 (PDF) → questions,
+  then `spec-ready` after "your call"; 74 (clear) → `spec-ready` with 3
+  assumptions; 75 (.xlsx) → waiting spec with 8 assumptions and a
+  workaround, "ok" → `spec-ready`. Recorded on issue 68. Issues 72–75
+  left open for the developer to keep or close.
+- Still owed for slice 3: the developer's explain-back.

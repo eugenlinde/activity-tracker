@@ -1020,7 +1020,7 @@ year is over).
   developer's reading: the documentation describes this setup but the
   legal page only speaks of "ordinary, individual usage".
 
-## Factory: spec agent (built 2026-11-26, issue 58; assumptions and workarounds 2026-11-27, issue 68; drilled except the switch)
+## Factory: spec agent (built 2026-11-26, issue 58; assumptions and workarounds 2026-11-27, issue 68; drilled)
 
 **What it is.** The developer opens an issue, often a few lines from the
 phone. Within minutes an AI agent either asks questions on the issue, or
@@ -1128,7 +1128,7 @@ rules of issue 68 mutation-checked. The review agent's tests
 (`factory/test/review.sh`) pass unchanged on the shared
 `run-agent.sh`.
 
-**Drills of issue 58** (2026-11-26/27; results on issue 58):
+**Drills** (2026-11-26/27; results on issues 58 and 68):
 
   | Drill | What happened |
   |---|---|
@@ -1136,11 +1136,16 @@ rules of issue 68 mutation-checked. The review agent's tests
   | Vague request | Issue 65 "Reminders": 5 questions and `needs-info`; the developer's answer gave a spec and `spec-ready` |
   | A change asked on a spec | Issue 65: "only on weekdays" in a comment rewrote the spec (run 3), `spec-ready` kept |
   | Out of reach | Issue 66 (Garmin .FIT) was meant for this, but the agent wrote a spec with a hand-made reader instead — the reason for issue 68. Issue 67 (weekly email): `needs-human` with the reason (no mail library, no mail settings) |
+  | The switch | `FACTORY_ENABLED=false`, issue 71: the Spec run started and both jobs were skipped; no labels, no comments |
+  | Title only (68) | Issue 72 "Show my workout streak", empty body: 5 questions, `needs-info` |
+  | Needs a library, choice left to the agent (68) | Issue 73 (PDF): questions, the first naming the workaround (print page and the browser's "Save as PDF") and the missing library; after answers that left the way to the agent, `spec-ready` with the print page under "Decided by the developer" and no workaround |
+  | Clear small request (68) | Issue 74 (date on the weight card): `spec-ready` at once, 3 assumptions |
+  | Precise request that needs a library (68) | Issue 75 (.xlsx): a waiting spec, `needs-info`, 8 assumptions and a workaround (a hand-built file, no Excel library); after "ok", all of it under "Decided by the developer", `Assumed: nothing`, `spec-ready` |
 
-- **Not checked yet:** the switch (`FACTORY_ENABLED=false`, then a new
-  issue starts nothing), and on GitHub the rules of issue 68: a
-  title-only request, a request whose natural way needs a library, and
-  a clear small request that must still reach `spec-ready` at once.
+- **Seen in the drills:** when the developer leaves the way to the
+  agent ("your call"), it takes its choice as decided and lists no
+  workaround. The question before it named the trade-off, so the
+  developer has seen it once.
 
 **Known gaps.**
 

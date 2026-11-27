@@ -1514,11 +1514,10 @@ half an hour.
   | A push by the developer | On pull request 54 (its `review-passed` taken off first), a commit by the developer that breaks a test. CI red; `failed-ci` read the failed job's log; the gate said `not-the-app` and did nothing; no fix, no label, no comment |
   | The switch | `FACTORY_ENABLED=false`: a push gave a Review run with every job skipped; Implement started by hand skipped every job. Staging still deployed: it has its own switch. Switched back on |
 
-- **Not checked yet**, by the developer's decision of 2026-11-26 to move
-  on: a real fix round (so a whole fix run with `allowed_bots`), and a
-  scrap. Of the fix path, `failed-ci` and the gate's red-CI path up to
-  the state check have run for real. The first real failure will be the
-  first fix round; watch its run.
+- **First real fix round** (2026-11-26, issue 61 → pull request 62): in
+  round 1 the reviewer found one major, the fix agent committed a fix in
+  11 s with `allowed_bots`, and round 2 passed. A scrap has still not
+  run for real.
 
 **Known gaps.**
 
@@ -1547,6 +1546,12 @@ half an hour.
 - When the developer pushes to a factory pull request, the loop stops
   without a word: no label, no comment. The pull request keeps the
   labels it had (seen in the drill). The developer pushed, so they know.
+- A factory pull request that gets a merge conflict with `main` (another
+  pull request changed the same lines first) waits for a human: `main`
+  must be up to date before merging, "Update branch" cannot fix a
+  conflict, and nothing in the factory notices one. Seen on pull
+  request 56 after pull request 62. The chosen fix, rebuilding from the
+  spec on the current `main`, is issue 63 and belongs with slice 2c.
 
 **How to stop it.** Set `FACTORY_ENABLED` to anything but `true`:
 nothing in "Review", "Implement" or the loop runs. To stop one pull

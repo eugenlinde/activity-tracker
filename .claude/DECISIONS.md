@@ -1608,3 +1608,25 @@ reaches the log that way.
   requests; the address is checked), and an edit by the developer on a
   `spec-ready` issue no longer calls `gh issue edit` with nothing to
   change before posting its comment.
+
+## 2026-11-27 — Merge conflicts on factory pull requests: rebuild from the spec (developer's decision)
+
+- Gap found on pull request 56: after pull request 62 changed the same
+  steps files, 56 was in conflict, and nothing in the factory reacts to
+  a conflict. A `@claude` comment on the pull request started nothing,
+  since no workflow listens for mentions. Recorded as issue 63.
+- Options the builder laid out: (1) close the pull request and build
+  the issue again from its spec on the current `main`; (2) an agent
+  that merges `main` in and resolves the conflicting files; (3) only
+  one open factory pull request at a time, which lowers but does not
+  remove conflicts. The builder recommended (1); the developer chose
+  (1).
+- Why (1): the spec is the source of truth and the branch is
+  disposable; it reuses the automatic rebuild of slice 2c and its
+  attempt limit. (2) needs a merge commit pushed with git, and a push
+  with GitHub's own token does not start CI, so it needs new moving
+  parts and a new token path.
+- Cost if wrong: a rebuild repeats a whole build and its review rounds
+  (about 10 minutes, no per-run bill on the subscription), and the
+  developer tests on staging again.
+

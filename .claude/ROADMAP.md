@@ -127,6 +127,10 @@ piece in their own words before the phase is checked off.
             - [ ] Explain-back: one round, what the gate decides, what
                   stops the loop, how to stop it
         - [ ] 2c: analysis agent and one automatic rebuild
+            - [ ] A factory pull request in conflict with `main` is
+                  closed and rebuilt from the spec on the current `main`
+                  (issue #63; direction chosen by the developer
+                  2026-11-27); same rebuild limit as after a scrap
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`
     - [ ] Slice 3, issue #58: spec agent (triage and spec in one; spec

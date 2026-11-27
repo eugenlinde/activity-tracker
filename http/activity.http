@@ -18,6 +18,18 @@ Authorization: Bearer {{authToken}}
   "duration": {{duration}}
 }
 
+### create aerobic activity
+POST {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "activityType": "CYCLING",
+  "startedAt": {{startedAt}},
+  "duration": "PT30M",
+  "notes": {{notes}}
+}
+
 ### update activity
 PUT {{baseUrl}}/api/activities/{{id}}
 Content-Type: application/json

@@ -5,6 +5,10 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   WEIGHTS: 'Weights',
   WALKING: 'Walking',
   AEROBIC: 'Aerobic',
+  CYCLING: 'Cycling',
+  SWIMMING: 'Swimming',
+  ROWING: 'Rowing',
+  TREADMILL: 'Treadmill',
 }
 
 export function formatDay(iso: string): string {

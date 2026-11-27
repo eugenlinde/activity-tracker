@@ -14,6 +14,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static dev.eugenlinde.activitytracker.activity.ActivityDetailsFixtures.session;
@@ -88,6 +89,24 @@ class ActivityDetailsPersistenceTest {
         entityManager.clear();
 
         assertNull(activityRepository.findById(id).orElseThrow().getDuration());
+    }
+
+    @Test
+    void newAerobicType_isPersistedAndReadBack() {
+        Activity activity = new Activity();
+        activity.setActivityType(ActivityType.TREADMILL);
+        activity.setStartedAt(Instant.parse("2026-10-01T08:00:00Z"));
+        activity.setDuration(Duration.ofMinutes(45));
+        activity.setUser(owner);
+        Long id = entityManager.persist(activity).getId();
+        entityManager.flush();
+        entityManager.clear();
+
+        Activity reloaded = activityRepository.findById(id).orElseThrow();
+
+        assertEquals(ActivityType.TREADMILL, reloaded.getActivityType());
+        assertEquals(Duration.ofMinutes(45), reloaded.getDuration());
+        assertNull(reloaded.getDetails());
     }
 
     private Activity persistActivity(Session details) {

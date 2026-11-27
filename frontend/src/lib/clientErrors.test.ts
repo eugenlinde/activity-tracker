@@ -110,6 +110,7 @@ describe('routePatternOf', () => {
     expect(routePatternOf('/', ROUTE_PATTERNS)).toBe('/')
     expect(routePatternOf('/activities', ROUTE_PATTERNS)).toBe('/activities')
     expect(routePatternOf('/login', ROUTE_PATTERNS)).toBe('/login')
+    expect(routePatternOf('/aerobic', ROUTE_PATTERNS)).toBe('/aerobic')
   })
 
   it('returns * for anything else', () => {

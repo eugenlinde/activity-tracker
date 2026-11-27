@@ -13,6 +13,7 @@ export interface ExerciseDraft {
   name: string
   targetReps: string
   repsInReserve: string
+  targetSets: string
   comment: string
   videoUrl: string
   sets: SetDraft[]
@@ -23,7 +24,7 @@ export function emptySet(): SetDraft {
 }
 
 export function emptyExercise(): ExerciseDraft {
-  return { name: '', targetReps: '', repsInReserve: '', comment: '', videoUrl: '', sets: [emptySet()] }
+  return { name: '', targetReps: '', repsInReserve: '', targetSets: '', comment: '', videoUrl: '', sets: [emptySet()] }
 }
 
 function textOrEmpty(value: string | null): string {
@@ -49,6 +50,7 @@ export function toDrafts(details: ActivityDetails | null): ExerciseDraft[] {
     name: exercise.name,
     targetReps: textOrEmpty(exercise.targetReps),
     repsInReserve: textOrEmpty(exercise.repsInReserve),
+    targetSets: numberOrEmpty(exercise.targetSets ?? null),
     comment: textOrEmpty(exercise.comment),
     videoUrl: textOrEmpty(exercise.videoUrl),
     sets: (exercise.workoutSetList ?? []).map((set) => ({
@@ -64,6 +66,7 @@ export function fromDrafts(drafts: ExerciseDraft[]): ActivityDetails | null {
     name: draft.name.trim(),
     targetReps: emptyToNull(draft.targetReps),
     repsInReserve: emptyToNull(draft.repsInReserve),
+    targetSets: parseNumber(draft.targetSets),
     comment: emptyToNull(draft.comment),
     videoUrl: emptyToNull(draft.videoUrl),
     workoutSetList: draft.sets

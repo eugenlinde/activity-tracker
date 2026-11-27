@@ -30,6 +30,32 @@ Authorization: Bearer {{authToken}}
   "notes": {{notes}}
 }
 
+### create weights activity with target sets
+POST {{baseUrl}}/api/activities
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "activityType": "WEIGHTS",
+  "startedAt": {{startedAt}},
+  "duration": {{duration}},
+  "details": {
+    "version": "1",
+    "exerciseList": [
+      {
+        "name": "Back squat",
+        "targetSets": 4,
+        "targetReps": "8",
+        "repsInReserve": "2",
+        "workoutSetList": [
+          { "weight": 80, "reps": 8 },
+          { "weight": 80, "reps": 8 }
+        ]
+      }
+    ]
+  }
+}
+
 ### update activity
 PUT {{baseUrl}}/api/activities/{{id}}
 Content-Type: application/json

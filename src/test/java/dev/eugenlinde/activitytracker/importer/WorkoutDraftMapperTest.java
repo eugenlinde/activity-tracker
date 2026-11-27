@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class WorkoutDraftMapperTest {
 
@@ -21,11 +22,20 @@ class WorkoutDraftMapperTest {
         Session session = WorkoutDraftMapper.toSession(draft);
 
         assertEquals(new Session("1", List.of(
-                new Exercise("Kükk", "5-8", "1-2", "raske", null, List.of(
+                new Exercise("Kükk", "5-8", "1-2", null, "raske", null, List.of(
                         new WorkoutSet(100.0, 8), new WorkoutSet(100.0, 7), new WorkoutSet(100.0, 6)
                 )),
-                new Exercise("Lõuatõmbed", null, null, null, "https://example.com/v", List.of(new WorkoutSet(0.0, 10)))
+                new Exercise("Lõuatõmbed", null, null, null, null, "https://example.com/v", List.of(new WorkoutSet(0.0, 10)))
         )), session);
+    }
+
+    @Test
+    void toSession_leavesTargetSetsEmpty() {
+        WorkoutDraft draft = new WorkoutDraft("x", List.of(
+                new WorkoutDraft.DraftExercise("Kükk", "5-8", 100.0, "1-2", List.of(8), null, null)
+        ));
+
+        assertNull(WorkoutDraftMapper.toSession(draft).exerciseList().getFirst().targetSets());
     }
 
     @Test

@@ -1,6 +1,9 @@
 package dev.eugenlinde.activitytracker.common.exception;
 
+import dev.eugenlinde.activitytracker.errorreport.ErrorReporter;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.ArrayList;
@@ -24,10 +28,30 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    private final ObjectProvider<ErrorReporter> errorReporter;
+
+    public GlobalExceptionHandler(ObjectProvider<ErrorReporter> errorReporter) {
+        this.errorReporter = errorReporter;
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> unexpectedException(Exception exception) {
+    public ResponseEntity<Object> unexpectedException(Exception exception, HttpServletRequest request) {
         log.error(exception.getMessage(), exception);
+        reportUnexpected(exception, request);
         return new ResponseEntity<>("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private void reportUnexpected(Exception exception, HttpServletRequest request) {
+        try {
+            ErrorReporter reporter = errorReporter.getIfAvailable();
+            if (reporter == null) {
+                return;
+            }
+            Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+            reporter.report(exception, request.getMethod(), pattern instanceof String text ? text : null);
+        } catch (Exception failure) {
+            log.warn("Error report failed: {}", failure.getClass().getName());
+        }
     }
 
     @ExceptionHandler(UserExistsException.class)

@@ -157,9 +157,23 @@ else
         label=bug
         other=enhancement
       fi
+      risk=$(jq -r 'if .facts.access then "high" elif .facts.existing or .facts.schema then "medium" else "low" end' "$reply")
+      assumed=$(jq -r '.assumed | length' "$reply")
+      workaround=$(jq -r .workaround "$reply")
+      confirm=no
+      if [ "$assumed" -gt 3 ] || [ -n "$workaround" ]; then
+        confirm=yes
+        kind=confirm
+      fi
       {
-        echo "**Decision needed:** add \`approved\` to build it, or comment what to change"
-        jq -r '"**What:** " + .what, "**Why:** " + .why, "**What changes for you:** " + .changes, "**Risk:** " + .risk + " · **Size:** " + .size' "$reply"
+        if [ "$confirm" = yes ]; then
+          echo "**Decision needed:** confirm with a comment or correct it (the newest comment says what); \`approved\` builds it as written"
+        else
+          echo "**Decision needed:** add \`approved\` to build it, or comment what to change"
+        fi
+        jq -r --arg risk "$risk" '"**What:** " + .what, "**Why:** " + .why, "**What changes for you:** " + .changes, "**Risk:** " + $risk + " · **Size:** " + .size,
+          "**Assumed:** " + (if (.assumed | length) == 0 then "nothing" else (.assumed | join(" · ")) end),
+          (if .workaround == "" then empty else "**Workaround:** " + .workaround end)' "$reply"
         echo "**Source:** developer · **Written by:** spec agent, run $run"
         echo
         echo "<details><summary>Spec for the agent</summary>"
@@ -176,16 +190,43 @@ else
         echo
         echo "</details>"
       } > "$out/body.md"
-      {
-        echo "$MARK"
-        echo "**Spec agent:** the spec is in this issue's text (run $run of 5). Read the lines at the top. Add \`approved\` to build it, or comment what to change and I write it again."
-        echo
-        echo "$numbers"
-      } > "$out/comment.md"
-      add spec-ready
-      add "$label"
-      remove needs-info
-      remove "$other"
+      if [ "$confirm" = yes ]; then
+        {
+          echo "$MARK"
+          echo "**Spec agent:** the spec is in this issue's text (run $run of 5), but it waits for you."
+          if [ "$assumed" -gt 0 ]; then
+            echo
+            echo "I assumed $assumed things the issue did not say:"
+            echo
+            jq -r '.assumed[] | "- " + .' "$reply"
+          fi
+          if [ -n "$workaround" ]; then
+            echo
+            echo "The natural way is out of my reach, so the spec takes another: $workaround"
+            echo
+            echo "Choose: build it this way, add the missing piece yourself (then it is your change, not the factory's), or drop it."
+          fi
+          echo
+          echo "Confirm with a comment (for example \"ok\") or correct what is wrong; I then write the spec again. Adding \`approved\` builds it as written."
+          echo
+          echo "$numbers"
+        } > "$out/comment.md"
+        add needs-info
+        add "$label"
+        remove spec-ready
+        remove "$other"
+      else
+        {
+          echo "$MARK"
+          echo "**Spec agent:** the spec is in this issue's text (run $run of 5). Read the lines at the top. Add \`approved\` to build it, or comment what to change and I write it again."
+          echo
+          echo "$numbers"
+        } > "$out/comment.md"
+        add spec-ready
+        add "$label"
+        remove needs-info
+        remove "$other"
+      fi
       ;;
     out-of-reach)
       {

@@ -138,9 +138,17 @@ piece in their own words before the phase is checked off.
         - [x] Built (2026-11-26): `spec.yml`, `factory/spec/`, shared
               `factory/run-agent.sh`; script tests, 38 rules
               mutation-checked, independent review
-        - [ ] Drills: clear request to `review-passed`, vague request to
-              questions and a spec, a change asked on a spec, a request
-              needing `build.gradle`, the switch
+        - [ ] Drills: clear request to `review-passed` (61 → 62, done),
+              vague request to questions and a spec (65, done), a change
+              asked on a spec (65, done), out of reach (67, done; 66
+              became slice 3b), the switch (open)
+        - [ ] Slice 3b, issue #68: assumptions listed, a workaround or
+              more than 3 assumptions wait for confirmation, risk
+              computed from facts (spec approved 2026-11-27)
+            - [x] Built (2026-11-27): script tests, 43 rules
+                  mutation-checked, independent review
+            - [ ] Drills: a title-only request, a request needing a
+                  library, a clear small request straight to `spec-ready`
         - [ ] Explain-back: what starts it, the three answers, where the
               spec lives, how to stop it
     - [ ] Slice 4: acceptance — one issue from label to a tested pull

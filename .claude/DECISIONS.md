@@ -1630,3 +1630,31 @@ reaches the log that way.
   (about 10 minutes, no per-run bill on the subscription), and the
   developer tests on staging again.
 
+## 2026-11-27 — Spec agent, slice 3b: assumptions, workarounds, computed risk (issue 68; spec approved by the developer; builder's calls below)
+
+- The developer asked how the factory could refuse vague input more
+  wisely. The builder proposed three changes, the developer approved the
+  spec on issue 68: every product decision the developer did not state
+  is listed at the top; more than 3 of them, or a workaround around an
+  out-of-reach tool, stop the spec at `needs-info` with a confirm
+  comment; the risk is computed from three facts the agent states.
+- Builder's calls:
+  - A spec over the limit is still written, so one word ("ok")
+    confirms it; questions stay available for when the agent lacks the
+    answers altogether.
+  - Threshold 3: issue 61's three defaults would pass with the line
+    visible; issue 66 would stop.
+  - A schema change alone is `medium`: its migration runs on prod.
+  - No second model to review specs.
+  - After the independent review (no critical or important defect in
+    the code; the docs were not yet committed): the text shown outside
+    the folded spec (questions, reason, summary lines, assumptions,
+    workaround) refuses `@name` and HTML, so a reply cannot ping a
+    person or hide the rest of the summary behind `<!--`; an e-mail
+    address is allowed. One decision per assumption: an item holding
+    ` · ` is refused, so the count cannot be dodged by joining. The
+    label `needs-info` says it also means a confirmation.
+- Cost if wrong: a clear issue waits for a confirmation it did not need
+  (the third drill of issue 68 checks this), or the agent lists fewer
+  assumptions than it took, which no script can see.
+

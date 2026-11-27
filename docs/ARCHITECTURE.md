@@ -1020,7 +1020,7 @@ year is over).
   developer's reading: the documentation describes this setup but the
   legal page only speaks of "ordinary, individual usage".
 
-## Factory: spec agent (built 2026-11-26; issue 58; not drilled yet)
+## Factory: spec agent (built 2026-11-26, issue 58; assumptions and workarounds 2026-11-27, issue 68; drilled except the switch)
 
 **What it is.** The developer opens an issue, often a few lines from the
 phone. Within minutes an AI agent either asks questions on the issue, or
@@ -1059,9 +1059,10 @@ design had two agents here, triage and spec; one agent does both
    environment, a budget cap. Model `FACTORY_MODEL_SPEC`
    (`claude-fable-5-2` when not set).
 4. Its answer must fit a fixed shape (`reply-schema.json`), checked by
-   `check-reply.sh`: *questions* (1 to 5, one line each), *spec* (five
-   one-line summary fields, bug or feature, risk, size, and the spec of
-   at most 20,000 characters), or *out-of-reach* (a reason).
+   `check-reply.sh`: *questions* (1 to 5, one line each), *spec* (three
+   one-line summary fields, bug or feature, size, three facts, the
+   assumptions, a workaround or none, and the spec of at most 20,000
+   characters), or *out-of-reach* (a reason).
 5. *Job `write`* (may write issues, no Claude token): `write.sh` reads
    the issue's labels again and writes nothing if `approved`, `building`
    or `needs-human` arrived meanwhile. It also compares the issue's text
@@ -1070,12 +1071,19 @@ design had two agents here, triage and spec; one agent does both
    developer's next comment starts a run on the new text. Then:
    - *questions:* a comment with them, label `needs-info`.
    - *spec:* the issue's text becomes the summary of #39 (decision,
-     what, why, what changes for you, risk and size, source) with the
-     spec folded below it, and the developer's own text folded at the
-     end, unchanged, between two marks
-     (`<!-- factory-original:start -->` / `:end -->`) so that the next
-     run finds it. Labels `spec-ready` and `bug` or `enhancement`, and a
-     comment.
+     what, why, what changes for you, risk and size, what the agent
+     assumed, a workaround if any, source) with the spec folded below
+     it, and the developer's own text folded at the end, unchanged,
+     between two marks (`<!-- factory-original:start -->` / `:end -->`)
+     so that the next run finds it. Labels `spec-ready` and `bug` or
+     `enhancement`, and a comment.
+   - *a spec that waits:* the same text, but with more than 3
+     assumptions or with a workaround the label is `needs-info` instead
+     of `spec-ready`, and the comment lists the assumptions and the
+     workaround and asks the developer to confirm ("ok") or correct.
+     The next run moves what the developer confirmed into "Decided by
+     the developer". `approved` still builds it as written: Implement
+     does not look at `needs-info`.
    - *out-of-reach, a stop, or a failed run:* `needs-human` and a
      comment saying why. The factory does nothing more on the issue.
    Every comment of the agent carries the mark `<!-- factory-spec -->`;
@@ -1083,6 +1091,19 @@ design had two agents here, triage and spec; one agent does both
 6. The developer answers in a comment, or asks for a change in a
    comment → the next run. Or adds `approved` → "Implement", which reads
    the issue's text: the spec the developer approved.
+
+**Why it lists what it assumed** (issue 68). In the drills the agent
+filled in a title-only issue's defaults without asking, and worked
+around a library it may not add by hand-writing a file reader that does
+less than asked. Neither was visible in the summary. Now every product
+decision the developer did not state is one line at the top
+(`**Assumed:** ... · ...` or `nothing`), a workaround is its own line,
+and either too many assumptions or a workaround stops the spec short of
+`spec-ready`. The risk is no longer the agent's own rating: it states
+three facts (who may see what, or data lost; existing behaviour, API,
+wording or data; the database schema) and `write.sh` computes
+`high` / `medium` / `low` from them. A new column is therefore always at
+least `medium`, since its migration runs on prod.
 
 **Why the spec goes into the issue's text, not a comment.** The
 implementation agent already builds from the issue's text. So what the
@@ -1100,23 +1121,37 @@ subscription.
 (`factory/test/spec.sh`): who may start it, each rule for doing
 nothing, the run limit, each answer shape, an answer that breaks the
 shape (nothing written), the developer's text surviving a write and a
-read unchanged, labels added and removed. The review agent's tests
+read unchanged, labels added and removed, the risk from each fact, the
+assumption limit at 3 and 4, a workaround with no assumptions, a
+mention or HTML refused in the text shown outside the folded spec. 43
+rules of issue 68 mutation-checked. The review agent's tests
 (`factory/test/review.sh`) pass unchanged on the shared
 `run-agent.sh`.
 
-**Not checked yet:** the workflow itself in the repository — the
-drills of issue 58: a clear request to `review-passed`, a vague one to
-questions and a spec, a change asked on a spec, a request needing
-`build.gradle`, the switch.
+**Drills of issue 58** (2026-11-26/27; results on issue 58):
+
+  | Drill | What happened |
+  |---|---|
+  | Clear request to `review-passed` | Issue 61, title only: a spec in 72 s with defaults taken from the code, no questions → `approved` → pull request 62, one major in round 1, the first real fix round, passed in round 2; merged and deployed |
+  | Vague request | Issue 65 "Reminders": 5 questions and `needs-info`; the developer's answer gave a spec and `spec-ready` |
+  | A change asked on a spec | Issue 65: "only on weekdays" in a comment rewrote the spec (run 3), `spec-ready` kept |
+  | Out of reach | Issue 66 (Garmin .FIT) was meant for this, but the agent wrote a spec with a hand-made reader instead — the reason for issue 68. Issue 67 (weekly email): `needs-human` with the reason (no mail library, no mail settings) |
+
+- **Not checked yet:** the switch (`FACTORY_ENABLED=false`, then a new
+  issue starts nothing), and on GitHub the rules of issue 68: a
+  title-only request, a request whose natural way needs a library, and
+  a clear small request that must still reach `spec-ready` at once.
 
 **Known gaps.**
 
 - The spec is a model's work. `spec-ready` means "written", not
   "right": the developer's approval is the check. Read the summary
   before adding `approved`.
-- A mention (`@name`) in the agent's text notifies that person. The
-  prompt says to put code and annotations in backticks; nothing
-  enforces it.
+- A mention (`@name`) in the agent's text notifies that person. In the
+  questions, the reason, the summary lines, the assumptions and the
+  workaround the check refuses a mention and HTML (`<b>`, `<!--`), so a
+  summary cannot hide its own rest. Inside the folded spec the prompt
+  says to put code and annotations in backticks; nothing enforces it.
 - If the developer adds `approved` while a run is writing, the write
   step sees it and writes nothing; if the label lands in the second
   between that check and the write, the spec may change after the
@@ -1127,6 +1162,10 @@ questions and a spec, a change asked on a spec, a request needing
   "looks good" included. Approve with the label, not with a comment.
 - Runs started by other people's comments are skipped, and each has its
   own queue, so they cannot cancel a waiting run of the developer's.
+- What counts as an assumption, whether there is a workaround, and the
+  three facts behind the risk are still the agent's answers. The script
+  makes them visible and acts on them; it cannot tell when one is left
+  out. The summary is a better place to catch that than the folded spec.
 
 **Before it first runs,** `factory/labels.sh --repo eugenlinde/activity-tracker`
 must have created `needs-info` and `spec-ready`; without them the write

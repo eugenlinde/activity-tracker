@@ -729,4 +729,12 @@ maps onto this project. Nothing decided yet. Proposals given:
   request missing from `http/steps.http`, a file that came with 62);
   fixed by hand, next review clean; merged. Gap noted: after a push by
   the developer a stale `review-passed` stays on the pull request.
+- Slice 3 drills 2–4: issue 65 asked 5 questions and wrote the spec
+  after the answer; a comment on it rewrote the spec; issue 67 (email)
+  got `needs-human`; issue 66 (Garmin .FIT) got a spec with a hand-made
+  reader instead of out-of-reach. The developer asked how the factory
+  could refuse vague input better → slice 3b (issue 68), built the same
+  day: assumptions listed, workarounds and more than 3 assumptions wait,
+  risk computed. Spec suite 147 tests, 43 rules mutation-checked,
+  independent review. Drill 5 (the switch) still open.
 

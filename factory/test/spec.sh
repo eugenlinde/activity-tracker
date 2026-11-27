@@ -110,9 +110,10 @@ marks() {
   echo "$out]"
 }
 
-QUESTIONS='{"kind":"questions","type":"none","questions":["Per day or per week?","Shown where?"],"reason":"","what":"","why":"","changes":"","risk":"none","size":"none","spec":""}'
-SPEC_REPLY=$(jq -cn '{kind: "spec", type: "feature", questions: [], reason: "", what: "A daily steps goal on the dashboard", why: "You want to see at a glance whether today is on track", changes: "A goal line on the steps card; you set the goal once", risk: "low", size: "S", spec: "## Problem\n\nNo goal exists.\n\n## Tests\n\n- `StepsServiceTest`: the goal is stored."}')
-OUT_OF_REACH='{"kind":"out-of-reach","type":"none","questions":[],"reason":"It needs a new library in build.gradle, which the implementation agent may not change.","what":"","why":"","changes":"","risk":"none","size":"none","spec":""}'
+NO_FACTS='"assumed":[],"workaround":"","facts":{"access":false,"existing":false,"schema":false}'
+QUESTIONS='{"kind":"questions","type":"none","questions":["Per day or per week?","Shown where?"],"reason":"","what":"","why":"","changes":"","size":"none","spec":"",'"$NO_FACTS"'}'
+SPEC_REPLY=$(jq -cn '{kind: "spec", type: "feature", questions: [], reason: "", what: "A daily steps goal on the dashboard", why: "You want to see at a glance whether today is on track", changes: "A goal line on the steps card; you set the goal once", size: "S", spec: "## Problem\n\nNo goal exists.\n\n## Tests\n\n- `StepsServiceTest`: the goal is stored.", assumed: [], workaround: "", facts: {access: false, existing: false, schema: false}}')
+OUT_OF_REACH='{"kind":"out-of-reach","type":"none","questions":[],"reason":"It needs a new library in build.gradle, which the implementation agent may not change.","what":"","why":"","changes":"","size":"none","spec":"",'"$NO_FACTS"'}'
 
 reply_with() {
   jq -c "$1" <<< "$SPEC_REPLY"
@@ -145,10 +146,26 @@ check "$(reply_with '.type = "bug"')"
 expect_status 0
 end
 
+for GOOD in \
+  '.assumed = ["a","b","c"]' \
+  '.assumed = ["goal of 8,000 steps; per user"]' \
+  '.what = "Mail to name@example.com is not sent"' \
+  '.why = "Fewer than 3 days -> no notice"' \
+  '.assumed = ["a","b","c","d","e","f","g","h"]' \
+  '.assumed = [("x" * 150)]' \
+  '.workaround = "Strength sets are left out; Garmin'"'"'s library would read them"' \
+  '.workaround = ("x" * 300)' \
+  '.facts = {access: true, existing: true, schema: true}'; do
+  begin "a spec with $GOOD is a reply"
+  check "$(reply_with "$GOOD")"
+  expect_status 0
+  end
+done
+
 for BAD in \
   '.kind = "maybe"' \
   '.type = "none"' \
-  '.risk = "huge"' \
+  '.risk = "low"' \
   '.size = "XL"' \
   '.what = ""' \
   '.why = "   "' \
@@ -158,16 +175,56 @@ for BAD in \
   '.spec = ("x" * 20001)' \
   '.spec = "keep <!-- factory-original:start --> this"' \
   '.extra = 1' \
-  'del(.risk)'; do
+  'del(.assumed)' \
+  'del(.workaround)' \
+  'del(.facts)' \
+  '.assumed = ["a","b","c","d","e","f","g","h","i"]' \
+  '.assumed = [" "]' \
+  '.assumed = ["one\ntwo"]' \
+  '.assumed = [("x" * 151)]' \
+  '.assumed = [1]' \
+  '.assumed = "default 8000"' \
+  '.workaround = "one\ntwo"' \
+  '.workaround = ("x" * 301)' \
+  '.workaround = 1' \
+  '.facts.schema = "yes"' \
+  'del(.facts.access)' \
+  '.facts.other = false' \
+  '.facts = []' \
+  '.assumed = ["goal 8,000 · range 1–100,000"]' \
+  '.assumed = ["friends of @eugenlinde see it"]' \
+  '.workaround = "ask @someone for the library"' \
+  '.what = "A goal, thanks @eugenlinde"' \
+  '.why = "default <!-- hidden"' \
+  '.changes = "a <b>bold</b> change"' \
+  '.assumed = ["below <!-- 8000"]'; do
   begin "a spec with $BAD is refused"
   check "$(reply_with "$BAD")"
   expect_status 1
   end
 done
 
-for BAD in '.questions = []' '.questions = ["a","b","c","d","e","f"]' '.questions = ["one\ntwo"]' '.questions = [("x" * 301)]' '.questions = [""]' '.questions = [1]'; do
+for BAD in '.questions = ["Ask @eugenlinde?"]' '.questions = ["Per day <!-- or week?"]' '.questions = []' '.questions = ["a","b","c","d","e","f"]' '.questions = ["one\ntwo"]' '.questions = [("x" * 301)]' '.questions = [""]' '.questions = [1]'; do
   begin "questions with $BAD are refused"
   check "$(jq -c "$BAD" <<< "$QUESTIONS")"
+  expect_status 1
+  end
+done
+
+for BAD in '.reason = "Ask @eugenlinde to add the library."' '.reason = "No library <!-- hidden"'; do
+  begin "out of reach with $BAD is refused"
+  check "$(jq -c "$BAD" <<< "$OUT_OF_REACH")"
+  expect_status 1
+  end
+done
+
+for BAD in '.assumed = ["a"]' '.workaround = "left out"' '.facts.existing = true'; do
+  begin "questions with $BAD are refused"
+  check "$(jq -c "$BAD" <<< "$QUESTIONS")"
+  expect_status 1
+  end
+  begin "out of reach with $BAD is refused"
+  check "$(jq -c "$BAD" <<< "$OUT_OF_REACH")"
   expect_status 1
   end
 done
@@ -488,6 +545,8 @@ expect_file_has "$BODY" "**What:** A daily steps goal on the dashboard"
 expect_file_has "$BODY" "**Why:** You want to see at a glance whether today is on track"
 expect_file_has "$BODY" "**What changes for you:** A goal line on the steps card; you set the goal once"
 expect_file_has "$BODY" "**Risk:** low · **Size:** S"
+expect_file_has "$BODY" "**Assumed:** nothing"
+expect_file_lacks "$BODY" "**Workaround:**"
 expect_file_has "$BODY" "**Source:** developer · **Written by:** spec agent, run 2"
 expect_file_has "$BODY" "<details><summary>Spec for the agent</summary>"
 expect_file_has "$BODY" "- \`StepsServiceTest\`: the goal is stored."
@@ -495,6 +554,96 @@ expect_file_has "$BODY" "<details><summary>Your original request (superseded by 
 if [ "$(sed -n '1,/^$/p' "$BODY" | grep -c .)" -gt 8 ]; then fail "the summary is longer than 8 lines"; fi
 expect_file_has "$CASE_DIR/result/comment.md" "$MARK"
 expect_file_has "$CASE_DIR/result/comment.md" "approved"
+end
+
+for CASE_FACTS in \
+  'low|{access: false, existing: false, schema: false}' \
+  'medium|{access: false, existing: false, schema: true}' \
+  'medium|{access: false, existing: true, schema: false}' \
+  'high|{access: true, existing: false, schema: false}' \
+  'high|{access: true, existing: true, schema: true}'; do
+  RISK=${CASE_FACTS%%|*}
+  FACTS=${CASE_FACTS#*|}
+  begin "facts $FACTS give risk $RISK"
+  export STUB_ISSUE_JSON
+  STUB_ISSUE_JSON=$(issue_json "goal" "")
+  write --reply "$(reply_file "$(reply_with ".facts = $FACTS")")" --original "$(original_file)"
+  expect_status 0
+  expect_file_has "$CASE_DIR/result/body.md" "**Risk:** $RISK · **Size:** S"
+  end
+done
+
+begin "three assumptions are shown and the spec is ready"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "needs-info")
+write --reply "$(reply_file "$(reply_with '.assumed = ["goal 8,000", "range 1–100,000", "no history"]')")" --original "$(original_file)"
+expect_status 0
+expect_output "written=spec"
+expect_log "--add-label spec-ready"
+expect_log "--remove-label needs-info"
+expect_file_has "$CASE_DIR/result/body.md" "**Assumed:** goal 8,000 · range 1–100,000 · no history"
+if [ "$(head -n 1 "$CASE_DIR/result/body.md")" != "**Decision needed:** add \`approved\` to build it, or comment what to change" ]; then fail "a ready spec asks to confirm"; fi
+end
+
+begin "four assumptions wait for confirmation"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "spec-ready")
+write --reply "$(reply_file "$(reply_with '.assumed = ["goal 8,000", "range 1–100,000", "no history", "others do not see it"]')")" --original "$(original_file)"
+expect_status 0
+expect_output "written=confirm"
+expect_log "gh issue edit 60 --repo eugenlinde/activity-tracker --body-file $CASE_DIR/result/body.md"
+expect_log "--add-label needs-info"
+expect_log "--remove-label spec-ready"
+expect_log "--add-label enhancement"
+expect_no_log "--add-label spec-ready"
+BODY="$CASE_DIR/result/body.md"
+expect_file_has "$BODY" "**Assumed:** goal 8,000 · range 1–100,000 · no history · others do not see it"
+if [ "$(head -n 1 "$BODY")" = "**Decision needed:** add \`approved\` to build it, or comment what to change" ]; then fail "a spec that waits does not say so first"; fi
+expect_file_has "$BODY" "**Decision needed:** confirm"
+COMMENT="$CASE_DIR/result/comment.md"
+expect_file_has "$COMMENT" "$MARK"
+expect_file_has "$COMMENT" "I assumed 4 things the issue did not say"
+for ITEM in "- goal 8,000" "- range 1–100,000" "- no history" "- others do not see it"; do
+  expect_file_has "$COMMENT" "$ITEM"
+done
+expect_file_has "$COMMENT" "approved"
+expect_file_has "$COMMENT" "Run 2 of 5"
+end
+
+begin "a workaround waits for confirmation even without assumptions"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "")
+write --reply "$(reply_file "$(reply_with '.workaround = "Strength sets are left out; reading them needs Garmin'"'"'s library"')")" --original "$(original_file)"
+expect_status 0
+expect_output "written=confirm"
+expect_log "--add-label needs-info"
+expect_no_log "--add-label spec-ready"
+expect_file_has "$CASE_DIR/result/body.md" "**Workaround:** Strength sets are left out; reading them needs Garmin's library"
+expect_file_has "$CASE_DIR/result/body.md" "**Assumed:** nothing"
+expect_file_has "$CASE_DIR/result/comment.md" "Strength sets are left out; reading them needs Garmin's library"
+expect_file_has "$CASE_DIR/result/comment.md" "add the missing piece yourself"
+expect_file_lacks "$CASE_DIR/result/comment.md" "I assumed"
+if [ "$(sed -n '1,/^$/p' "$CASE_DIR/result/body.md" | grep -c .)" -gt 8 ]; then fail "the summary is longer than 8 lines"; fi
+end
+
+begin "a bug spec that waits is labelled bug and loses enhancement"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "spec-ready,enhancement")
+write --reply "$(reply_file "$(reply_with '.type = "bug" | .workaround = "Strength sets are left out"')")" --original "$(original_file)"
+expect_output "written=confirm"
+expect_log "--add-label bug"
+expect_log "--remove-label enhancement"
+expect_log "--remove-label spec-ready"
+end
+
+begin "many assumptions and a workaround are both in the comment"
+export STUB_ISSUE_JSON
+STUB_ISSUE_JSON=$(issue_json "goal" "")
+write --reply "$(reply_file "$(reply_with '.assumed = ["a1", "a2", "a3", "a4", "a5"] | .workaround = "Strength sets are left out"')")" --original "$(original_file)"
+expect_output "written=confirm"
+expect_file_has "$CASE_DIR/result/comment.md" "I assumed 5 things the issue did not say"
+expect_file_has "$CASE_DIR/result/comment.md" "- a5"
+expect_file_has "$CASE_DIR/result/comment.md" "the spec takes another: Strength sets are left out"
 end
 
 begin "a bug spec is labelled bug and loses enhancement"
@@ -745,7 +894,8 @@ expect_output "outcome=unreadable"
 end
 
 begin "the reply schema is the one the check reads"
-for KEY in kind type questions reason what why changes risk size spec; do
+if jq -e '.properties | has("risk")' "$SPEC/reply-schema.json" > /dev/null; then fail "the schema still asks for a risk"; fi
+for KEY in kind type questions reason what why changes size spec assumed workaround facts; do
   if ! jq -e --arg key "$KEY" '.required | index($key)' "$SPEC/reply-schema.json" > /dev/null; then fail "the schema does not require $KEY"; fi
 done
 if [ "$(jq -r '.additionalProperties' "$SPEC/reply-schema.json")" != "false" ]; then fail "the schema allows other keys"; fi

@@ -10,25 +10,31 @@ fi
 if jq -es '
   def text($max): type == "string" and length <= $max and test("[^\\s]");
   def line($max): text($max) and (test("[\\n\\r]") | not);
+  def facts: type == "object" and (keys | sort) == ["access", "existing", "schema"] and all(.[]; type == "boolean");
+  def none: .assumed == [] and .workaround == "" and (.facts | facts) and all(.facts[]; . == false);
   length == 1 and (.[0]
     | type == "object"
-    and (keys | sort) == ["changes", "kind", "questions", "reason", "risk", "size", "spec", "type", "what", "why"]
+    and (keys | sort) == ["assumed", "changes", "facts", "kind", "questions", "reason", "size", "spec", "type", "what", "why", "workaround"]
     and (.questions | type == "array")
     and (
       (.kind == "questions"
         and (.questions | length >= 1 and length <= 5)
-        and all(.questions[]; line(300)))
+        and all(.questions[]; line(300))
+        and none)
       or (.kind == "spec"
         and (.type == "bug" or .type == "feature")
         and (.what | line(200))
         and (.why | line(200))
         and (.changes | line(200))
-        and (.risk == "low" or .risk == "medium" or .risk == "high")
         and (.size == "S" or .size == "M" or .size == "L")
         and (.spec | text(20000))
-        and (.spec | contains("factory-original") | not))
+        and (.spec | contains("factory-original") | not)
+        and (.assumed | type == "array" and length <= 8 and all(.[]; line(150)))
+        and (.workaround | type == "string" and (. == "" or line(300)))
+        and (.facts | facts))
       or (.kind == "out-of-reach"
-        and (.reason | text(1000)))
+        and (.reason | text(1000))
+        and none)
     ))' "$file" >/dev/null 2>&1; then
   exit 0
 fi

@@ -95,6 +95,14 @@ export interface WeightEntry {
   weightKg: number
 }
 
+export type DietStatus = 'ON_PLAN' | 'MORE' | 'LESS' | 'OUTSIDE'
+
+export interface DietEntry {
+  date: string
+  status: DietStatus
+  comment: string | null
+}
+
 export interface StepsGoal {
   goal: number
 }

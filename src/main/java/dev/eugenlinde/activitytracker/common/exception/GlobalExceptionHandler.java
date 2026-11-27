@@ -130,6 +130,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(DietEntryNotFoundException.class)
+    public ResponseEntity<Object> dietEntryNotFoundException(DietEntryNotFoundException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(InvalidEntryDateException.class)
     public ResponseEntity<Object> invalidEntryDateException(InvalidEntryDateException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);

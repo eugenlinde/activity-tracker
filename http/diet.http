@@ -1,0 +1,22 @@
+### Variables
+@baseUrl = http://localhost:8080
+
+### list diet entries for a date range
+GET {{baseUrl}}/api/diet?from=2026-11-01&to=2026-11-30
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### set the diet entry of a day
+PUT {{baseUrl}}/api/diet/2026-11-27
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "status": "MORE",
+  "comment": "Pizza night"
+}
+
+### clear the diet entry of a day
+DELETE {{baseUrl}}/api/diet/2026-11-27
+Content-Type: application/json
+Authorization: Bearer {{authToken}}

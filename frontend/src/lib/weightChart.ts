@@ -46,7 +46,14 @@ export function formatKg(value: number): string {
   return value.toFixed(1)
 }
 
+const DELTA_THRESHOLD = 0.05
+
 export function formatDelta(value: number): string {
-  if (Math.abs(value) < 0.05) return '0.0'
+  if (Math.abs(value) < DELTA_THRESHOLD) return '0.0'
   return `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}`
+}
+
+export function deltaDirection(value: number): 'down' | 'up' | 'same' {
+  if (Math.abs(value) < DELTA_THRESHOLD) return 'same'
+  return value < 0 ? 'down' : 'up'
 }

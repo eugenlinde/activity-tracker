@@ -1,5 +1,18 @@
 import type { ActivityDetails, Exercise, WorkoutSet } from '../api/types'
+import { ApiError } from '../api/client'
 import { isoToMinutes } from './duration'
+
+export function parseWorkoutId(param: string | undefined): number | null {
+  return param !== undefined && /^\d+$/.test(param) ? Number(param) : null
+}
+
+export function isNotFoundError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404
+}
+
+export function isWorkoutPageType(activityType: string): boolean {
+  return activityType === 'WEIGHTS'
+}
 
 export function setCount(details: ActivityDetails | null): number {
   return (details?.exerciseList ?? []).reduce((total, exercise) => total + (exercise.workoutSetList ?? []).length, 0)

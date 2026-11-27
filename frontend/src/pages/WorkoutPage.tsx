@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Button, Modal, Tag } from 'antd'
 import { activitiesApi } from '../api/activities'
-import { ApiError } from '../api/client'
 import type { ActivityRequest, ActivityResponse } from '../api/types'
 import { ActivityForm } from '../components/ActivityForm'
 import { ActivityMedia } from '../components/ActivityMedia'
@@ -16,6 +15,9 @@ import {
   formatTarget,
   formatVolume,
   formatWorkoutWhen,
+  isNotFoundError,
+  isWorkoutPageType,
+  parseWorkoutId,
   setCount,
   workoutVolume,
 } from '../lib/workout'
@@ -30,7 +32,7 @@ function BackLink() {
 
 export function WorkoutPage() {
   const { id: idParam } = useParams()
-  const id = idParam !== undefined && /^\d+$/.test(idParam) ? Number(idParam) : null
+  const id = parseWorkoutId(idParam)
   const [activity, setActivity] = useState<ActivityResponse | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [notFound, setNotFound] = useState(false)
@@ -44,7 +46,7 @@ export function WorkoutPage() {
       setNotFound(false)
       setError(null)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
+      if (isNotFoundError(err)) {
         setActivity(null)
         setNotFound(true)
         setError(null)
@@ -82,7 +84,7 @@ export function WorkoutPage() {
 
   if (!loaded) return <BackLink />
 
-  if (notFound || (activity !== null && activity.activityType !== 'WEIGHTS')) {
+  if (notFound || (activity !== null && !isWorkoutPageType(activity.activityType))) {
     return (
       <>
         <BackLink />

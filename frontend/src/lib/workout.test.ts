@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ActivityDetails, Exercise } from '../api/types'
+import { ApiError } from '../api/client'
 import {
+  isNotFoundError,
+  isWorkoutPageType,
+  parseWorkoutId,
   formatExerciseIndex,
   formatSetChip,
   formatTarget,
@@ -129,6 +133,33 @@ describe('formatSetChip', () => {
   it('shows a dash for a missing part', () => {
     expect(formatSetChip({ weight: null, reps: 8 })).toBe('— × 8')
     expect(formatSetChip({ weight: 80, reps: null })).toBe('80 × —')
+  })
+})
+
+describe('parseWorkoutId', () => {
+  it('parses digits only', () => {
+    expect(parseWorkoutId('42')).toBe(42)
+    expect(parseWorkoutId('abc')).toBeNull()
+    expect(parseWorkoutId('4a')).toBeNull()
+    expect(parseWorkoutId('-1')).toBeNull()
+    expect(parseWorkoutId('')).toBeNull()
+    expect(parseWorkoutId(undefined)).toBeNull()
+  })
+})
+
+describe('isNotFoundError', () => {
+  it('is true only for an ApiError with status 404', () => {
+    expect(isNotFoundError(new ApiError(404, null))).toBe(true)
+    expect(isNotFoundError(new ApiError(500, null))).toBe(false)
+    expect(isNotFoundError(new Error('x'))).toBe(false)
+    expect(isNotFoundError(null)).toBe(false)
+  })
+})
+
+describe('isWorkoutPageType', () => {
+  it('accepts only WEIGHTS', () => {
+    expect(isWorkoutPageType('WEIGHTS')).toBe(true)
+    expect(isWorkoutPageType('RUNNING')).toBe(false)
   })
 })
 

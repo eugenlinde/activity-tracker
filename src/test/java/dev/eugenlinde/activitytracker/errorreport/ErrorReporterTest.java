@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClient;
 
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -285,6 +286,106 @@ class ErrorReporterTest {
         assertEquals(16, first.length());
     }
 
+    private static final List<String> BROWSER_FRAMES =
+            List.of("/assets/index-AbC123.js:10:1234", "/assets/vendor-XyZ.js:5:6");
+
+    @Test
+    void browserReport_opensOneIssueWithAllParts() {
+        expectEmptyList();
+        server.expect(requestTo(CREATE_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.title")
+                        .value("Prod error (browser): TypeError at /assets/index-AbC123.js:10:1234"))
+                .andExpect(jsonPath("$.labels[0]").value("prod-error"))
+                .andExpect(jsonPath("$.labels.length()").value(1))
+                .andExpect(jsonPath("$.body", containsString("This report came from the frontend, not from the backend.")))
+                .andExpect(jsonPath("$.body", containsString("Page: /shared/:ownerId")))
+                .andExpect(jsonPath("$.body", containsString("Error: TypeError")))
+                .andExpect(jsonPath("$.body", containsString(
+                        "```\n/assets/index-AbC123.js:10:1234\n/assets/vendor-XyZ.js:5:6\n```")))
+                .andExpect(jsonPath("$.body", containsString("in the built bundle")))
+                .andExpect(jsonPath("$.body", containsString("Fingerprint: "
+                        + ErrorReporter.browserFingerprint("TypeError", BROWSER_FRAMES, "/shared/:ownerId"))))
+                .andRespond(withStatus(HttpStatus.CREATED));
+
+        reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/shared/:ownerId");
+
+        server.verify();
+    }
+
+    @Test
+    void browserReport_withOpenIssueOfSameFingerprint_opensNothing() {
+        String fingerprint = ErrorReporter.browserFingerprint("TypeError", BROWSER_FRAMES, "/");
+        server.expect(requestTo(LIST_URL))
+                .andRespond(withSuccess("[{\"body\":\"Fingerprint: " + fingerprint + "\"}]",
+                        MediaType.APPLICATION_JSON));
+
+        reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/");
+
+        server.verify();
+    }
+
+    @Test
+    void browserFingerprint_dependsOnNameFirstFrameAndRouteOnly() {
+        String base = ErrorReporter.browserFingerprint("TypeError", BROWSER_FRAMES, "/");
+
+        assertEquals(16, base.length());
+        assertEquals(base, ErrorReporter.browserFingerprint("TypeError",
+                List.of(BROWSER_FRAMES.get(0), "/other.js:1:1"), "/"));
+        assertNotEquals(base, ErrorReporter.browserFingerprint("RangeError", BROWSER_FRAMES, "/"));
+        assertNotEquals(base, ErrorReporter.browserFingerprint("TypeError",
+                List.of("/assets/other.js:1:1"), "/"));
+        assertNotEquals(base, ErrorReporter.browserFingerprint("TypeError", BROWSER_FRAMES, "/shares"));
+    }
+
+    @Test
+    void browserReport_withBlankToken_makesNoCall() {
+        properties.setGithubToken(" ");
+        build();
+
+        assertDoesNotThrow(() -> reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/"));
+        assertDoesNotThrow(() -> reporter.reportBrowser("TypeError", BROWSER_FRAMES, "/"));
+
+        server.verify();
+    }
+
+    @Test
+    void browserReport_sharesTheHourlyLimitWithBackendReports() {
+        for (int i = 0; i < 5; i++) {
+            expectEmptyList();
+            expectCreate();
+        }
+        for (int i = 0; i < 3; i++) {
+            reporter.reportNow(failWithMessage(), "GET", "/x");
+        }
+        reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/");
+        reporter.reportBrowserNow("RangeError", BROWSER_FRAMES, "/");
+        server.verify();
+
+        server.reset();
+        reporter.reportBrowserNow("EvalError", BROWSER_FRAMES, "/");
+        server.verify();
+    }
+
+    @Test
+    void browserReport_listFails_throwsNothing() {
+        server.expect(requestTo(LIST_URL)).andRespond(withServerError());
+
+        assertDoesNotThrow(() -> reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/"));
+
+        server.verify();
+    }
+
+    @Test
+    void browserReport_createFails_throwsNothing() {
+        expectEmptyList();
+        server.expect(requestTo(CREATE_URL)).andRespond(withServerError());
+
+        assertDoesNotThrow(() -> reporter.reportBrowserNow("TypeError", BROWSER_FRAMES, "/"));
+
+        server.verify();
+    }
+
     private ErrorReporter reporterWithInterceptor(ClientHttpRequestInterceptor interceptor) {
         RestClient configured = new ErrorReportClientConfig().errorReportRestClient(RestClient.builder(), properties);
         return new ErrorReporter(configured.mutate().requestInterceptor(interceptor).build(), properties, clock);
@@ -313,6 +414,25 @@ class ErrorReporterTest {
         });
 
         async.report(failWithMessage(), "GET", "/x");
+
+        assertTrue(created.await(5, TimeUnit.SECONDS));
+        assertEquals("error-reporter", postThread.get());
+        async.shutdown();
+    }
+
+    @Test
+    void reportBrowser_handsTheWorkToTheReporterThread() throws Exception {
+        CountDownLatch created = new CountDownLatch(1);
+        AtomicReference<String> postThread = new AtomicReference<>();
+        ErrorReporter async = reporterWithInterceptor((request, body, execution) -> {
+            if (request.getMethod() == HttpMethod.POST) {
+                postThread.set(Thread.currentThread().getName());
+                created.countDown();
+            }
+            return fakeResponse(request);
+        });
+
+        async.reportBrowser("TypeError", BROWSER_FRAMES, "/");
 
         assertTrue(created.await(5, TimeUnit.SECONDS));
         assertEquals("error-reporter", postThread.get());

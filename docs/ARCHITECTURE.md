@@ -1872,9 +1872,36 @@ tokens.
 
 **How to switch it off.** Empty the token and restart the backend.
 
-**Not covered yet.** Errors from the browser, errors outside a web
+**Not covered yet.** Errors outside a web
 request (start-up, background work), and closing or commenting on an
 issue when an error stops or repeats.
+
+### Errors in the browser (issue 93)
+
+**What it is.** The page listens for errors nobody caught (`window`
+`error` and `unhandledrejection`) and tells the backend with
+`POST /api/client-errors`, for signed-in users only. The backend hands the
+report to the same reporter as for backend errors: label `prod-error`,
+title `Prod error (browser): <name> at <first frame>`, and the issue says it
+came from the frontend and that the frames are from the built bundle.
+
+**What is sent.** Only the error's name (letters only, else `Error`), up to
+20 stack frames as path, line and column (no host, query or fragment), and
+the route pattern the router declares (`/shared/:ownerId`, or `*`).
+
+**What is never sent.** The error's message, the real address, anything
+from the page or from storage, the user's id. The backend checks every
+field by shape and length, answers 400 to anything else, and logs nothing
+from the request. A route with a digit is refused, so a real address with
+an id cannot get through.
+
+**Limits.** At most 3 reports per page load, counted per attempt; a failed
+report is ignored and never reported itself. On the backend the same rules
+as for backend errors: once only by fingerprint (first 16 hex characters of
+SHA-256 over `browser|<name>|<first frame>|<route>`), at most 5 issues per
+hour counted together with backend errors, off without a token. The
+frontend sends with a plain `fetch`, so a 401 on a report does not log the
+user out.
 
 ### The rule for anything that leaves the database (developer's decision, 2026-11-27)
 

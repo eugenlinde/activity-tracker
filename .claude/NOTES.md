@@ -711,3 +711,22 @@ maps onto this project. Nothing decided yet. Proposals given:
   one; all fixed. The review agent on PR #59 found two major ones;
   both fixed (details in DECISIONS).
 - Not seen in the repository yet: the workflow (drills after the merge).
+
+## 2026-11-27 — Spec agent's first real issue; conflict gap
+
+- Issue 61 (title only) → spec agent wrote a spec with defaults from
+  the code, no questions → developer added `approved` → pull request 62
+  → round 1 one major → first real fix round → round 2 passed. Merged
+  and deployed to prod (one new column, `users.steps_goal`). Slice 3
+  drill 1 recorded on issue 58.
+- Issue 39 got `approved` by the developer; the agent committed nothing
+  (the work is in `factory/`), pull request 60 closed: the `empty` path.
+- Pull request 56 is in conflict after 62. Gap recorded as issue 63;
+  the developer chose rebuild-from-spec, for slice 2c. Issue 63 opened
+  with a hand-written body: the spec agent skipped it, as designed.
+- Pull request 56: conflict resolved by hand (both sides kept; 483
+  backend tests green). The new review found one major (the summary
+  request missing from `http/steps.http`, a file that came with 62);
+  fixed by hand, next review clean; merged. Gap noted: after a push by
+  the developer a stale `review-passed` stays on the pull request.
+

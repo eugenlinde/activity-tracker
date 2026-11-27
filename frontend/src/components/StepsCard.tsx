@@ -73,7 +73,7 @@ export function StepsCard() {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Daily steps</h2>
+        <h2>Steps per day</h2>
         <Segmented size="small" options={RANGE_OPTIONS} value={days} onChange={setDays} aria-label="Range" />
       </div>
 

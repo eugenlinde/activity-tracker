@@ -139,9 +139,11 @@ piece in their own words before the phase is checked off.
                       line (78–80), a real conflict (81 → rebuilt as
                       83), the token exchange for a queue-started build,
                       a pull request only behind, the switch
-            - [ ] Review rubric vs. frontend tests: "no test" raised
+            - [x] Review rubric vs. frontend tests: "no test" raised
                   as major on frontend changes with no test runner
-                  (81, 83) → `needs-human`; developer's decision
+                  (81, 83) → `needs-human`. Developer chose a test
+                  runner (2026-11-27): Vitest 5.1.0 in CI; prompts and
+                  rubric updated
             - [ ] Analysis agent and a rebuild after a scrap
                   (postponed by the developer 2026-11-27)
         - [ ] Later: build the jar in a CI job that cannot publish, so

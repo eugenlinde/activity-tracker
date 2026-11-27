@@ -793,3 +793,13 @@ maps onto this project. Nothing decided yet. Proposals given:
   frontend changes (81, 83) though no test runner exists; fix agent
   cannot help → `needs-human`. Pull request 83 and issue 79 wait for
   the developer's decision (frontend test runner, or a rubric rule).
+
+## 2026-11-27 — Frontend tests
+
+- Developer chose a test runner. Vitest 5.1.0 (exact), `yarn test` in
+  CI before the build, first tests for `dates.ts` and `weightChart.ts`
+  (13 cases; a mutation of the delta threshold and of the Monday rule
+  each fail them). Implement, fix and spec prompts and the review
+  rubric say where frontend logic and its test go.
+- Pull request 83 and issue 79 (the colour change) still carry
+  `needs-human`; after this merge they can be rebuilt with a test.

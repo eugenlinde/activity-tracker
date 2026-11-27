@@ -66,7 +66,11 @@ more is there.)
      Postgres in Docker on that machine (Testcontainers), which is why the
      runner needs Docker. Takes about two minutes.
    - **`frontend`** installs Node 22, runs `yarn install`, `yarn lint`,
-     `yarn build` (the build includes the TypeScript type check). Takes
+     `yarn test` (Vitest: tests of the plain functions under
+     `frontend/src/lib/`, in `*.test.ts` files beside them; no browser
+     and no DOM, so components themselves are not unit-tested), and
+     `yarn build` (the build includes the TypeScript type check, test
+     files too). Takes
      under a minute. The lint step is mostly advisory today: only one
      rule (`react/rules-of-hooks`) is an error; everything else is a
      warning and does not fail the check. There are 5 known warnings.
@@ -1727,14 +1731,14 @@ all fixed with tests first.
   | Only behind | Merging 84 left 83 behind; Queue said `mergeable` and did nothing |
   | The switch | Off: Queue started by hand was skipped (by hand, not by a merge; the same condition decides both) |
 
-**Known gaps.**
-
-- The review agent can raise "no automated test" as major on a
-  frontend change although the frontend has no test runner and the
-  agent may not add one. The fix agent then commits nothing and the
-  pull request gets `needs-human` (81 and 83). Other reviews of the
-  same kind of change let it pass (82, 84). Open: the developer decides
-  between a frontend test runner and a rubric rule.
+**Seen in the drills, since fixed.** The review agent raised "no
+automated test" as major on a frontend change (81, 83) while the
+frontend had no test runner and the agent may not add one; the fix
+agent committed nothing and the pull request got `needs-human`. The
+developer chose a test runner (2026-11-27): Vitest, run by CI; the
+agents' prompts and the review rubric now say that frontend logic goes
+into a plain function under `frontend/src/lib/` with a test beside it,
+and that a component's markup needs no test.
 
 **How to stop it.** `FACTORY_ENABLED` not `true`: nothing runs and
 queued issues wait. To take one issue out of the line, remove

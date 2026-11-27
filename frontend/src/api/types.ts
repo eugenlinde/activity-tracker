@@ -44,6 +44,7 @@ export interface Exercise {
   name: string
   targetReps: string | null
   repsInReserve: string | null
+  targetSets: number | null
   comment: string | null
   videoUrl: string | null
   workoutSetList: WorkoutSet[] | null

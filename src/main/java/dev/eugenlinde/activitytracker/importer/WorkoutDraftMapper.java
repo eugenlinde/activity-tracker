@@ -20,6 +20,7 @@ public final class WorkoutDraftMapper {
                 exercise.name(),
                 exercise.targetReps(),
                 exercise.repsInReserve(),
+                null,
                 exercise.comment(),
                 exercise.videoUrl(),
                 exercise.reps().stream().map(reps -> new WorkoutSet(exercise.weight(), reps)).toList()

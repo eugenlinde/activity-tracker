@@ -325,6 +325,48 @@ a {
   }
 }
 
+.aerobic-head,
+.aerobic-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 44px 40px;
+  gap: 14px;
+  align-items: center;
+  padding: 0 8px 0 18px;
+}
+
+.aerobic-head {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.aerobic-head span:nth-child(3),
+.aerobic-minutes {
+  text-align: right;
+}
+
+.aerobic-row {
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  min-height: 64px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.aerobic-row:hover {
+  border-color: #3a414b;
+}
+
+@media (max-width: 760px) {
+  .aerobic-head,
+  .aerobic-row {
+    grid-template-columns: 62px minmax(0, 1fr) 44px 40px;
+    gap: 10px;
+    padding-left: 14px;
+    padding-right: 4px;
+  }
+}
+
 .person {
   display: flex;
   flex-wrap: wrap;

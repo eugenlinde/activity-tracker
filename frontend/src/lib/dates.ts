@@ -32,6 +32,14 @@ export function formatShortDate(isoDate: string): string {
   })
 }
 
+export function formatMonthName(isoDate: string): string {
+  return new Date(utcMillis(isoDate)).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })
+}
+
+export function formatWeekday(isoDate: string): string {
+  return new Date(utcMillis(isoDate)).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
+}
+
 export function formatLongToday(): string {
   return new Date().toLocaleDateString('en-GB', {
     weekday: 'long',

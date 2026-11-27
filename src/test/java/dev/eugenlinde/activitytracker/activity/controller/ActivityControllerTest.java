@@ -103,6 +103,38 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createActivity_whenCycling_returns201AndPassesTypeToService() throws Exception {
+        ActivityRequest activityRequest = new ActivityRequest(
+                ActivityType.CYCLING,
+                Instant.ofEpochSecond(123),
+                Duration.ofMinutes(30),
+                null,
+                "easy"
+        );
+        ActivityResponse activityResponse = new ActivityResponse(
+                1L,
+                userId,
+                ActivityType.CYCLING,
+                Instant.ofEpochSecond(123),
+                Duration.ofMinutes(30),
+                null,
+                "easy",
+                Instant.ofEpochSecond(1),
+                Instant.ofEpochSecond(1)
+        );
+        when(activityService.create(activityRequest, userId)).thenReturn(activityResponse);
+
+        mockMvc.perform(post("/api/activities")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(activityRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.activityType").value("CYCLING"));
+
+        verify(activityService).create(activityRequest, userId);
+    }
+
+    @Test
     void updateActivity_whenMissingBodyParameter_returns400() throws Exception {
         String invalidJson = """
                 {

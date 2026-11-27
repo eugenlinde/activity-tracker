@@ -61,7 +61,9 @@ export function ActivitiesPage() {
     setEditing(null)
   }
 
-  const sorted = [...activities].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+  const sorted = activities
+    .filter((activity) => activity.activityType === 'WEIGHTS')
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
   const formOpen = creating || editing !== null
 
   return (

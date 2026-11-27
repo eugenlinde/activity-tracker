@@ -4,5 +4,9 @@ public enum ActivityType {
     RUNNING,
     WEIGHTS,
     WALKING,
-    AEROBIC
+    AEROBIC,
+    CYCLING,
+    SWIMMING,
+    ROWING,
+    TREADMILL
 }

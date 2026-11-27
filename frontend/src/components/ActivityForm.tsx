@@ -18,7 +18,7 @@ interface Props {
 const TYPE_OPTIONS = ACTIVITY_TYPES.map((type) => ({ value: type, label: ACTIVITY_LABELS[type] }))
 
 export function ActivityForm({ initial, onSubmit, onCancel }: Props) {
-  const [activityType, setActivityType] = useState<ActivityType>(initial?.activityType ?? 'RUNNING')
+  const [activityType, setActivityType] = useState<ActivityType>(initial?.activityType ?? 'WEIGHTS')
   const [startedAt, setStartedAt] = useState(initial ? isoToLocalInput(initial.startedAt) : nowLocalInput())
   const [minutes, setMinutes] = useState(
     initial ? (initial.duration === null ? '' : String(isoToMinutes(initial.duration))) : '30',

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, daysBetween, formatShortDate, mondayOf } from './dates'
+import { addDays, daysBetween, formatMonthName, formatShortDate, formatWeekday, mondayOf } from './dates'
+
+describe('formatMonthName', () => {
+  it('writes the full English month name', () => {
+    expect(formatMonthName('2026-10-21')).toBe('October')
+    expect(formatMonthName('2026-01-01')).toBe('January')
+  })
+})
+
+describe('formatWeekday', () => {
+  it('writes the full English weekday', () => {
+    expect(formatWeekday('2026-10-21')).toBe('Wednesday')
+    expect(formatWeekday('2026-10-25')).toBe('Sunday')
+  })
+})
 
 describe('addDays', () => {
   it('moves forward and back across a month end', () => {

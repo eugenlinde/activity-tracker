@@ -1,6 +1,23 @@
-export type ActivityType = 'RUNNING' | 'WEIGHTS' | 'WALKING' | 'AEROBIC'
+export type ActivityType =
+  | 'RUNNING'
+  | 'WEIGHTS'
+  | 'WALKING'
+  | 'AEROBIC'
+  | 'CYCLING'
+  | 'SWIMMING'
+  | 'ROWING'
+  | 'TREADMILL'
 
-export const ACTIVITY_TYPES: ActivityType[] = ['RUNNING', 'WEIGHTS', 'WALKING', 'AEROBIC']
+export const ACTIVITY_TYPES: ActivityType[] = [
+  'RUNNING',
+  'WEIGHTS',
+  'WALKING',
+  'AEROBIC',
+  'CYCLING',
+  'SWIMMING',
+  'ROWING',
+  'TREADMILL',
+]
 
 export interface SignupRequest {
   email: string

@@ -5,6 +5,7 @@ import {
   AppstoreOutlined,
   CloseOutlined,
   ImportOutlined,
+  LineChartOutlined,
   LogoutOutlined,
   MenuOutlined,
   TeamOutlined,
@@ -15,6 +16,7 @@ import { useAuth } from '../auth/AuthContext'
 const NAV_ITEMS = [
   { key: '/', icon: <AppstoreOutlined />, label: 'Dashboard' },
   { key: '/activities', icon: <ThunderboltOutlined />, label: 'Workouts' },
+  { key: '/aerobic', icon: <LineChartOutlined />, label: 'Aerobic' },
   { key: '/shares', icon: <TeamOutlined />, label: 'Shares' },
   { key: '/import', icon: <ImportOutlined />, label: 'Import' },
 ]
@@ -22,6 +24,7 @@ const NAV_ITEMS = [
 function selectedKey(pathname: string): string {
   if (pathname.startsWith('/shares') || pathname.startsWith('/shared')) return '/shares'
   if (pathname.startsWith('/activities')) return '/activities'
+  if (pathname.startsWith('/aerobic')) return '/aerobic'
   if (pathname.startsWith('/import')) return '/import'
   return '/'
 }

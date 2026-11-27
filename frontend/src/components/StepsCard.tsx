@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Segmented } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { stepsApi } from '../api/steps'
 import type { StepsEntry } from '../api/types'
 import { addDays, formatShortDate, todayIso } from '../lib/dates'
@@ -8,6 +8,7 @@ import { buildStepsChart, formatSteps, STEPS_CHART, STEPS_GOAL, weeklyAverages }
 import { palette } from '../theme'
 import { DayEntryDialog } from './DayEntryDialog'
 import { ErrorMessage } from './ErrorMessage'
+import { StepsGoalDialog } from './StepsGoalDialog'
 
 const LOADED_DAYS = 56
 const BELOW_GOAL = '#3A414B'
@@ -23,6 +24,9 @@ export function StepsCard() {
   const [days, setDays] = useState(14)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [version, setVersion] = useState(0)
+  const [goal, setGoal] = useState<number | null>(null)
+  const [goalError, setGoalError] = useState<unknown>(null)
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false)
 
   const to = todayIso()
   const from = addDays(to, -(LOADED_DAYS - 1))
@@ -44,8 +48,26 @@ export function StepsCard() {
     }
   }, [from, to, version])
 
+  useEffect(() => {
+    let cancelled = false
+    stepsApi
+      .goal()
+      .then((saved) => {
+        if (cancelled) return
+        setGoal(saved.goal)
+        setGoalError(null)
+      })
+      .catch((err) => {
+        if (!cancelled) setGoalError(err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const activeGoal = goal ?? STEPS_GOAL
   const list = entries ?? []
-  const chart = buildStepsChart(list, to, days, STEPS_GOAL)
+  const chart = buildStepsChart(list, to, days, activeGoal)
   const averages = weeklyAverages(list, to)
 
   return (
@@ -66,7 +88,16 @@ export function StepsCard() {
         </div>
         <div className="stat-block">
           <div className="stat-label">Goal</div>
-          <div className="stat muted">{formatSteps(STEPS_GOAL)}</div>
+          <div className="stat muted">
+            {formatSteps(activeGoal)}
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              aria-label="Edit steps goal"
+              onClick={() => setGoalDialogOpen(true)}
+            />
+          </div>
         </div>
         <Button icon={<PlusOutlined />} onClick={() => setDialogOpen(true)} style={{ marginLeft: 'auto' }}>
           Add
@@ -74,6 +105,7 @@ export function StepsCard() {
       </div>
 
       <ErrorMessage error={error} />
+      <ErrorMessage error={goalError} />
 
       {entries !== null && chart.bars.length === 0 ? (
         <span className="muted">No steps logged in this period.</span>
@@ -83,7 +115,7 @@ export function StepsCard() {
             viewBox={`0 0 ${STEPS_CHART.width} ${STEPS_CHART.height}`}
             style={{ width: '100%', height: 'auto', display: 'block' }}
             role="img"
-            aria-label={`Daily steps for the last ${days} days with the goal line at ${formatSteps(STEPS_GOAL)}`}
+            aria-label={`Daily steps for the last ${days} days with the goal line at ${formatSteps(activeGoal)}`}
           >
             <line
               x1={STEPS_CHART.left}
@@ -130,6 +162,13 @@ export function StepsCard() {
           </div>
         </>
       )}
+
+      <StepsGoalDialog
+        open={goalDialogOpen}
+        goal={activeGoal}
+        onClose={() => setGoalDialogOpen(false)}
+        onSaved={setGoal}
+      />
 
       <DayEntryDialog
         open={dialogOpen}

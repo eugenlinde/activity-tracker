@@ -1,0 +1,16 @@
+### Variables
+@baseUrl = http://localhost:8080
+
+### get steps goal
+GET {{baseUrl}}/api/steps/goal
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### set steps goal
+PUT {{baseUrl}}/api/steps/goal
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "goal": 10000
+}

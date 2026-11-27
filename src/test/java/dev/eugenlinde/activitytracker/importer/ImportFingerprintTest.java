@@ -14,7 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImportFingerprintTest {
 
     private static Session session(String name, String comment, String targetReps, WorkoutSet... sets) {
-        return new Session("1", List.of(new Exercise(name, targetReps, null, comment, null, List.of(sets))));
+        return new Session("1", List.of(new Exercise(name, targetReps, null, null, comment, null, List.of(sets))));
+    }
+
+    private static Session sessionWithTargetSets(Integer targetSets) {
+        return new Session("1", List.of(new Exercise("Kükk", null, null, targetSets, null, null, List.of(new WorkoutSet(100.0, 5)))));
+    }
+
+    @Test
+    void of_ignoresTargetSets() {
+        assertEquals(
+                ImportFingerprint.of(sessionWithTargetSets(null)),
+                ImportFingerprint.of(sessionWithTargetSets(4))
+        );
     }
 
     @Test
@@ -84,8 +96,8 @@ class ImportFingerprintTest {
     @Test
     void of_twoExercisesAreNotTheSameAsOneWithJoinedSets() {
         Session two = new Session("1", List.of(
-                new Exercise("Kükk", null, null, null, null, List.of(new WorkoutSet(100.0, 5))),
-                new Exercise("Kükk", null, null, null, null, List.of(new WorkoutSet(100.0, 5)))
+                new Exercise("Kükk", null, null, null, null, null, List.of(new WorkoutSet(100.0, 5))),
+                new Exercise("Kükk", null, null, null, null, null, List.of(new WorkoutSet(100.0, 5)))
         ));
 
         assertNotEquals(

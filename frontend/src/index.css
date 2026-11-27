@@ -505,6 +505,52 @@ a {
   margin-top: 6px;
 }
 
+.back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.workout-notes {
+  margin: 16px 0 0;
+  white-space: pre-wrap;
+}
+
+.workout-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+  padding: 20px 24px;
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.exercise-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.exercise-card-index {
+  flex: 0 0 28px;
+  color: var(--muted);
+  font-size: 13px;
+  padding-top: 2px;
+}
+
+.exercise-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .media-item {
   display: flex;
   flex-direction: column;

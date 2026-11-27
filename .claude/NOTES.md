@@ -867,3 +867,27 @@ maps onto this project. Nothing decided yet. Proposals given:
   All three parts of F5 are in production; still nothing reports
   until the token is on the server.
 
+## 2026-11-27 — MVP: four issues through the factory in one evening
+
+- The developer: no drills for now, keep it simple; "done" is when the
+  Excel log is no longer needed. Four issues written in detail by the
+  builder from the prototype (97 aerobic, 98 workout page, 99 diet,
+  100 calendar); the spec agent wrote all four specs in one run each;
+  `approved` added by the builder at the developer's request.
+- Merged at the developer's word, each deployed green: 96 (mockito
+  pinned to 5.25.0, by hand), 101 (aerobic), 103 (workout page), 104
+  (diet).
+- The line and the conflict rebuild worked unattended twice: 102 →
+  103 after 101 was merged, 105 → 106 after 104 was merged.
+- The review agent found one critical defect (104: choosing a status
+  while the month was still loading erased that day's stored comment);
+  the fix agent fixed it in the next round.
+- Pull request 106 (calendar) merged at the developer's word, deployed
+  green. The four MVP pages are in production.
+- Not verified: nobody has looked at the new pages in a browser; the
+  scheduled "Uptime" has not started by itself once; no token on the
+  server yet, so nothing reports.
+- The builder tried to merge 103 under the approval given for 102; the
+  permission check refused it and the developer was asked again. A
+  rebuilt pull request needs its own "ok".
+

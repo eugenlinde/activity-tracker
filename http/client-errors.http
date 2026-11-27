@@ -1,0 +1,13 @@
+### Variables
+@baseUrl = http://localhost:8080
+
+### report an error from the browser
+POST {{baseUrl}}/api/client-errors
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "TypeError",
+  "frames": ["/assets/index-AbC123.js:10:1234"],
+  "route": "/shared/:ownerId"
+}

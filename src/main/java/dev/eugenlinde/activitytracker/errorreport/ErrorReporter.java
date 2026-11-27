@@ -23,6 +23,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -78,7 +79,40 @@ public class ErrorReporter {
         }
     }
 
+    public void reportBrowser(String name, List<String> frames, String route) {
+        try {
+            if (!properties.isEnabled()) {
+                return;
+            }
+            executor.execute(() -> reportBrowserNow(name, frames, route));
+        } catch (RejectedExecutionException rejected) {
+            log.warn("Error report dropped: queue is full");
+        } catch (Exception failure) {
+            log.warn("Error report failed: {}", failure.getClass().getName());
+        }
+    }
+
     public void reportNow(Throwable throwable, String httpMethod, String routePattern) {
+        openOnce(now -> {
+            String fingerprint = fingerprint(throwable);
+            String method = httpMethod != null && HTTP_METHOD.matcher(httpMethod).matches() ? httpMethod : "unknown";
+            String route = routePattern != null && !routePattern.isBlank() ? routePattern : "unknown";
+            return new IssueDraft(fingerprint, title(throwable), body(throwable, method, route, now, fingerprint));
+        });
+    }
+
+    public void reportBrowserNow(String name, List<String> frames, String route) {
+        openOnce(now -> {
+            String fingerprint = browserFingerprint(name, frames, route);
+            return new IssueDraft(fingerprint, browserTitle(name, frames),
+                    browserBody(name, frames, route, now, fingerprint));
+        });
+    }
+
+    private record IssueDraft(String fingerprint, String title, String body) {
+    }
+
+    private void openOnce(Function<Instant, IssueDraft> drafter) {
         try {
             if (!properties.isEnabled()) {
                 return;
@@ -94,16 +128,14 @@ public class ErrorReporter {
                 return;
             }
 
-            String fingerprint = fingerprint(throwable);
-            if (alreadyOpen(repo, fingerprint)) {
+            IssueDraft draft = drafter.apply(now);
+            if (alreadyOpen(repo, draft.fingerprint())) {
                 return;
             }
 
-            String method = httpMethod != null && HTTP_METHOD.matcher(httpMethod).matches() ? httpMethod : "unknown";
-            String route = routePattern != null && !routePattern.isBlank() ? routePattern : "unknown";
             Map<String, Object> issue = Map.of(
-                    "title", title(throwable),
-                    "body", body(throwable, method, route, now, fingerprint),
+                    "title", draft.title(),
+                    "body", draft.body(),
                     "labels", List.of(LABEL)
             );
 
@@ -171,6 +203,38 @@ public class ErrorReporter {
         } catch (java.security.NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
+    }
+
+    static String browserFingerprint(String name, List<String> frames, String route) {
+        String input = "browser|" + name + "|" + frames.get(0) + "|" + route;
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash).substring(0, 16);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    static String browserTitle(String name, List<String> frames) {
+        return "Prod error (browser): " + name + " at " + frames.get(0);
+    }
+
+    static String browserBody(String name, List<String> frames, String route, Instant now, String fingerprint) {
+        StringBuilder text = new StringBuilder();
+        text.append("The browser hit an error nobody caught at ").append(now)
+                .append(". This report came from the frontend, not from the backend.\n\n");
+        text.append("Page: ").append(route).append("\n\n");
+        text.append("Error: ").append(name).append("\n\n");
+        text.append("```\n");
+        for (String frame : frames) {
+            text.append(frame).append('\n');
+        }
+        text.append("```\n\n");
+        text.append("The frames are file, line and column in the built bundle, not in the source files.\n\n");
+        text.append("Fingerprint: ").append(fingerprint).append("\n\n");
+        text.append("Find the cause, fix it, and add a test that reproduces it. "
+                + "The error's message is not shown here on purpose; the browser never sends it.");
+        return text.toString();
     }
 
     static String title(Throwable throwable) {

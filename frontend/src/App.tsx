@@ -1,6 +1,15 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
+import {
+  ACTIVITIES_ROUTE,
+  DASHBOARD_ROUTE,
+  FALLBACK_ROUTE,
+  IMPORT_ROUTE,
+  LOGIN_ROUTE,
+  SHARED_ROUTE,
+  SHARES_ROUTE,
+} from './lib/routes'
 import { ActivitiesPage } from './pages/ActivitiesPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ImportPage } from './pages/ImportPage'
@@ -11,15 +20,15 @@ import { SharesPage } from './pages/SharesPage'
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path={LOGIN_ROUTE} element={<LoginPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/activities" element={<ActivitiesPage />} />
-          <Route path="/shares" element={<SharesPage />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/shared/:ownerId" element={<SharedLogPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path={DASHBOARD_ROUTE} element={<DashboardPage />} />
+          <Route path={ACTIVITIES_ROUTE} element={<ActivitiesPage />} />
+          <Route path={SHARES_ROUTE} element={<SharesPage />} />
+          <Route path={IMPORT_ROUTE} element={<ImportPage />} />
+          <Route path={SHARED_ROUTE} element={<SharedLogPage />} />
+          <Route path={FALLBACK_ROUTE} element={<Navigate to={DASHBOARD_ROUTE} replace />} />
         </Route>
       </Route>
     </Routes>

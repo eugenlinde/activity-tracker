@@ -6,9 +6,6 @@ understands the factory. Design:
 The pre-pivot roadmap (learning phases 0–7, debt lists) is kept privately
 by the developer, outside the repo.
 
-Each phase ends with an explain-back checkpoint: the developer explains the
-piece in their own words before the phase is checked off.
-
 ## Factory phases
 
 - [x] **F0 — Pivot groundwork** (done 2026-11-12)
@@ -18,8 +15,7 @@ piece in their own words before the phase is checked off.
     - [x] `docs/ARCHITECTURE.md` skeleton (describes today's local-only setup)
     - [x] Implementation plan for F1 (`docs/superpowers/plans/2026-11-12-f1-repo-and-ci.md`), awaiting review
     - [x] First commit of the pivot docs
-- [x] **F1 — Repo and CI** (built and verified 2026-11-12; explain-back
-      deferred by the developer 2026-11-13 — see Understanding debt)
+- [x] **F1 — Repo and CI** (built and verified 2026-11-12)
     - [x] Private GitHub repo `eugenlinde/activity-tracker`, history pushed,
           `.claude/` tracked (2026-11-12)
     - [x] CI on every PR: backend build + tests (Testcontainers), frontend
@@ -34,8 +30,6 @@ piece in their own words before the phase is checked off.
     - [x] Developer: the Claude Code subscription allows runs in GitHub
           Actions → plan A (said by the developer 2026-11-19; not yet
           tried with a real run)
-    - [ ] Explain-back: what CI does on a PR and what a red check means
-          — deferred
 - [ ] **F2 — First deploy** (planned 2026-11-13:
       `docs/superpowers/plans/2026-11-13-f2-first-deploy.md`; waits for the
       developer's server, domain, backup bucket and invited emails)
@@ -63,9 +57,8 @@ piece in their own words before the phase is checked off.
           (2026-11-16: first snapshot stored, restore rehearsed and row
           counts matched — on a database with no user data yet; repeat
           once real data exists)
-    - [ ] Explain-back: path of a request, where data lives, how to restore
-- [ ] **F3 — Staging** (built and drilled 2026-11-23; explain-back
-      deferred like the others — spec: issue #22, approved 2026-11-19; plan:
+- [x] **F3 — Staging** (built and drilled 2026-11-23 — spec: issue #22,
+      approved 2026-11-19; plan:
       `docs/superpowers/plans/2026-11-19-f3-staging.md`)
     - [x] Scripts, compose override, proxy configuration, workflows —
           written, 79 script tests, rehearsed on the laptop with both
@@ -80,7 +73,6 @@ piece in their own words before the phase is checked off.
           `docs/ARCHITECTURE.md`, "Staging".
     - [x] The developer's own look at staging (an account exists there
           since 2026-11-23)
-    - [ ] Explain-back: how staging differs from prod and who can reach it
 - [ ] **F4 — Factory loop** (four slices, each with its own issue)
     - [x] Slice 1, issue #28: runtime proof + review agent, report only
           (plan A proven 2026-11-23: the review runs in GitHub Actions on
@@ -91,8 +83,6 @@ piece in their own words before the phase is checked off.
               `FACTORY_ENABLED` on; the drills from the spec, all passed
               (2026-11-23; results in `docs/ARCHITECTURE.md`, "Factory:
               review agent")
-        - [ ] Explain-back: what the reviewer sees, what it cannot do,
-              how to stop it
     - [ ] Slice 2: implementation agent with fix and analysis agents,
           the gate deciding. Identity: Claude's official GitHub App; the
           agent runs no commands (the developer's decisions of
@@ -109,8 +99,6 @@ piece in their own words before the phase is checked off.
                   things ended empty. Not drilled: a stranger's label or
                   issue (needs a second account); the tool limits in the
                   real workflow (the agent declined before trying)
-            - [ ] Explain-back: what starts a build, what the agent can
-                  and cannot do, what the check does, how to stop it
         - [x] 2b, issue #47: the gate reads CI and findings; fix agent,
               three rounds (spec approved 2026-11-24; done 2026-11-26)
             - [x] Probe (2026-11-25, PRs #49, #51): the token exchange
@@ -124,10 +112,8 @@ piece in their own words before the phase is checked off.
                   Haiku (#55 → #56) and passed in round 1 instead. Not
                   drilled, by the developer's decision: a real fix round
                   and a scrap; the first real failure shows them
-            - [ ] Explain-back: one round, what the gate decides, what
-                  stops the loop, how to stop it
         - [ ] 2c: analysis agent and one automatic rebuild
-            - [ ] Issue #63: a factory pull request in conflict with
+            - [x] Issue #63: a factory pull request in conflict with
                   `main` is closed and rebuilt from the spec on the
                   current `main`; at most 2 open factory pull requests,
                   the rest wait as `queued` (spec approved 2026-11-27)
@@ -148,7 +134,7 @@ piece in their own words before the phase is checked off.
                   (postponed by the developer 2026-11-27)
         - [ ] Later: build the jar in a CI job that cannot publish, so
               that the agent may change `build.gradle`
-    - [ ] Slice 3, issue #58: spec agent (triage and spec in one; spec
+    - [x] Slice 3, issue #58: spec agent (triage and spec in one; spec
           approved 2026-11-26)
         - [x] Built (2026-11-26): `spec.yml`, `factory/spec/`, shared
               `factory/run-agent.sh`; script tests, 38 rules
@@ -158,7 +144,7 @@ piece in their own words before the phase is checked off.
               spec (65), out of reach (67; 66 became slice 3b), the
               switch (71, 2026-11-27: Spec run started, both jobs
               skipped); recorded on #58, closed
-        - [ ] Slice 3b, issue #68: assumptions listed, a workaround or
+        - [x] Slice 3b, issue #68: assumptions listed, a workaround or
               more than 3 assumptions wait for confirmation, risk
               computed from facts (spec approved 2026-11-27)
             - [x] Built (2026-11-27): script tests, 43 rules
@@ -170,8 +156,6 @@ piece in their own words before the phase is checked off.
                   assumptions (74); a precise request needing an Excel
                   library → waiting spec with 8 assumptions and a
                   workaround, then "ok" → `spec-ready` (75)
-        - [ ] Explain-back: what starts it, the three answers, where the
-              spec lives, how to stop it
     - [ ] Slice 4: acceptance — one issue from label to a tested pull
           request on staging without an interactive session
     - [ ] Review loop: 3 rounds, scrap and rebuild (design approved
@@ -180,32 +164,13 @@ piece in their own words before the phase is checked off.
               not yet drilled on a real PR)
         - [ ] Part 2: review, fix, analysis agents (after plan A/B)
     - [ ] Label-driven hand-offs; nothing merges without the developer
-    - [ ] Explain-back: every step of the loop and how to stop it
 - [ ] **F5 — Monitoring loop**
     - [ ] Sentry (backend + frontend) → GitHub issues
     - [ ] External uptime check on the health endpoint
-    - [ ] Explain-back: what happens between an exception and an issue
 - [ ] **F6 — PoC acceptance**
     - [ ] One real bug or feature goes phone → triage → spec → code → tests
           → staging → "ok" → prod → monitoring, with no code from the developer
     - [ ] Write-up: time taken, number of human interventions, what broke
-
-## Understanding debt
-
-Explain-back checkpoints the developer chose to postpone until the MVP is
-usable (decided 2026-11-13). `docs/ARCHITECTURE.md` is still kept current
-with every change, so the explanations exist to read later. To be paid
-back before F6 (PoC acceptance) at the latest.
-
-- F3: how staging differs from production, what the two share, who can
-  reach it, how to wipe it and how to stop it.
-- F1: what happens when a PR is opened; what a red check means and where
-  to look; why the test suite needs Docker on the CI machine; what
-  protects `main` and what does not.
-- F4 slice 1: what the review agent sees, what it cannot do, how to
-  stop it.
-- F4 slice 2a: what starts a build, what the implementation agent can
-  and cannot do, what the check after it does, how to stop it.
 
 ## Product backlog
 
@@ -255,5 +220,5 @@ Still relevant for going public:
 
 - JWT in `localStorage`, no refresh token, 24 h expiry
 - 403 on a foreign activity id reveals that the id exists (accepted)
-- No frontend tests
+- No frontend component (DOM) tests; Vitest covers `frontend/src/lib/` since 2026-11-27
 - `ShareResponse.email` has two meanings

@@ -1724,3 +1724,11 @@ those; markup is checked by the developer on staging. Test files stay
 in the TypeScript build, so they are type-checked. Cost if wrong: a
 bug that lives only in a component's markup is not caught by CI; adding
 a DOM library later is one dev dependency.
+
+## 2026-11-27 — Phase checkpoints asking the developer to explain back are dropped (developer's decision)
+
+Removed from `CLAUDE.md`, the roadmap and the design doc; phases are
+checked off when their work and drills are done. Older entries in this
+log and in NOTES that mention the checkpoint are history only. The
+anti-goal itself stays: plain-language explanations before approval and
+`docs/ARCHITECTURE.md` kept current.

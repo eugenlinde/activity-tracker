@@ -47,9 +47,6 @@ every check is green. This outranks speed and automation:
   runs where, how a change flows from issue to prod, where secrets live,
   how to restore a backup, and how to stop the factory. Updated in the same
   PR as any change to infra or the factory.
-- At each infra/factory milestone the reviewer asks the developer to
-  explain the piece back (draw the flow, say what happens when X fails).
-  The milestone is not checked off until they can.
 - Prefer fewer, boring moving parts over clever ones, specifically so the
   whole system fits in one head.
 

@@ -137,7 +137,7 @@ export function DietPage() {
                 key={cell.date}
                 type="button"
                 className={cell.future ? 'diet-day future' : 'diet-day'}
-                disabled={cell.future}
+                disabled={cell.future || entries === null}
                 aria-label={dayAriaLabel(cell.date, entry?.status)}
                 onClick={() => setSelected(cell.date)}
               >

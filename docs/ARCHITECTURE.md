@@ -1166,16 +1166,26 @@ rules of issue 68 mutation-checked. The review agent's tests
   step sees it and writes nothing; if the label lands in the second
   between that check and the write, the spec may change after the
   approval.
-- GitHub drops a job's output when it contains the value of one of the
-  job's secrets ("Skip output 'reply' since it may contain secret").
-  On issue 89 (2026-11-27) this happened on both runs: the agent
-  answered, the writer received nothing and stopped with "the spec
-  agent's run failed". Which value matched is not known; the reply was
-  not kept. Since then the agent's job prints the reply into its log,
-  where the same masking shows `***` in place of whatever matched, so
-  the next case can be read from the run. The spec for issue 89 was
-  written by hand. Not fixed: the comment on the issue still does not
-  say that the reply was withheld.
+- GitHub's runner drops a job's output when it looks as if it holds a
+  secret ("Skip output ... since it may contain secret"), and it takes
+  the word `Bearer` followed by any value for one, a placeholder
+  included. Agent text travels between jobs as outputs in three
+  places: the spec agent's reply, the prompt handed to the
+  implementation and fix agents (it carries the issue's text), and the
+  review agent's findings. On issue 89 (2026-11-27) a spec that showed
+  the `Authorization` header was dropped three times: twice the spec
+  agent's reply (the issue got "the spec agent's run failed"), once a
+  hand-written spec on its way to the implementation agent (the agent
+  got no spec and wrote nothing). Found with a throw-away workflow that
+  printed the text into its log, where the same masking shows `***`.
+  What is done: the spec and review prompts forbid that wording, and
+  the spec job prints its reply into the log so that a dropped one can
+  be read there. Not fixed: an issue whose own text has that wording is
+  still dropped on its way to the implementation agent, and none of the
+  comments says that this is what happened. The real fix (hand the text
+  over in a way the masking does not see, with the factory's own check
+  for the Claude token in front of it) is a change to how secrets are
+  guarded and waits for the developer's decision.
 - Issues opened before slice 3 get no spec unless "Spec" is started by
   hand for them.
 - Any comment by the developer on a `spec-ready` issue starts a rewrite,

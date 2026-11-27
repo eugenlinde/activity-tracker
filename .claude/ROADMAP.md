@@ -205,10 +205,12 @@ developer's call; this is the suggested one.
       should be a fixed version (one CI run failed on its download);
       the scheduled backup check runs about nine hours late whatever
       time it asks for (alarm to the server side in F5).
-- [ ] Spec agent: GitHub withheld its answer twice on issue #89 ("may
-      contain secret"). Find what matched from the next run's log (the
-      reply is printed there since 2026-11-27), then fix: either the
-      cause, or at least a comment that says the reply was withheld.
+- [ ] Factory: text with the word `Bearer` and a value after it is
+      dropped between jobs by GitHub's runner (found on issue #89,
+      2026-11-27; ARCHITECTURE, spec agent, "Known gaps"). Prompts now
+      forbid the wording. Open: hand agent text over as a file with the
+      factory's own token check, and say so on the issue when a text
+      was dropped. Needs the developer's decision.
 - [ ] Restore drill with real data — the first one ran on an empty
       database; production holds real entries since 2026-11-18.
 - [ ] Later for import: Excel files, aerobic and diet rows, workout

@@ -825,10 +825,12 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Issue 89 (backend errors → `prod-error` issue) opened from the
   developer's account. The spec agent answered twice and GitHub
   withheld the answer both times ("Skip output 'reply' since it may
-  contain secret"); `needs-human` each time. Cause not found: the
-  factory environment only runs on `main`, so no diagnostic run from a
-  branch. Spec then written by hand into the issue, `approved` added by
-  the builder at the developer's request → "Implement" started.
+  contain secret"); `needs-human` each time. A hand-written spec was
+  dropped the same way on its way to the implementation agent (pull
+  request 90 closed empty). Cause found with a throw-away workflow on
+  branch `probe/masked-output` (deleted again): the runner masks the
+  word `Bearer` followed by any value. Spec reworded, `approved` added
+  again by the builder at the developer's request.
 - Branch `f5-monitoring-infra` (by hand): `ERROR_REPORT_GITHUB_TOKEN`
   and `ERROR_REPORT_GITHUB_REPO` in `infra/compose.yml`, workflow
   "Uptime" (SSH to the server, health address, issue `prod-down`),

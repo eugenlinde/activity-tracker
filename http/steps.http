@@ -14,3 +14,8 @@ Authorization: Bearer {{authToken}}
 {
   "goal": 10000
 }
+
+### get steps summary for a date range
+GET {{baseUrl}}/api/steps/summary?from=2026-11-01&to=2026-11-30
+Content-Type: application/json
+Authorization: Bearer {{authToken}}

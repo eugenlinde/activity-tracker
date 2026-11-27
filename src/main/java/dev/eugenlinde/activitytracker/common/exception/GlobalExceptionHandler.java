@@ -111,6 +111,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InvalidDateRangeException.class)
+    public ResponseEntity<Object> invalidDateRangeException(InvalidDateRangeException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(EmptyImportFileException.class)
     public ResponseEntity<Object> emptyImportFileException(EmptyImportFileException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);

@@ -4,6 +4,7 @@ import dev.eugenlinde.activitytracker.steps.dto.StepsGoalRequest;
 import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsRequest;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
+import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.service.StepsService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -38,6 +39,15 @@ public class StepsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return ResponseEntity.ok(stepsService.findAll(userId(jwt), from, to));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<StepsSummaryResponse> getSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ResponseEntity.ok(stepsService.summarize(userId(jwt), from, to));
     }
 
     @GetMapping("/goal")

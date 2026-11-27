@@ -1552,6 +1552,13 @@ half an hour.
   conflict, and nothing in the factory notices one. Seen on pull
   request 56 after pull request 62. The chosen fix, rebuilding from the
   spec on the current `main`, is issue 63 and belongs with slice 2c.
+- After a push by the developer, the review still runs, but the gate
+  does nothing (`not-the-app`), and the labels stay as they were. A
+  pull request can then show `review-passed` while the newest review
+  has a major finding. Seen on pull request 56: a merge of `main` by
+  hand brought in `http/steps.http`, and the spec's condition for
+  adding the summary request to it became true. Read the newest review
+  comment, not only the label, after pushing to a factory pull request.
 
 **How to stop it.** Set `FACTORY_ENABLED` to anything but `true`:
 nothing in "Review", "Implement" or the loop runs. To stop one pull

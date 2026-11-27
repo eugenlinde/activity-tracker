@@ -724,4 +724,9 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Pull request 56 is in conflict after 62. Gap recorded as issue 63;
   the developer chose rebuild-from-spec, for slice 2c. Issue 63 opened
   with a hand-written body: the spec agent skipped it, as designed.
+- Pull request 56: conflict resolved by hand (both sides kept; 483
+  backend tests green). The new review found one major (the summary
+  request missing from `http/steps.http`, a file that came with 62);
+  fixed by hand, next review clean; merged. Gap noted: after a push by
+  the developer a stale `review-passed` stays on the pull request.
 

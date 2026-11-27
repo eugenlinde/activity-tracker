@@ -58,7 +58,7 @@ export function WeightCard() {
             </span>
             {list.length > 1 && (
               <span className="muted">
-                {formatDelta(latest.weightKg - first.weightKg)} kg since {formatShortDate(first.date)}
+                {formatDelta(latest.weightKg - first.weightKg)} kg since {formatShortDate(first.date)} ({list.length} weigh-ins)
               </span>
             )}
           </>

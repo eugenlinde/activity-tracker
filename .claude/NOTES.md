@@ -803,3 +803,14 @@ maps onto this project. Nothing decided yet. Proposals given:
   rubric say where frontend logic and its test go.
 - Pull request 83 and issue 79 (the colour change) still carry
   `needs-human`; after this merge they can be rebuilt with a test.
+
+## 2026-11-27 — Issue 79 to prod; checkpoints dropped
+
+- Pull requests 85 and 86 merged by the builder at the developer's
+  request; pull request 83 closed; issue 79 rebuilt as 87, which wrote
+  its own Vitest test, passed review in round 1 and was merged at the
+  developer's request (deployed, green). Issue 79 went from text to
+  prod with no code from the developer.
+- The developer dropped the phase checkpoints; `CLAUDE.md`, ROADMAP and
+  the design doc updated. F3, slice 3, slice 3b and issue 63 ticked.
+- No open issues or pull requests. Next: F5 (monitoring).

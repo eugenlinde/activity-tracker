@@ -29,10 +29,6 @@ factory that works but is a black box to its owner is a failure.
   runs where, how a change flows from issue to prod, where secrets live,
   how to restore a backup, how to stop the factory. Update it in the same
   change as any infra or factory change.
-- At the end of each roadmap phase, ask the developer to explain the piece
-  back in their own words (draw the flow, say what happens when X breaks).
-  Do not check the phase off until they can. If they can't, the gap is
-  yours to close — explain better or simplify the thing.
 - Prefer fewer, boring moving parts. The whole system should fit in one
   head.
 
@@ -85,7 +81,7 @@ the manual and automated versions stay the same shape.
 
 `.claude/ROADMAP.md` is the living copy with detail. Work in order; flag it
 if the developer wants to skip ahead (their call — name the trade-off
-first). Each phase ends with the explain-back checkpoint above.
+first).
 
 - [ ] **F0 — Pivot groundwork** — design doc, these instructions, prototype
       in the repo, `docs/ARCHITECTURE.md` skeleton

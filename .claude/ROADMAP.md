@@ -164,9 +164,23 @@ by the developer, outside the repo.
               not yet drilled on a real PR)
         - [ ] Part 2: review, fix, analysis agents (after plan A/B)
     - [ ] Label-driven hand-offs; nothing merges without the developer
-- [ ] **F5 — Monitoring loop**
-    - [ ] Sentry (backend + frontend) → GitHub issues
-    - [ ] External uptime check on the health endpoint
+- [ ] **F5 — Monitoring loop** (started 2026-11-27; no Sentry and no
+      outside service — the developer's decision: the app and a workflow
+      open GitHub issues themselves)
+    - [ ] Part 1, issue #89 (factory): an unexpected backend error
+          opens an issue labelled `prod-error`
+    - [ ] Part 2 (factory, after part 1 is merged): errors in the
+          browser are sent to the backend and reported the same way
+    - [ ] Part 3 (by hand, `infra/` and workflows are outside the
+          agent's reach): the token's place in `infra/compose.yml`,
+          workflow "Uptime" opening `prod-down`
+        - [ ] Developer: a fine-grained token (this repository, Issues
+              read and write) into `/opt/tracker/.env` as
+              `ERROR_REPORT_GITHUB_TOKEN`
+        - [ ] Drills after the merges: a planted error in production
+              becomes an issue and a spec; the uptime check started by
+              hand; the backend stopped on purpose → `prod-down`
+        - [ ] Measure how late GitHub starts the uptime check
 - [ ] **F6 — PoC acceptance**
     - [ ] One real bug or feature goes phone → triage → spec → code → tests
           → staging → "ok" → prod → monitoring, with no code from the developer
@@ -191,6 +205,10 @@ developer's call; this is the suggested one.
       should be a fixed version (one CI run failed on its download);
       the scheduled backup check runs about nine hours late whatever
       time it asks for (alarm to the server side in F5).
+- [ ] Spec agent: GitHub withheld its answer twice on issue #89 ("may
+      contain secret"). Find what matched from the next run's log (the
+      reply is printed there since 2026-11-27), then fix: either the
+      cause, or at least a comment that says the reply was withheld.
 - [ ] Restore drill with real data — the first one ran on an empty
       database; production holds real entries since 2026-11-18.
 - [ ] Later for import: Excel files, aerobic and diet rows, workout

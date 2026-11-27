@@ -144,6 +144,12 @@ jobs:
         if: ${{ !cancelled() && steps.spec.outputs.outcome == 'reply' }}
         run: |
           delimiter="spec-$(openssl rand -hex 16)"
+          echo "::group::The reply as the log's secret masking sees it"
+          echo "::stop-commands::$delimiter"
+          jq -r '.. | strings' "$RUNNER_TEMP/spec-out/reply.json"
+          echo "::$delimiter::"
+          echo "::endgroup::"
+          delimiter="spec-$(openssl rand -hex 16)"
           {
             echo "reply<<$delimiter"
             jq -c . "$RUNNER_TEMP/spec-out/reply.json"

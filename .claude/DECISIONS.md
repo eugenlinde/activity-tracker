@@ -1732,3 +1732,42 @@ checked off when their work and drills are done. Older entries in this
 log and in NOTES that mention the checkpoint are history only. The
 anti-goal itself stays: plain-language explanations before approval and
 `docs/ARCHITECTURE.md` kept current.
+
+## 2026-11-27 — F5 without Sentry: the app and a workflow open issues (developer's decision; details builder's calls)
+
+**Decided by the developer:** no Sentry. Backend and frontend errors
+become GitHub issues directly, and the factory picks them up. Keep it
+as simple as possible. The builder splits F5 into issues and lets the
+factory build what it can reach.
+
+**Builder's calls:**
+
+- The backend opens the issue itself through GitHub's API from its
+  catch-all 500 handler, instead of a script on the server reading the
+  container's log. Reason: `src/` is inside the factory's reach and a
+  log reader under `infra/` is not; one part fewer on the server. Cost
+  if wrong: an error outside a web request (start-up, a background
+  task) is not reported; the uptime check catches a backend that does
+  not start.
+- The issue is opened with a fine-grained token of the owner (this
+  repository, Issues only), so its author is the owner and the spec
+  agent starts without any change to the factory. Considered: a GitHub
+  App (more parts), the workflow token (does not exist on the server).
+  Cost if wrong: a leaked token lets somebody write issues in the
+  owner's name, which the spec agent would read; nothing is built
+  without the owner's `approved`.
+- The issue holds no free text from the request or the exception
+  message: class, stack frames, HTTP method, route pattern. The
+  repository is public, and the text is read by an agent.
+- Same error once (fingerprint among open `prod-error` issues), at
+  most 5 new issues an hour.
+- Production only: staging has no token.
+- Uptime: a scheduled GitHub workflow that asks the health address
+  through SSH from the server, the same shape as the backup check; no
+  new secret, no outside service. Known weakness: GitHub starts
+  scheduled runs late (the backup check: about nine hours). If the
+  measured delay is useless, the alternative is a free outside checker,
+  which needs an account of the developer's.
+- Order: part 2 (browser errors) is approved only after part 1 is
+  merged, because it builds on part 1's reporter.
+

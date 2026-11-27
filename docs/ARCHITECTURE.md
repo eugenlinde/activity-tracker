@@ -212,6 +212,7 @@ running app and keep it backed up. All of them wait for a server.
 | `deploy` job in `ci.yml` | Copies the scripts to `/opt/tracker/` and the new `compose.yml` to `/opt/tracker/incoming/` over SSH, then runs `deploy.sh <sha>`. The script's output goes to `/opt/tracker/last-deploy.log` on the server and is shown in the workflow when it finishes, so a dropped connection cannot kill a deploy half-way | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
 | `infra/backup.sh` | Started by a timer on the server at 03:30 every night. Dumps the database, sends the dump and the media files to off-server storage with restic, thins out old snapshots (7 daily, 4 weekly, 6 monthly), checks the repository on Sundays, then touches `/opt/tracker/last-backup-ok` | The server's disk is the only copy of the data otherwise | Any failing step stops the script before the marker file is touched, so the freshness check below notices |
 | `backup-check.yml` | Every day at 06:17 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
+| `uptime.yml` | Four times an hour (GitHub may start it late): logs in to the server and asks the site's own health address from there; three attempts | Nothing else notices when the site is down while nobody is using it | The workflow goes red, GitHub emails the owner, and one issue labelled `prod-down` is opened (see "Monitoring") |
 | `infra/restore.sh <snapshot> <dir>` | Fetches a snapshot into an empty directory, loads the dump into a throwaway Postgres container with no network access to anything, prints the row count of every table and the number of media files | A backup is only proven by restoring it. This does so without going near the live database | Prints the error and stops; the live system is never touched either way |
 
 **The deploy switch.** `images`, `deploy` and the backup check all look at
@@ -1165,6 +1166,16 @@ rules of issue 68 mutation-checked. The review agent's tests
   step sees it and writes nothing; if the label lands in the second
   between that check and the write, the spec may change after the
   approval.
+- GitHub drops a job's output when it contains the value of one of the
+  job's secrets ("Skip output 'reply' since it may contain secret").
+  On issue 89 (2026-11-27) this happened on both runs: the agent
+  answered, the writer received nothing and stopped with "the spec
+  agent's run failed". Which value matched is not known; the reply was
+  not kept. Since then the agent's job prints the reply into its log,
+  where the same masking shows `***` in place of whatever matched, so
+  the next case can be read from the run. The spec for issue 89 was
+  written by hand. Not fixed: the comment on the issue still does not
+  say that the reply was withheld.
 - Issues opened before slice 3 get no spec unless "Spec" is started by
   hand for them.
 - Any comment by the developer on a `spec-ready` issue starts a rewrite,
@@ -1744,6 +1755,89 @@ and that a component's markup needs no test.
 queued issues wait. To take one issue out of the line, remove
 `approved`. To stop the factory rebuilding one pull request, add
 `needs-human` to it.
+
+## Monitoring (F5; uptime check built 2026-11-27, not yet merged or drilled; error reports being built by the factory, issue 89)
+
+No outside monitoring service (the developer's decision, 2026-11-27:
+no Sentry). Two things watch production, and both end in a GitHub
+issue.
+
+### Is the site up: the workflow "Uptime"
+
+**What it is.** `.github/workflows/uptime.yml`. Four times an hour
+GitHub starts a machine that logs in to the server with the deploy key
+(the same way the backup check does) and, from the server, asks
+`https://<site>/actuator/health`. It wants the answer `UP`. Three
+attempts, 20 seconds apart.
+
+**Why it is needed.** If the backend dies at night, nothing else says
+so until somebody opens the site.
+
+**What happens when the check fails.** The run goes red (GitHub emails
+the owner) and the workflow opens one issue, "Production is not
+answering", labelled `prod-down`. While that issue is open no second
+one is opened: close it when the site is back. The issue is written by
+the workflow, not by the owner, so the spec agent does not start on it:
+a site that is down is the developer's to look at, not a change to
+build.
+
+**What to do when the issue arrives.** Log in to the server.
+`docker compose ps` in `/opt/tracker` shows which container is not
+running; `docker compose logs --tail 100 api` shows why. If the last
+deploy caused it, redeploy the previous version by hand ("Redeploying
+an older version by hand"). If the server itself cannot be reached,
+look at it in the provider's console.
+
+**What it cannot see.**
+
+- GitHub starts scheduled workflows late. The daily backup check has
+  come about nine hours late; how late this one comes is not measured
+  yet. Read it as "a few checks a day at worst", not as a 15-minute
+  alarm.
+- The question is asked from the server itself. A fault between the
+  internet and the server (DNS, the provider's network) that still
+  lets SSH through from GitHub is not seen.
+- `UP` means the backend answers. A page that is broken in the browser
+  still counts as up.
+- If GitHub Actions is down or the repository is quiet for 60 days
+  (GitHub then stops scheduled workflows), nothing checks.
+
+**How to stop it.** The same switch as deploys: `DEPLOY_ENABLED` not
+`true`. Or disable the workflow in the Actions tab.
+
+**What it costs.** Nothing: GitHub Actions is free for public
+repositories.
+
+### Errors in the backend: the app opens an issue (being built, issue 89)
+
+**The plan.** When the backend answers 500 for a reason nobody
+foresaw, it opens an issue in this repository itself, labelled
+`prod-error`. The issue is written with the owner's token, so GitHub
+sees the owner as its author and the spec agent starts on it like on
+any other issue. Nothing is built until the owner adds `approved`.
+
+**Where its settings live.** `infra/compose.yml` hands the backend two
+values: `ERROR_REPORT_GITHUB_TOKEN` from `/opt/tracker/.env` (empty by
+default: reporting off) and `ERROR_REPORT_GITHUB_REPO` (this
+repository unless `.env` says otherwise). Staging's `.env` has no
+token, so staging reports nothing.
+
+**The token** is the developer's to make: a fine-grained personal
+access token limited to this one repository, with "Issues: read and
+write" and nothing else. With it somebody can open and edit issues
+here in the owner's name; they cannot read or change code, secrets or
+settings. It goes into `/opt/tracker/.env` on the server and nowhere
+else. To cut it off: delete it under GitHub Settings → Developer
+settings → Personal access tokens.
+
+**Why the issue holds so little.** The repository is public. The issue
+carries the error's class, where in the code it happened, and the kind
+of request (`GET /api/activities/{id}`), never the error's message,
+the real address, or anything about the user. The message stays in the
+server's log (`docker compose logs api`).
+
+This section is rewritten with what was built and drilled when issue
+89 is merged.
 
 ## Target (not built yet)
 

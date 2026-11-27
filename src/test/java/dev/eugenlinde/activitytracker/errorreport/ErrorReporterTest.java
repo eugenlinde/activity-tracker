@@ -238,6 +238,8 @@ class ErrorReporterTest {
         for (int i = 0; i < 5; i++) {
             expectEmptyList();
             expectCreate();
+        }
+        for (int i = 0; i < 5; i++) {
             reporter.reportNow(failWithMessage(), "GET", "/x");
         }
         server.verify();

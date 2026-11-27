@@ -1,6 +1,7 @@
 package dev.eugenlinde.activitytracker.steps.controller;
 
 import dev.eugenlinde.activitytracker.activity.ActivityRepository;
+import dev.eugenlinde.activitytracker.common.exception.InvalidDateRangeException;
 import dev.eugenlinde.activitytracker.common.exception.InvalidEntryDateException;
 import dev.eugenlinde.activitytracker.common.exception.StepEntryNotFoundException;
 import dev.eugenlinde.activitytracker.config.SecurityConfig;
@@ -9,6 +10,7 @@ import dev.eugenlinde.activitytracker.share.ShareRepository;
 import dev.eugenlinde.activitytracker.common.exception.UserNotFoundException;
 import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
+import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.service.StepsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -192,6 +194,65 @@ class StepsControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(stepsService).delete(userId, DATE);
+    }
+
+    @Test
+    void getSummary_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/steps/summary?from=2026-10-01&to=2026-11-13"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getSummary_withRange_returnsTheSummaryForTheCaller() throws Exception {
+        LocalDate from = LocalDate.parse("2026-10-01");
+        when(stepsService.summarize(userId, from, DATE)).thenReturn(
+                new StepsSummaryResponse(from, DATE, 2, 17870, 8935, new StepsResponse(DATE, 9870)));
+
+        mockMvc.perform(get("/api/steps/summary?from=2026-10-01&to=2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.from").value("2026-10-01"))
+                .andExpect(jsonPath("$.to").value("2026-11-13"))
+                .andExpect(jsonPath("$.daysLogged").value(2))
+                .andExpect(jsonPath("$.totalSteps").value(17870))
+                .andExpect(jsonPath("$.averagePerLoggedDay").value(8935))
+                .andExpect(jsonPath("$.bestDay.date").value("2026-11-13"))
+                .andExpect(jsonPath("$.bestDay.steps").value(9870));
+    }
+
+    @Test
+    void getSummary_withoutFrom_returns400() throws Exception {
+        mockMvc.perform(get("/api/steps/summary?to=2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getSummary_withoutTo_returns400() throws Exception {
+        mockMvc.perform(get("/api/steps/summary?from=2026-10-01").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getSummary_withMalformedDate_returns400() throws Exception {
+        mockMvc.perform(get("/api/steps/summary?from=01-10-2026&to=2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getSummary_whenServiceRejectsTheRange_returns400() throws Exception {
+        LocalDate from = LocalDate.parse("2026-11-13");
+        when(stepsService.summarize(userId, from, DATE))
+                .thenThrow(new InvalidDateRangeException("'from' must not be after 'to'"));
+
+        mockMvc.perform(get("/api/steps/summary?from=2026-11-13&to=2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

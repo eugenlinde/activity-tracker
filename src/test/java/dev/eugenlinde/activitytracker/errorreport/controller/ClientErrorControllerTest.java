@@ -209,7 +209,7 @@ class ClientErrorControllerTest {
     @Test
     void rejectedValue_isNeverLogged(CapturedOutput output) throws Exception {
         expectBadRequest(json(quoted("Error"), frameList("zebrafinch secret"), quoted("/")));
-        expectBadRequest(json(quoted("zebrafinch"), frameList(FRAME), quoted("/")));
+        expectBadRequest(json(quoted("zebrafinch 7"), frameList(FRAME), quoted("/")));
 
         assertFalse(output.getAll().contains("zebrafinch"));
     }

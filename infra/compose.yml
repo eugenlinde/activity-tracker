@@ -29,6 +29,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:?}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:?}
+      ERROR_REPORT_GITHUB_TOKEN: ${ERROR_REPORT_GITHUB_TOKEN:-}
+      ERROR_REPORT_GITHUB_REPO: ${ERROR_REPORT_GITHUB_REPO:-eugenlinde/activity-tracker}
     volumes:
       - media:/data/media
     depends_on:

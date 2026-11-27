@@ -212,6 +212,7 @@ running app and keep it backed up. All of them wait for a server.
 | `deploy` job in `ci.yml` | Copies the scripts to `/opt/tracker/` and the new `compose.yml` to `/opt/tracker/incoming/` over SSH, then runs `deploy.sh <sha>`. The script's output goes to `/opt/tracker/last-deploy.log` on the server and is shown in the workflow when it finishes, so a dropped connection cannot kill a deploy half-way | The only automated path to prod. It runs only on `main`, only after `images`, only with the secrets of the GitHub environment `production` | Job goes red; GitHub emails the owner. The site keeps running the previous version |
 | `infra/backup.sh` | Started by a timer on the server at 03:30 every night. Dumps the database, sends the dump and the media files to off-server storage with restic, thins out old snapshots (7 daily, 4 weekly, 6 monthly), checks the repository on Sundays, then touches `/opt/tracker/last-backup-ok` | The server's disk is the only copy of the data otherwise | Any failing step stops the script before the marker file is touched, so the freshness check below notices |
 | `backup-check.yml` | Every day at 06:17 UTC: logs in to the server and fails unless `last-backup-ok` is younger than 26 hours | A backup that silently stopped is worse than none, because everyone believes it exists | The workflow goes red and GitHub emails the owner |
+| `uptime.yml` | Four times an hour (GitHub may start it late): logs in to the server and asks the site's own health address from there; three attempts | Nothing else notices when the site is down while nobody is using it | The workflow goes red, GitHub emails the owner, and one issue labelled `prod-down` is opened (see "Monitoring") |
 | `infra/restore.sh <snapshot> <dir>` | Fetches a snapshot into an empty directory, loads the dump into a throwaway Postgres container with no network access to anything, prints the row count of every table and the number of media files | A backup is only proven by restoring it. This does so without going near the live database | Prints the error and stops; the live system is never touched either way |
 
 **The deploy switch.** `images`, `deploy` and the backup check all look at
@@ -1165,6 +1166,26 @@ rules of issue 68 mutation-checked. The review agent's tests
   step sees it and writes nothing; if the label lands in the second
   between that check and the write, the spec may change after the
   approval.
+- GitHub's runner drops a job's output when it looks as if it holds a
+  secret ("Skip output ... since it may contain secret"), and it takes
+  the word `Bearer` followed by any value for one, a placeholder
+  included. Agent text travels between jobs as outputs in three
+  places: the spec agent's reply, the prompt handed to the
+  implementation and fix agents (it carries the issue's text), and the
+  review agent's findings. On issue 89 (2026-11-27) a spec that showed
+  the `Authorization` header was dropped three times: twice the spec
+  agent's reply (the issue got "the spec agent's run failed"), once a
+  hand-written spec on its way to the implementation agent (the agent
+  got no spec and wrote nothing). Found with a throw-away workflow that
+  printed the text into its log, where the same masking shows `***`.
+  What is done: the spec and review prompts forbid that wording, and
+  the spec job prints its reply into the log so that a dropped one can
+  be read there. Not fixed: an issue whose own text has that wording is
+  still dropped on its way to the implementation agent, and none of the
+  comments says that this is what happened. The real fix (hand the text
+  over in a way the masking does not see, with the factory's own check
+  for the Claude token in front of it) is a change to how secrets are
+  guarded and waits for the developer's decision.
 - Issues opened before slice 3 get no spec unless "Spec" is started by
   hand for them.
 - Any comment by the developer on a `spec-ready` issue starts a rewrite,
@@ -1745,7 +1766,59 @@ queued issues wait. To take one issue out of the line, remove
 `approved`. To stop the factory rebuilding one pull request, add
 `needs-human` to it.
 
-## Monitoring: errors become issues
+## Monitoring (F5; built 2026-11-27: uptime check by hand, error reports by the factory, issue 89; neither drilled yet)
+
+No outside monitoring service (the developer's decision, 2026-11-27:
+no Sentry). Two things watch production, and both end in a GitHub
+issue.
+
+### Is the site up: the workflow "Uptime"
+
+**What it is.** `.github/workflows/uptime.yml`. Four times an hour
+GitHub starts a machine that logs in to the server with the deploy key
+(the same way the backup check does) and, from the server, asks
+`https://<site>/actuator/health`. It wants the answer `UP`. Three
+attempts, 20 seconds apart.
+
+**Why it is needed.** If the backend dies at night, nothing else says
+so until somebody opens the site.
+
+**What happens when the check fails.** The run goes red (GitHub emails
+the owner) and the workflow opens one issue, "Production is not
+answering", labelled `prod-down`. While that issue is open no second
+one is opened: close it when the site is back. The issue is written by
+the workflow, not by the owner, so the spec agent does not start on it:
+a site that is down is the developer's to look at, not a change to
+build.
+
+**What to do when the issue arrives.** Log in to the server.
+`docker compose ps` in `/opt/tracker` shows which container is not
+running; `docker compose logs --tail 100 api` shows why. If the last
+deploy caused it, redeploy the previous version by hand ("Redeploying
+an older version by hand"). If the server itself cannot be reached,
+look at it in the provider's console.
+
+**What it cannot see.**
+
+- GitHub starts scheduled workflows late. The daily backup check has
+  come about nine hours late; how late this one comes is not measured
+  yet. Read it as "a few checks a day at worst", not as a 15-minute
+  alarm.
+- The question is asked from the server itself. A fault between the
+  internet and the server (DNS, the provider's network) that still
+  lets SSH through from GitHub is not seen.
+- `UP` means the backend answers. A page that is broken in the browser
+  still counts as up.
+- If GitHub Actions is down or the repository is quiet for 60 days
+  (GitHub then stops scheduled workflows), nothing checks.
+
+**How to stop it.** The same switch as deploys: `DEPLOY_ENABLED` not
+`true`. Or disable the workflow in the Actions tab.
+
+**What it costs.** Nothing: GitHub Actions is free for public
+repositories.
+
+### Errors in the backend: the app opens an issue (issue 89, pull request 92)
 
 **What it is.** When the backend answers 500 for an error nobody
 foresaw (the catch-all handler `unexpectedException`), a small reporter in
@@ -1783,14 +1856,34 @@ read, nothing is opened.
 create issues in the repository, kept like the other secrets, never in
 git) and `ERROR_REPORT_GITHUB_REPO` (`owner/name`). With either empty,
 reporting is off and no call is ever made: that is the case locally, in
-tests and on staging. Putting the token on the server is a separate,
-manual step.
+tests and on staging. `infra/compose.yml` hands both to the backend; the repository is this
+one unless `/opt/tracker/.env` says otherwise.
+
+**The token** is the developer's to make: a fine-grained personal
+access token limited to this one repository, with "Issues: read and
+write" and nothing else. With it somebody can open and edit issues
+here in the owner's name; they cannot read or change code, secrets or
+settings. It goes into `/opt/tracker/.env` on the server and nowhere
+else. The issue is written with it, so GitHub sees the owner as the
+author and the spec agent starts on it like on any other issue;
+nothing is built until the owner adds `approved`. To cut it off:
+delete it under GitHub Settings → Developer settings → Personal access
+tokens.
 
 **How to switch it off.** Empty the token and restart the backend.
 
 **Not covered yet.** Errors from the browser, errors outside a web
 request (start-up, background work), and closing or commenting on an
 issue when an error stops or repeats.
+
+### The rule for anything that leaves the database (developer's decision, 2026-11-27)
+
+Neither the backend nor the frontend writes a user's data or data the
+business depends on into a log line, an error report or an issue:
+no names, emails, weights, workouts, file contents, tokens. Names of
+classes, methods, routes as patterns, counts and times are fine. The
+review agent's rubric carries this as part of `project-rule`.
+
 
 ## Target (not built yet)
 

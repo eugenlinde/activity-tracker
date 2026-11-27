@@ -21,4 +21,4 @@ The words in brackets are examples of a rule, not its limits.
 | `criterion-not-met` | leaves an acceptance criterion of the spec unmet |
 | `no-test` | adds new behaviour without a test (frontend: new logic without a Vitest test of it; a component's markup itself needs no test, there is no DOM test library) |
 | `unhandled-error` | does not handle an error case that will happen in normal use (a crash, a 500, lost input) |
-| `project-rule` | breaks a hard rule of the project about the code itself (an entity at the API boundary, logic in a controller, comments in code, a secret in git) |
+| `project-rule` | breaks a hard rule of the project about the code itself (an entity at the API boundary, logic in a controller, comments in code, a secret in git, a user's data or business data written into a log line, an error report or an issue) |

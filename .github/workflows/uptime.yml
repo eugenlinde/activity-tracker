@@ -1,0 +1,57 @@
+name: Uptime
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  health:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    permissions:
+      issues: write
+    steps:
+      - name: Production answers UP
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          check='site=$(grep -E "^SITE_ADDRESS=" /opt/tracker/.env | cut -d= -f2-); curl -fsS --max-time 10 "https://$site/actuator/health" | grep -q "\"status\":\"UP\""'
+          for attempt in 1 2 3; do
+            if ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key "deploy@$DEPLOY_HOST" "$check"; then
+              echo "Production is UP"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "Production did not answer UP in 3 attempts" >&2
+          exit 1
+      - name: Open an issue unless one is open
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=prod-down&state=open&per_page=1" --jq length)
+          if [ "$open" -gt 0 ]; then
+            echo "An issue is already open"
+            exit 0
+          fi
+          body=$(printf '%s\n\n%s\n\n%s\n' \
+            "The uptime check could not get \`UP\` from production in 3 attempts, 20 seconds apart: either the server could not be reached over SSH, or the site's health address did not answer." \
+            "Run: $RUN_URL" \
+            "What to do: \`docs/ARCHITECTURE.md\`, \"Monitoring\". Close this issue when the site is back; while it is open, no second one is opened.")
+          gh issue create --repo "$GITHUB_REPOSITORY" --label prod-down --title "Production is not answering" --body "$body"

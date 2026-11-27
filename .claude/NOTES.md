@@ -814,3 +814,36 @@ maps onto this project. Nothing decided yet. Proposals given:
 - The developer dropped the phase checkpoints; `CLAUDE.md`, ROADMAP and
   the design doc updated. F3, slice 3, slice 3b and issue 63 ticked.
 - No open issues or pull requests. Next: F5 (monitoring).
+
+## 2026-11-27 — F5 started: no Sentry, issue 89 at the factory
+
+- Local checkout was 105 commits behind on `f2-reboot-drill`; moved to
+  `main`, the two stale edits discarded (same text already on `main`).
+- The developer: F5 without Sentry, errors go straight to GitHub
+  issues; work autonomously, split it into issues, let the factory
+  build. Split and reasons in DECISIONS.
+- Issue 89 (backend errors → `prod-error` issue) opened from the
+  developer's account. The spec agent answered twice and GitHub
+  withheld the answer both times ("Skip output 'reply' since it may
+  contain secret"); `needs-human` each time. A hand-written spec was
+  dropped the same way on its way to the implementation agent (pull
+  request 90 closed empty). Cause found with a throw-away workflow on
+  branch `probe/masked-output` (deleted again): the runner masks the
+  word `Bearer` followed by any value. Spec reworded, `approved` added
+  again by the builder at the developer's request.
+- Branch `f5-monitoring-infra` (by hand): `ERROR_REPORT_GITHUB_TOKEN`
+  and `ERROR_REPORT_GITHUB_REPO` in `infra/compose.yml`, workflow
+  "Uptime" (SSH to the server, health address, issue `prod-down`),
+  labels `prod-error` and `prod-down` (created on GitHub and added to
+  `factory/labels.sh`), the spec job prints its reply into the log so a
+  withheld answer can be diagnosed.
+- Issue 89 → pull request 92: round 1 CI red → fix agent; round 2 one
+  major (the hand-off to the reporter's thread had no test) → fix
+  agent; round 3 passed, CI green. The first build that used all three
+  rounds. Waits for the developer's merge (before pull request 91:
+  both add a "Monitoring" section at the same place).
+- Not verified: the uptime workflow has never run (it can only be
+  started once it is on `main`); nothing of F5 is drilled.
+- Open for the developer: the token for the server; merges.
+- Next: part 2 (browser errors) as an issue after 89 is merged; drills.
+

@@ -421,6 +421,25 @@ class ErrorReporterTest {
     }
 
     @Test
+    void reportBrowser_handsTheWorkToTheReporterThread() throws Exception {
+        CountDownLatch created = new CountDownLatch(1);
+        AtomicReference<String> postThread = new AtomicReference<>();
+        ErrorReporter async = reporterWithInterceptor((request, body, execution) -> {
+            if (request.getMethod() == HttpMethod.POST) {
+                postThread.set(Thread.currentThread().getName());
+                created.countDown();
+            }
+            return fakeResponse(request);
+        });
+
+        async.reportBrowser("TypeError", BROWSER_FRAMES, "/");
+
+        assertTrue(created.await(5, TimeUnit.SECONDS));
+        assertEquals("error-reporter", postThread.get());
+        async.shutdown();
+    }
+
+    @Test
     void report_withFullQueue_dropsTheReportWithoutThrowing() throws Exception {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);

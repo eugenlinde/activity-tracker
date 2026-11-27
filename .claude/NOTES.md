@@ -863,4 +863,7 @@ maps onto this project. Nothing decided yet. Proposals given:
   fix, round 3 passed. Waits for the developer's merge.
 - Nothing reports yet: no token on the server.
 - Next: merge 94; the token; the two drills; F6.
+- Later the same day: the developer said to merge 94; deploy green.
+  All three parts of F5 are in production; still nothing reports
+  until the token is on the server.
 

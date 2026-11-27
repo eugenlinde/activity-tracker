@@ -171,8 +171,8 @@ by the developer, outside the repo.
           deployed 2026-11-27): an unexpected backend error opens an
           issue labelled `prod-error`. Off until the token is on the
           server.
-    - [ ] Part 2, issue #93 (factory, pull request 94, review passed
-          2026-11-27, waits for the developer's merge): errors in the
+    - [x] Part 2, issue #93 (factory, pull request 94, merged and
+          deployed 2026-11-27): errors in the
           browser go to `POST /api/client-errors` and are reported the
           same way
     - [x] Part 3 (by hand, pull request 91, merged and deployed

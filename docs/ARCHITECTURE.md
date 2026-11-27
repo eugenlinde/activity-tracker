@@ -1766,7 +1766,7 @@ queued issues wait. To take one issue out of the line, remove
 `approved`. To stop the factory rebuilding one pull request, add
 `needs-human` to it.
 
-## Monitoring (F5; uptime check built 2026-11-27, not yet merged or drilled; error reports being built by the factory, issue 89)
+## Monitoring (F5; built 2026-11-27: uptime check by hand, error reports by the factory, issue 89; neither drilled yet)
 
 No outside monitoring service (the developer's decision, 2026-11-27:
 no Sentry). Two things watch production, and both end in a GitHub
@@ -1818,36 +1818,72 @@ look at it in the provider's console.
 **What it costs.** Nothing: GitHub Actions is free for public
 repositories.
 
-### Errors in the backend: the app opens an issue (being built, issue 89)
+### Errors in the backend: the app opens an issue (issue 89, pull request 92)
 
-**The plan.** When the backend answers 500 for a reason nobody
-foresaw, it opens an issue in this repository itself, labelled
-`prod-error`. The issue is written with the owner's token, so GitHub
-sees the owner as its author and the spec agent starts on it like on
-any other issue. Nothing is built until the owner adds `approved`.
+**What it is.** When the backend answers 500 for an error nobody
+foresaw (the catch-all handler `unexpectedException`), a small reporter in
+the package `errorreport` opens one issue in this repository, labelled
+`prod-error`, through GitHub's REST API. The factory picks such an issue
+up like any other. The answer the user gets does not change.
 
-**Where its settings live.** `infra/compose.yml` hands the backend two
-values: `ERROR_REPORT_GITHUB_TOKEN` from `/opt/tracker/.env` (empty by
-default: reporting off) and `ERROR_REPORT_GITHUB_REPO` (this
-repository unless `.env` says otherwise). Staging's `.env` has no
-token, so staging reports nothing.
+**Why it is needed.** Nobody reads the server's log all day. Without
+this, a broken production is noticed only when someone complains.
+
+**What the issue contains.** The names of the exception and of its
+causes; at most 30 stack frames (class, method, line); the HTTP method
+and the route pattern that matched (`GET /api/activities/{id}`, or
+`unknown`); the time in UTC; a fingerprint. The repository is public, so
+it leaves out everything that came from a user: no exception message, no
+real path, no query string, no body, no headers, no user id, no email.
+The message stays in the server's log.
+
+**The same error only once.** The fingerprint is the first 16 hex
+characters of SHA-256 over the exception class and the place in the
+code (class and method, no line number). Before opening, the reporter
+lists the open `prod-error` issues and opens nothing when one already
+carries that fingerprint. At most 5 issues per hour (`error-report.max-per-hour`)
+are opened by one running backend, counted in memory; over that, a line
+at WARN in the log.
+
+**What happens when GitHub cannot be reached.** Nothing visible. The
+report runs on its own thread with a queue of 10 and timeouts of 5
+seconds; when the queue is full or a call fails, the report is dropped
+and one WARN line with the exception's class name is logged. A failure
+of the reporter is never reported. If the list of open issues cannot be
+read, nothing is opened.
+
+**Where the settings are.** `ERROR_REPORT_GITHUB_TOKEN` (a token that may
+create issues in the repository, kept like the other secrets, never in
+git) and `ERROR_REPORT_GITHUB_REPO` (`owner/name`). With either empty,
+reporting is off and no call is ever made: that is the case locally, in
+tests and on staging. `infra/compose.yml` hands both to the backend; the repository is this
+one unless `/opt/tracker/.env` says otherwise.
 
 **The token** is the developer's to make: a fine-grained personal
 access token limited to this one repository, with "Issues: read and
 write" and nothing else. With it somebody can open and edit issues
 here in the owner's name; they cannot read or change code, secrets or
 settings. It goes into `/opt/tracker/.env` on the server and nowhere
-else. To cut it off: delete it under GitHub Settings → Developer
-settings → Personal access tokens.
+else. The issue is written with it, so GitHub sees the owner as the
+author and the spec agent starts on it like on any other issue;
+nothing is built until the owner adds `approved`. To cut it off:
+delete it under GitHub Settings → Developer settings → Personal access
+tokens.
 
-**Why the issue holds so little.** The repository is public. The issue
-carries the error's class, where in the code it happened, and the kind
-of request (`GET /api/activities/{id}`), never the error's message,
-the real address, or anything about the user. The message stays in the
-server's log (`docker compose logs api`).
+**How to switch it off.** Empty the token and restart the backend.
 
-This section is rewritten with what was built and drilled when issue
-89 is merged.
+**Not covered yet.** Errors from the browser, errors outside a web
+request (start-up, background work), and closing or commenting on an
+issue when an error stops or repeats.
+
+### The rule for anything that leaves the database (developer's decision, 2026-11-27)
+
+Neither the backend nor the frontend writes a user's data or data the
+business depends on into a log line, an error report or an issue:
+no names, emails, weights, workouts, file contents, tokens. Names of
+classes, methods, routes as patterns, counts and times are fine. The
+review agent's rubric carries this as part of `project-rule`.
+
 
 ## Target (not built yet)
 

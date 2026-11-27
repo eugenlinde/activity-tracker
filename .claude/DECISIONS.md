@@ -1771,3 +1771,14 @@ factory build what it can reach.
 - Order: part 2 (browser errors) is approved only after part 1 is
   merged, because it builds on part 1's reporter.
 
+## 2026-11-27 — No user or business data in logs, error reports or issues (developer's decision)
+
+Applies to backend and frontend. Everything else may be logged. Keep it
+simple, no over-engineering. Builder's calls: one clause added to the
+review rubric's `project-rule`, a paragraph in ARCHITECTURE
+("Monitoring"); no scanner, no filter library. Existing log lines were
+not audited: `GlobalExceptionHandler` still logs exception messages and
+validation errors to the server's log, which can carry a value a user
+typed. Left as is until the developer decides, because the issue text
+points to that log for the message.
+

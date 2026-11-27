@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildWeightChart, CHART, formatDelta, formatKg } from './weightChart'
+import { buildWeightChart, CHART, deltaDirection, formatDelta, formatKg } from './weightChart'
 
 describe('formatKg', () => {
   it('shows one decimal', () => {
@@ -22,6 +22,34 @@ describe('formatDelta', () => {
   it('shows a change of half a decimal or more', () => {
     expect(formatDelta(0.06)).toBe('+0.1')
     expect(formatDelta(-0.06)).toBe('−0.1')
+  })
+})
+
+describe('deltaDirection', () => {
+  it('is down for a loss and up for a gain', () => {
+    expect(deltaDirection(-1.2)).toBe('down')
+    expect(deltaDirection(1.2)).toBe('up')
+  })
+
+  it('is same when the change displays as zero', () => {
+    expect(deltaDirection(0)).toBe('same')
+    expect(deltaDirection(0.04)).toBe('same')
+    expect(deltaDirection(-0.04)).toBe('same')
+  })
+
+  it('is down or up from half a decimal', () => {
+    expect(deltaDirection(-0.06)).toBe('down')
+    expect(deltaDirection(0.06)).toBe('up')
+  })
+
+  it('agrees with the sign formatDelta shows', () => {
+    for (const value of [-2, -0.06, -0.04, 0, 0.04, 0.06, 2]) {
+      const direction = deltaDirection(value)
+      const text = formatDelta(value)
+      if (direction === 'same') expect(text).toBe('0.0')
+      if (direction === 'down') expect(text.startsWith('−')).toBe(true)
+      if (direction === 'up') expect(text.startsWith('+')).toBe(true)
+    }
   })
 })
 

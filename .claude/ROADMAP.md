@@ -167,20 +167,25 @@ by the developer, outside the repo.
 - [ ] **F5 — Monitoring loop** (started 2026-11-27; no Sentry and no
       outside service — the developer's decision: the app and a workflow
       open GitHub issues themselves)
-    - [ ] Part 1, issue #89 (factory): an unexpected backend error
-          opens an issue labelled `prod-error`
-    - [ ] Part 2 (factory, after part 1 is merged): errors in the
-          browser are sent to the backend and reported the same way
-    - [ ] Part 3 (by hand, `infra/` and workflows are outside the
-          agent's reach): the token's place in `infra/compose.yml`,
-          workflow "Uptime" opening `prod-down`
-        - [ ] Developer: a fine-grained token (this repository, Issues
-              read and write) into `/opt/tracker/.env` as
-              `ERROR_REPORT_GITHUB_TOKEN`
-        - [ ] Drills after the merges: a planted error in production
-              becomes an issue and a spec; the uptime check started by
-              hand; the backend stopped on purpose → `prod-down`
-        - [ ] Measure how late GitHub starts the uptime check
+    - [x] Part 1, issue #89 (factory, pull request 92, merged and
+          deployed 2026-11-27): an unexpected backend error opens an
+          issue labelled `prod-error`. Off until the token is on the
+          server.
+    - [ ] Part 2, issue #93 (factory, pull request 94, review passed
+          2026-11-27, waits for the developer's merge): errors in the
+          browser go to `POST /api/client-errors` and are reported the
+          same way
+    - [x] Part 3 (by hand, pull request 91, merged and deployed
+          2026-11-27): the token's place in `infra/compose.yml`,
+          workflow "Uptime" opening `prod-down`. Started by hand once:
+          green, "Production is UP".
+    - [ ] Developer: a fine-grained token (this repository, Issues
+          read and write) into `/opt/tracker/.env` as
+          `ERROR_REPORT_GITHUB_TOKEN`, then restart the backend
+    - [ ] Drills: a planted error in production becomes an issue and
+          a spec; the backend stopped on purpose → `prod-down` (needs
+          the developer's ok: about a minute of downtime)
+    - [ ] Measure how late GitHub starts the uptime check
 - [ ] **F6 — PoC acceptance**
     - [ ] One real bug or feature goes phone → triage → spec → code → tests
           → staging → "ok" → prod → monitoring, with no code from the developer

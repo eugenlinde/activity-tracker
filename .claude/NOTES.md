@@ -847,3 +847,20 @@ maps onto this project. Nothing decided yet. Proposals given:
 - Open for the developer: the token for the server; merges.
 - Next: part 2 (browser errors) as an issue after 89 is merged; drills.
 
+## 2026-11-27 — F5 parts 1 and 3 in production; part 2 built
+
+- The developer said to merge: pull request 92, then 91 (brought up
+  to date by hand: one "Monitoring" section). Both deploys green.
+- "Uptime" started by hand on `main`: green, "Production is UP". The
+  failing path (issue `prod-down`) is not drilled.
+- The developer's rule: no user or business data in logs, reports or
+  issues, backend and frontend; otherwise keep it simple. In the review
+  rubric (`project-rule`), ARCHITECTURE and DECISIONS.
+- Issue 93 (browser errors): the spec agent wrote the spec in one run
+  (the wording rule from pull request 91 held; three assumptions),
+  `approved` by the builder, pull request 94: round 1 CI red → fix,
+  round 2 one major (no test of `reportBrowser` with reporting on) →
+  fix, round 3 passed. Waits for the developer's merge.
+- Nothing reports yet: no token on the server.
+- Next: merge 94; the token; the two drills; F6.
+

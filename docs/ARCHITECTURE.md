@@ -66,7 +66,11 @@ more is there.)
      Postgres in Docker on that machine (Testcontainers), which is why the
      runner needs Docker. Takes about two minutes.
    - **`frontend`** installs Node 22, runs `yarn install`, `yarn lint`,
-     `yarn build` (the build includes the TypeScript type check). Takes
+     `yarn test` (Vitest: tests of the plain functions under
+     `frontend/src/lib/`, in `*.test.ts` files beside them; no browser
+     and no DOM, so components themselves are not unit-tested), and
+     `yarn build` (the build includes the TypeScript type check, test
+     files too). Takes
      under a minute. The lint step is mostly advisory today: only one
      rule (`react/rules-of-hooks`) is an error; everything else is a
      warning and does not fail the check. There are 5 known warnings.
@@ -1615,7 +1619,7 @@ already running, cancel its run in the Actions tab.
 Commits pushed while the switch is off get no review; after switching
 back on, start "Review" by hand for a pull request that should have one.
 
-## Factory: conflicts and the line (built 2026-11-27, issue 63; not drilled yet)
+## Factory: conflicts and the line (built and drilled 2026-11-27, issue 63; switched on)
 
 **What it is.** One workflow, `.github/workflows/queue.yml` ("Queue"),
 with two scripts: `factory/queue/conflicts.sh` and
@@ -1717,14 +1721,24 @@ mutation-checked. An independent review found three major defects
 (search lag, two runs per merge, a fix landing on the rebuilt branch);
 all fixed with tests first.
 
-**Not checked yet** (drills on GitHub): three approved issues (two
-build, the third waits and starts when one is merged); a real conflict
-between two factory pull requests; a pull request only behind; the
-switch. The first queue-started build is also the first agent run whose
-starter is `github-actions[bot]`: the action allows it (read in its
-source), but whether Anthropic's token exchange gives the app's token
-to such a run is unverified. If it does not, the queue can only say
-"a slot is free" and the developer re-adds `approved`.
+**Drills** (2026-11-27; results on issue 63):
+
+  | Drill | What happened |
+  |---|---|
+  | The line | `approved` on 78, 79, 80: two pull requests (82, 81), 80 got `queued` and the waiting comment; after 82 was merged, 80 started by itself |
+  | A real conflict | 81 and 82 changed the same line; merging 82 closed 81, gave issue 79 `attempt-2`, and its rebuild (83) started first |
+  | Token exchange | The two queue-started builds ran as `github-actions[bot]`; the agent committed as `claude[bot]` |
+  | Only behind | Merging 84 left 83 behind; Queue said `mergeable` and did nothing |
+  | The switch | Off: Queue started by hand was skipped (by hand, not by a merge; the same condition decides both) |
+
+**Seen in the drills, since fixed.** The review agent raised "no
+automated test" as major on a frontend change (81, 83) while the
+frontend had no test runner and the agent may not add one; the fix
+agent committed nothing and the pull request got `needs-human`. The
+developer chose a test runner (2026-11-27): Vitest, run by CI; the
+agents' prompts and the review rubric now say that frontend logic goes
+into a plain function under `frontend/src/lib/` with a test beside it,
+and that a component's markup needs no test.
 
 **How to stop it.** `FACTORY_ENABLED` not `true`: nothing runs and
 queued issues wait. To take one issue out of the line, remove

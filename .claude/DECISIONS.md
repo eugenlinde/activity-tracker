@@ -1708,3 +1708,19 @@ Builder's calls:
   pinned commit). `allowed_bots` becomes `claude,github-actions`. Only
   this repository's workflows can start a run as that bot. Unverified
   until drill 1: whether the token exchange serves such a run.
+
+## 2026-11-27 — Frontend test runner: Vitest (developer's decision; details builder's calls)
+
+The developer chose a test runner over a rubric exception, after the
+review agent raised "no test" on frontend changes that could not have
+one (pull requests 81, 83).
+
+Builder's calls: Vitest, because it runs on the Vite setup the
+frontend already has, with no extra config; version 5.1.0 pinned
+exactly (5.1.2 was two days old; 5.1.0 is three weeks old and supports
+Vite 8). Node environment only, no jsdom or Testing Library: the agents
+put logic into plain functions under `frontend/src/lib/` and test
+those; markup is checked by the developer on staging. Test files stay
+in the TypeScript build, so they are type-checked. Cost if wrong: a
+bug that lives only in a component's markup is not caught by CI; adding
+a DOM library later is one dev dependency.

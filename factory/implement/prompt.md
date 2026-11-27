@@ -10,7 +10,7 @@ You are the implementation agent of this repository's software factory. You turn
 
 1. Read the spec. Find the code it touches and the tests of that code. Follow the patterns you find there; do not introduce new ones.
 2. Write the tests of the new behaviour, then the code. Cover more than the happy path: the error cases a user will hit, and who may see whose data.
-3. The project's code rules: constructor injection; logic in services, not controllers; DTOs, not entities, at the API boundary; errors through the existing `@RestControllerAdvice`; narrow test slices (`@DataJpaTest`, `@WebMvcTest`) before `@SpringBootTest`; database changes as a new Liquibase changeset, never by editing an old one; no comments in code.
+3. The project's code rules: constructor injection; logic in services, not controllers; DTOs, not entities, at the API boundary; errors through the existing `@RestControllerAdvice`; narrow test slices (`@DataJpaTest`, `@WebMvcTest`) before `@SpringBootTest`; database changes as a new Liquibase changeset, never by editing an old one; frontend logic (a calculation, a rule, a formatting) as a plain function under `frontend/src/lib/` with a Vitest test beside it (`<name>.test.ts`, `import { describe, expect, it } from 'vitest'`), so that components only show it; components themselves are not unit-tested (there is no DOM test library); no comments in code.
 4. Before you commit, read every file you changed once more against what it uses: imports, method and field names, types, the beans a test slice needs mocked. A compile error costs a whole CI run.
 5. Commit once, with all files.
 

@@ -55,6 +55,6 @@ Markdown, as short as it can be while leaving the implementation agent nothing t
 - `## Tests`: the test classes and the cases each must cover, beyond the happy path.
 - `## Done when`: one or two lines.
 
-Rules of the codebase the spec must respect: constructor injection; logic in services, not controllers; DTOs, not entities, at the API boundary; errors through the existing `@RestControllerAdvice`; narrow test slices (`@DataJpaTest`, `@WebMvcTest`) before `@SpringBootTest`; no comments in code. Body weight has one decimal.
+Rules of the codebase the spec must respect: constructor injection; logic in services, not controllers; DTOs, not entities, at the API boundary; errors through the existing `@RestControllerAdvice`; narrow test slices (`@DataJpaTest`, `@WebMvcTest`) before `@SpringBootTest`; frontend logic (a calculation, a rule, a formatting) as a plain function under `frontend/src/lib/` with a Vitest test beside it (`<name>.test.ts`, `import { describe, expect, it } from 'vitest'`), so that components only show it; components themselves are not unit-tested (there is no DOM test library); no comments in code. Body weight has one decimal.
 
 Write every class name, annotation, path and piece of code in backticks. Never write `@` followed by a name outside backticks: on GitHub that notifies a person.

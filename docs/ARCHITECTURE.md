@@ -1745,6 +1745,53 @@ queued issues wait. To take one issue out of the line, remove
 `approved`. To stop the factory rebuilding one pull request, add
 `needs-human` to it.
 
+## Monitoring: errors become issues
+
+**What it is.** When the backend answers 500 for an error nobody
+foresaw (the catch-all handler `unexpectedException`), a small reporter in
+the package `errorreport` opens one issue in this repository, labelled
+`prod-error`, through GitHub's REST API. The factory picks such an issue
+up like any other. The answer the user gets does not change.
+
+**Why it is needed.** Nobody reads the server's log all day. Without
+this, a broken production is noticed only when someone complains.
+
+**What the issue contains.** The names of the exception and of its
+causes; at most 30 stack frames (class, method, line); the HTTP method
+and the route pattern that matched (`GET /api/activities/{id}`, or
+`unknown`); the time in UTC; a fingerprint. The repository is public, so
+it leaves out everything that came from a user: no exception message, no
+real path, no query string, no body, no headers, no user id, no email.
+The message stays in the server's log.
+
+**The same error only once.** The fingerprint is the first 16 hex
+characters of SHA-256 over the exception class and the place in the
+code (class and method, no line number). Before opening, the reporter
+lists the open `prod-error` issues and opens nothing when one already
+carries that fingerprint. At most 5 issues per hour (`error-report.max-per-hour`)
+are opened by one running backend, counted in memory; over that, a line
+at WARN in the log.
+
+**What happens when GitHub cannot be reached.** Nothing visible. The
+report runs on its own thread with a queue of 10 and timeouts of 5
+seconds; when the queue is full or a call fails, the report is dropped
+and one WARN line with the exception's class name is logged. A failure
+of the reporter is never reported. If the list of open issues cannot be
+read, nothing is opened.
+
+**Where the settings are.** `ERROR_REPORT_GITHUB_TOKEN` (a token that may
+create issues in the repository, kept like the other secrets, never in
+git) and `ERROR_REPORT_GITHUB_REPO` (`owner/name`). With either empty,
+reporting is off and no call is ever made: that is the case locally, in
+tests and on staging. Putting the token on the server is a separate,
+manual step.
+
+**How to switch it off.** Empty the token and restart the backend.
+
+**Not covered yet.** Errors from the browser, errors outside a web
+request (start-up, background work), and closing or commenting on an
+issue when an error stops or repeats.
+
 ## Target (not built yet)
 
 Filled in phase by phase as each piece becomes real — see

@@ -751,3 +751,26 @@ maps onto this project. Nothing decided yet. Proposals given:
   workaround, "ok" → `spec-ready`. Recorded on issue 68. Issues 72–75
   left open for the developer to keep or close.
 - Still owed for slice 3: the developer's explain-back.
+
+## 2026-11-27 — Issue 63 built: conflicts and the line
+
+- Spec written into issue 63 after the developer's four decisions
+  (needs-human on own commits, one shared limit of 2 attempts, 2 open
+  pull requests, analysis agent postponed); approved in chat.
+- Built: `.github/workflows/queue.yml`, `factory/queue/conflicts.sh`,
+  `factory/queue/next.sh`, `factory/limits.sh`; "Implement" checks who
+  added `approved` from the issue's history and refuses with `full`
+  (label `queued`) when 2 factory pull requests are open. Queue suite
+  50 cases, implement suite 170; 74 rules mutation-checked. One real
+  defect found by mutation: a failed branch delete left the issue out of
+  line; fixed.
+- Independent review: three majors, all fixed with tests first: the
+  search index behind `gh … list --label` lags (now plain REST lists and
+  a fresh read of each pull request); a merge fired two Queue runs (now
+  only closes without merge start one); a fix asked for just before a
+  rebuild could land on the new branch and its "closed" report delete
+  it (now the fix checks its pull request first, and the report deletes
+  a branch only when it still ends at the closed pull request's
+  commit). Minors fixed: `queued` removed when a build starts; issue
+  labelled before the pull request is closed.
+- Drills still to run on GitHub after the merge.

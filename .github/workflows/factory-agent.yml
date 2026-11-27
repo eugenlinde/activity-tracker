@@ -46,6 +46,7 @@ jobs:
     environment: factory
     permissions:
       contents: read
+      pull-requests: read
       id-token: write
     outputs:
       outcome: ${{ steps.numbers.outputs.outcome }}
@@ -55,8 +56,9 @@ jobs:
       denials: ${{ steps.numbers.outputs.denials }}
       tools: ${{ steps.numbers.outputs.tools }}
     steps:
-      - name: Only a factory branch
+      - name: Only a factory branch, and for a fix only the pull request as the gate saw it
         env:
+          GH_TOKEN: ${{ github.token }}
           ROLE: ${{ inputs.role }}
           NUMBER: ${{ inputs.number }}
           BRANCH: ${{ inputs.branch }}
@@ -75,6 +77,13 @@ jobs:
           if [[ ! $MODEL =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
             echo "The model's name is not a plain name" >&2
             exit 1
+          fi
+          if [ "$ROLE" = fix ]; then
+            now=$(gh pr view "$PR" --repo "$REPO" --json state,headRefOid --jq '.state + " " + .headRefOid')
+            if [ "$now" != "OPEN $BEFORE" ]; then
+              echo "The pull request was closed or moved on after the gate asked for this fix" >&2
+              exit 1
+            fi
           fi
 
       - name: The factory's own scripts, from main

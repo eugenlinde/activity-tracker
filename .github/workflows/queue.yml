@@ -1,0 +1,61 @@
+name: Queue
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [closed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: factory-queue
+  cancel-in-progress: false
+
+jobs:
+  queue:
+    if: >-
+      ${{
+        vars.FACTORY_ENABLED == 'true'
+        && github.ref == 'refs/heads/main'
+        && (
+          github.event_name != 'pull_request_target'
+          || (contains(github.event.pull_request.labels.*.name, 'factory') && github.event.pull_request.merged != true)
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - name: The factory's own scripts, from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Rebuild factory pull requests in conflict, then start the next in line
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PUSHED: ${{ github.sha }}
+        run: |
+          merged=""
+          if [ "$EVENT" = "push" ] && [[ $PUSHED =~ ^[0-9a-f]{40}$ ]]; then
+            merged=$(gh api "repos/$REPO/commits/$PUSHED/pulls" --jq '[.[] | select(.merged_at != null)][0].number // ""' || true)
+          fi
+          args=()
+          if [[ $merged =~ ^[1-9][0-9]{0,6}$ ]]; then
+            args=(--merged "$merged")
+          fi
+          status=0
+          factory/queue/conflicts.sh --repo "$REPO" "${args[@]}" || status=1
+          factory/queue/next.sh --repo "$REPO" || status=1
+          exit "$status"

@@ -779,3 +779,17 @@ maps onto this project. Nothing decided yet. Proposals given:
   `allowed_bots: claude,github-actions`. Token exchange for that starter
   is unverified until drill 1.
 - Drills still to run on GitHub after the merge.
+
+## 2026-11-27 — Issue 63 drilled; issue 63 closed
+
+- PRs 76 and 77 merged by the developer; `factory/labels.sh` run.
+- At the developer's request the builder added `approved` to drill
+  issues 78–80 and merged the drill pull requests 82 and 84 itself
+  (both deployed to prod, green).
+- All four drills passed (table on issue 63 and in ARCHITECTURE). The
+  open risk is settled: queue-started builds run as
+  `github-actions[bot]` and the token exchange serves them.
+- Gap found: the review agent raises "no automated test" as major on
+  frontend changes (81, 83) though no test runner exists; fix agent
+  cannot help → `needs-human`. Pull request 83 and issue 79 wait for
+  the developer's decision (frontend test runner, or a rubric rule).

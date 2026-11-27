@@ -135,8 +135,13 @@ piece in their own words before the phase is checked off.
                       `factory/queue/`, owner check from the issue's
                       history; script tests, 74 rules mutation-checked,
                       independent review (three major findings fixed)
-                - [ ] Drills: the line with three issues, a real
-                      conflict, a pull request only behind, the switch
+                - [x] Drills (2026-11-27, recorded on #63, closed): the
+                      line (78–80), a real conflict (81 → rebuilt as
+                      83), the token exchange for a queue-started build,
+                      a pull request only behind, the switch
+            - [ ] Review rubric vs. frontend tests: "no test" raised
+                  as major on frontend changes with no test runner
+                  (81, 83) → `needs-human`; developer's decision
             - [ ] Analysis agent and a rebuild after a scrap
                   (postponed by the developer 2026-11-27)
         - [ ] Later: build the jar in a CI job that cannot publish, so

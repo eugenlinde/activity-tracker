@@ -38,6 +38,14 @@ public class WeightController {
         return ResponseEntity.ok(weightService.findAll(userId(jwt), from, to));
     }
 
+    @GetMapping("/{date}")
+    public ResponseEntity<WeightResponse> getWeight(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ResponseEntity.ok(weightService.find(userId(jwt), date));
+    }
+
     @PutMapping("/{date}")
     public ResponseEntity<WeightResponse> putWeight(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

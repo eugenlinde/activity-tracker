@@ -7,6 +7,8 @@ import dev.eugenlinde.activitytracker.common.exception.StepEntryNotFoundExceptio
 import dev.eugenlinde.activitytracker.config.SecurityConfig;
 import dev.eugenlinde.activitytracker.media.MediaRepository;
 import dev.eugenlinde.activitytracker.share.ShareRepository;
+import dev.eugenlinde.activitytracker.common.exception.UserNotFoundException;
+import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.service.StepsService;
@@ -26,7 +28,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -255,6 +260,101 @@ class StepsControllerTest {
         doThrow(new StepEntryNotFoundException()).when(stepsService).delete(userId, DATE);
 
         mockMvc.perform(delete("/api/steps/2026-11-13").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getGoal_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/steps/goal")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void putGoal_withoutToken_returns401() throws Exception {
+        mockMvc.perform(put("/api/steps/goal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"goal\": 10000}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @Test
+    void getGoal_returnsTheCallersGoal() throws Exception {
+        when(stepsService.findGoal(userId)).thenReturn(new StepsGoalResponse(9500));
+
+        mockMvc.perform(get("/api/steps/goal").with(authenticatedAs(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goal").value(9500));
+
+        verify(stepsService).findGoal(userId);
+    }
+
+    @Test
+    void putGoal_withValidBody_returnsTheSavedGoal() throws Exception {
+        when(stepsService.updateGoal(userId, 10000)).thenReturn(new StepsGoalResponse(10000));
+
+        mockMvc.perform(put("/api/steps/goal")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"goal\": 10000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goal").value(10000));
+
+        verify(stepsService).updateGoal(userId, 10000);
+        verify(stepsService, never()).upsert(any(), any(), anyInt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{}",
+            "{\"goal\": null}",
+            "{\"goal\": 0}",
+            "{\"goal\": -1}",
+            "{\"goal\": 100001}",
+            "{\"goal\": 9000.5}",
+            "{\"goal\": \"many\"}"
+    })
+    void putGoal_withInvalidBody_returns400AndSavesNothing(String body) throws Exception {
+        mockMvc.perform(put("/api/steps/goal")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(stepsService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 100000})
+    void putGoal_atTheEdgesOfTheAllowedRange_isAccepted(int goal) throws Exception {
+        when(stepsService.updateGoal(userId, goal)).thenReturn(new StepsGoalResponse(goal));
+
+        mockMvc.perform(put("/api/steps/goal")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"goal\": " + goal + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goal").value(goal));
+    }
+
+    @Test
+    void getGoal_whenUserIsGone_returns404() throws Exception {
+        when(stepsService.findGoal(userId)).thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(get("/api/steps/goal").with(authenticatedAs(userId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void putGoal_whenUserIsGone_returns404() throws Exception {
+        when(stepsService.updateGoal(userId, 10000)).thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(put("/api/steps/goal")
+                        .with(authenticatedAs(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"goal\": 10000}"))
                 .andExpect(status().isNotFound());
     }
 }

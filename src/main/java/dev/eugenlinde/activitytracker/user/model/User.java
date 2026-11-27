@@ -44,6 +44,10 @@ public class User {
     private Instant updatedAt;
     @Getter
     private Instant deletedAt;
+    @Getter
+    @Setter
+    @Column(nullable = false)
+    private int stepsGoal = 8000;
 
     public User() {
     }

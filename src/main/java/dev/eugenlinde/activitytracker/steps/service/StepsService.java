@@ -4,10 +4,13 @@ import dev.eugenlinde.activitytracker.common.EntryDatePolicy;
 import dev.eugenlinde.activitytracker.common.exception.InvalidDateRangeException;
 import dev.eugenlinde.activitytracker.common.exception.StepEntryNotFoundException;
 import dev.eugenlinde.activitytracker.steps.StepEntryRepository;
+import dev.eugenlinde.activitytracker.common.exception.UserNotFoundException;
+import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
 import dev.eugenlinde.activitytracker.user.UserRepository;
+import dev.eugenlinde.activitytracker.user.model.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,6 +88,19 @@ public class StepsService {
                 .findByUserIdAndEntryDate(userId, date)
                 .orElseThrow(StepEntryNotFoundException::new);
         stepEntryRepository.delete(entry);
+    }
+
+    @Transactional(readOnly = true)
+    public StepsGoalResponse findGoal(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        return new StepsGoalResponse(user.getStepsGoal());
+    }
+
+    public StepsGoalResponse updateGoal(Long userId, int goal) {
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        user.setStepsGoal(goal);
+        userRepository.save(user);
+        return new StepsGoalResponse(goal);
     }
 
     private StepEntry newEntry(Long userId, LocalDate date) {

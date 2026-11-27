@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Button } from 'antd'
+import { Button, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { weightsApi } from '../api/weights'
 import type { WeightEntry } from '../api/types'
 import { addDays, formatShortDate, todayIso } from '../lib/dates'
-import { buildWeightChart, CHART, formatDelta, formatKg } from '../lib/weightChart'
+import { buildWeightChart, CHART, deltaDirection, formatDelta, formatKg } from '../lib/weightChart'
 import { palette } from '../theme'
 import { ErrorMessage } from './ErrorMessage'
 import { DayEntryDialog } from './DayEntryDialog'
@@ -12,6 +12,7 @@ import { DayEntryDialog } from './DayEntryDialog'
 const RANGE_DAYS = 84
 
 export function WeightCard() {
+  const { token } = theme.useToken()
   const [entries, setEntries] = useState<WeightEntry[] | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -41,6 +42,13 @@ export function WeightCard() {
   const chart = buildWeightChart(list, from, to)
   const first = list[0]
   const latest = list[list.length - 1]
+  const direction = latest && first ? deltaDirection(latest.weightKg - first.weightKg) : 'same'
+  const deltaProps =
+    direction === 'down'
+      ? { style: { color: token.colorSuccess } }
+      : direction === 'up'
+        ? { style: { color: token.colorError } }
+        : { className: 'muted' }
 
   return (
     <section className="panel">
@@ -57,7 +65,7 @@ export function WeightCard() {
               <span className="stat-unit">kg</span>
             </span>
             {list.length > 1 && (
-              <span className="muted">
+              <span {...deltaProps}>
                 {formatDelta(latest.weightKg - first.weightKg)} kg since {formatShortDate(first.date)} ({list.length} weigh-ins)
               </span>
             )}

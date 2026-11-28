@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS" xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd">
+    <changeSet author="claude" id="garmin-connections-creation">
+        <createTable tableName="garmin_connections">
+            <column name="id" autoIncrement="true" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_garmin_connections" />
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints foreignKeyName="fk_garmin_connections_user" nullable="false" references="users(id)" />
+            </column>
+            <column name="api_key" type="VARCHAR(4096)">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_sync_at" type="timestamptz" />
+            <column name="last_sync_status" type="VARCHAR(16)" />
+        </createTable>
+        <addUniqueConstraint tableName="garmin_connections" columnNames="user_id"
+            constraintName="uq_garmin_connections_user" />
+    </changeSet>
+    <changeSet author="claude" id="step-entries-add-source">
+        <addColumn tableName="step_entries">
+            <column name="source" type="VARCHAR(16)" defaultValue="MANUAL">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

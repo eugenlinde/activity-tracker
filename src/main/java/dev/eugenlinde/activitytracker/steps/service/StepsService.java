@@ -9,6 +9,7 @@ import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
+import dev.eugenlinde.activitytracker.steps.model.StepSource;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import dev.eugenlinde.activitytracker.user.model.User;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -80,7 +82,26 @@ public class StepsService {
                 .findByUserIdAndEntryDate(userId, date)
                 .orElseGet(() -> newEntry(userId, date));
         entry.setSteps(steps);
+        entry.setSource(StepSource.MANUAL);
         return StepsResponse.from(stepEntryRepository.saveAndFlush(entry));
+    }
+
+    public boolean saveFromGarmin(Long userId, LocalDate date, int steps) {
+        Optional<StepEntry> existing = stepEntryRepository.findByUserIdAndEntryDate(userId, date);
+        if (existing.isPresent()) {
+            StepEntry entry = existing.get();
+            if (entry.getSource() != StepSource.GARMIN) {
+                return false;
+            }
+            entry.setSteps(steps);
+            stepEntryRepository.saveAndFlush(entry);
+            return true;
+        }
+        StepEntry entry = newEntry(userId, date);
+        entry.setSteps(steps);
+        entry.setSource(StepSource.GARMIN);
+        stepEntryRepository.saveAndFlush(entry);
+        return true;
     }
 
     public void delete(Long userId, LocalDate date) {

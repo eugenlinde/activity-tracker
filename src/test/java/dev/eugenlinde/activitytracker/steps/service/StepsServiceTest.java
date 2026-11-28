@@ -10,6 +10,7 @@ import dev.eugenlinde.activitytracker.steps.dto.StepsGoalResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsResponse;
 import dev.eugenlinde.activitytracker.steps.dto.StepsSummaryResponse;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
+import dev.eugenlinde.activitytracker.steps.model.StepSource;
 import dev.eugenlinde.activitytracker.user.UserRepository;
 import dev.eugenlinde.activitytracker.user.model.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +25,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -79,6 +82,62 @@ class StepsServiceTest {
         assertSame(existing, saved.getValue());
         assertEquals(9870, response.steps());
         verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void upsert_onAGarminEntry_turnsItManual() {
+        StepEntry existing = entry(TODAY, 4000);
+        existing.setSource(StepSource.GARMIN);
+        when(stepEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.of(existing));
+
+        stepsService.upsert(userId, TODAY, 9870);
+
+        assertEquals(StepSource.MANUAL, existing.getSource());
+        assertEquals(9870, existing.getSteps());
+    }
+
+    @Test
+    void saveFromGarmin_whenNoEntry_createsAGarminEntry() {
+        User user = new User();
+        when(stepEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.empty());
+        when(userRepository.getReferenceById(userId)).thenReturn(user);
+
+        boolean wrote = stepsService.saveFromGarmin(userId, TODAY, 5400);
+
+        ArgumentCaptor<StepEntry> saved = ArgumentCaptor.forClass(StepEntry.class);
+        verify(stepEntryRepository).saveAndFlush(saved.capture());
+        assertTrue(wrote);
+        assertSame(user, saved.getValue().getUser());
+        assertEquals(TODAY, saved.getValue().getEntryDate());
+        assertEquals(5400, saved.getValue().getSteps());
+        assertEquals(StepSource.GARMIN, saved.getValue().getSource());
+    }
+
+    @Test
+    void saveFromGarmin_onAGarminEntry_updatesTheSteps() {
+        StepEntry existing = entry(TODAY, 4000);
+        existing.setSource(StepSource.GARMIN);
+        when(stepEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.of(existing));
+
+        boolean wrote = stepsService.saveFromGarmin(userId, TODAY, 6100);
+
+        assertTrue(wrote);
+        assertEquals(6100, existing.getSteps());
+        assertEquals(StepSource.GARMIN, existing.getSource());
+        verify(stepEntryRepository).saveAndFlush(existing);
+    }
+
+    @Test
+    void saveFromGarmin_onAManualEntry_leavesItAndReturnsFalse() {
+        StepEntry existing = entry(TODAY, 4000);
+        when(stepEntryRepository.findByUserIdAndEntryDate(userId, TODAY)).thenReturn(Optional.of(existing));
+
+        boolean wrote = stepsService.saveFromGarmin(userId, TODAY, 6100);
+
+        assertFalse(wrote);
+        assertEquals(4000, existing.getSteps());
+        assertEquals(StepSource.MANUAL, existing.getSource());
+        verify(stepEntryRepository, never()).saveAndFlush(any());
     }
 
     @Test

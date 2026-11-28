@@ -5,6 +5,7 @@ export const DIET_ROUTE = '/diet'
 export const AEROBIC_ROUTE = '/aerobic'
 export const SHARES_ROUTE = '/shares'
 export const IMPORT_ROUTE = '/import'
+export const GARMIN_ROUTE = '/garmin'
 export const SHARED_ROUTE = '/shared/:ownerId'
 export const ACTIVITY_ROUTE = '/activities/:id'
 export const FALLBACK_ROUTE = '*'
@@ -21,6 +22,7 @@ export const ROUTE_PATTERNS: readonly string[] = [
   AEROBIC_ROUTE,
   SHARES_ROUTE,
   IMPORT_ROUTE,
+  GARMIN_ROUTE,
   SHARED_ROUTE,
   ACTIVITY_ROUTE,
   FALLBACK_ROUTE,

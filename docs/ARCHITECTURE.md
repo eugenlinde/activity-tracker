@@ -1911,6 +1911,47 @@ no names, emails, weights, workouts, file contents, tokens. Names of
 classes, methods, routes as patterns, counts and times are fine. The
 review agent's rubric carries this as part of `project-rule`.
 
+## Garmin sync (issue 110; not yet run against the real Garmin server)
+
+**What it is.** Each user can paste one Garmin personal API key on the
+page "Garmin". The backend then fetches that user's daily steps from
+Garmin every hour. Only steps; no weight, workouts or other Garmin data.
+
+**When.** At minute 0 of every hour, UTC (`garmin.sync-cron`, switched off
+in tests with `-`). For every user with a key, one after another. Per
+user: the key is exchanged for a short-lived access token (fetched fresh
+each run, never stored), then the daily summary is read for yesterday and
+today, but never for a day before the day the key was added. Garmin's
+host is `garmin.base-url` (default the global host, not the China one).
+
+**What is saved.** A day with no steps entry gets one marked `GARMIN`. A
+day already marked `GARMIN` is refreshed with the new count. A day marked
+`MANUAL` (typed in, imported, or a Garmin day the user later saved by
+hand) is never touched. A day where Garmin reports no data, 0, a negative
+number or more than 999999 is not saved. Removing the key keeps the steps
+already fetched.
+
+**Where the key lives.** In the table `garmin_connections`, column
+`api_key`, **stored unencrypted** (the developer's decision). No endpoint
+returns it, not even in part; the status response only says whether a key
+exists, when it was added and how the last fetch went. The key and the
+access token are kept out of log lines, exception messages and responses:
+only the user id and the HTTP status are logged. A backup of the database
+contains the keys.
+
+**When it fails.** A failed call (401, 403, any other 4xx or 5xx, a
+timeout, an unreadable answer) marks the connection `FAILED` with the time
+of the attempt, shown on the Garmin page. Steps saved earlier in the same
+run stay. The key is kept and tried again at the next full hour; there is
+no retry inside a run. One user's failure does not stop the others. To
+stop all fetching, set the environment variable `GARMIN_SYNC_CRON` to `-`
+in the server's env file and restart the app (not tried on the server).
+
+**Unverified.** The steps are read from the field `totalSteps` of Garmin's
+daily summary. That name has not been checked against the real Garmin
+answer; until the first real fetch, treat it as an assumption. If it is
+wrong, the page shows a successful fetch but no steps arrive.
+
 
 ## Target (not built yet)
 

@@ -8,6 +8,7 @@ import {
   DASHBOARD_ROUTE,
   DIET_ROUTE,
   FALLBACK_ROUTE,
+  GARMIN_ROUTE,
   IMPORT_ROUTE,
   LOGIN_ROUTE,
   SHARED_ROUTE,
@@ -17,6 +18,7 @@ import { ActivitiesPage } from './pages/ActivitiesPage'
 import { AerobicPage } from './pages/AerobicPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DietPage } from './pages/DietPage'
+import { GarminPage } from './pages/GarminPage'
 import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { SharedLogPage } from './pages/SharedLogPage'
@@ -35,6 +37,7 @@ export default function App() {
           <Route path={AEROBIC_ROUTE} element={<AerobicPage />} />
           <Route path={SHARES_ROUTE}element={<SharesPage />} />
           <Route path={IMPORT_ROUTE} element={<ImportPage />} />
+          <Route path={GARMIN_ROUTE} element={<GarminPage />} />
           <Route path={SHARED_ROUTE} element={<SharedLogPage />} />
           <Route path={ACTIVITY_ROUTE} element={<WorkoutPage />} />
           <Route path={FALLBACK_ROUTE} element={<Navigate to={DASHBOARD_ROUTE} replace />} />

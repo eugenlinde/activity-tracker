@@ -3,6 +3,7 @@ package dev.eugenlinde.activitytracker.steps;
 import dev.eugenlinde.activitytracker.TestcontainersConfiguration;
 import dev.eugenlinde.activitytracker.user.model.User;
 import dev.eugenlinde.activitytracker.steps.model.StepEntry;
+import dev.eugenlinde.activitytracker.steps.model.StepSource;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,6 +99,18 @@ class StepEntryRepositoryTest {
         persistEntry(stranger, "2026-11-05", 7000);
 
         assertTrue(stepEntryRepository.findByUserIdAndEntryDate(stranger.getId(), LocalDate.parse("2026-11-05")).isPresent());
+    }
+
+    @Test
+    void newEntryWithoutExplicitSource_isStoredAsManual() {
+        persistEntry(owner, "2026-11-05", 7000);
+        entityManager.clear();
+
+        StepEntry entry = stepEntryRepository
+                .findByUserIdAndEntryDate(owner.getId(), LocalDate.parse("2026-11-05"))
+                .orElseThrow();
+
+        assertEquals(StepSource.MANUAL, entry.getSource());
     }
 
     private User persistUser(String email) {

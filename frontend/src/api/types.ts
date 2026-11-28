@@ -85,6 +85,19 @@ export interface ShareResponse {
   email: string
 }
 
+export type GarminSyncStatus = 'OK' | 'FAILED'
+
+export interface GarminStatusResponse {
+  connected: boolean
+  connectedAt: string | null
+  lastSyncAt: string | null
+  lastSyncStatus: GarminSyncStatus | null
+}
+
+export interface GarminKeyRequest {
+  apiKey: string
+}
+
 export type ValidationErrors = Record<string, string[]>
 
 export interface MediaResponse {

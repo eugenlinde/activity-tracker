@@ -1,0 +1,21 @@
+### Variables
+@baseUrl = http://localhost:8080
+
+### get Garmin connection status
+GET {{baseUrl}}/api/garmin
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### add Garmin personal key
+POST {{baseUrl}}/api/garmin
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "apiKey": "replace-with-your-garmin-personal-key"
+}
+
+### remove Garmin personal key
+DELETE {{baseUrl}}/api/garmin
+Content-Type: application/json
+Authorization: Bearer {{authToken}}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button, Menu } from 'antd'
 import {
+  ApiOutlined,
   AppstoreOutlined,
   CloseOutlined,
   CoffeeOutlined,
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { key: '/aerobic', icon: <LineChartOutlined />, label: 'Aerobic' },
   { key: '/shares', icon: <TeamOutlined />, label: 'Shares' },
   { key: '/import', icon: <ImportOutlined />, label: 'Import' },
+  { key: '/garmin', icon: <ApiOutlined />, label: 'Garmin' },
 ]
 
 function selectedKey(pathname: string): string {
@@ -29,6 +31,7 @@ function selectedKey(pathname: string): string {
   if (pathname.startsWith('/diet')) return '/diet'
   if (pathname.startsWith('/aerobic')) return '/aerobic'
   if (pathname.startsWith('/import')) return '/import'
+  if (pathname.startsWith('/garmin')) return '/garmin'
   return '/'
 }
 

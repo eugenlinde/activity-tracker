@@ -90,6 +90,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(GarminKeyExistsException.class)
+    public ResponseEntity<Object> garminKeyExistsException(GarminKeyExistsException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(GarminKeyNotFoundException.class)
+    public ResponseEntity<Object> garminKeyNotFoundException(GarminKeyNotFoundException exception) {
+        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(SelfShareException.class)
     public ResponseEntity<Object> selfShareException(SelfShareException exception) {
         return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);
